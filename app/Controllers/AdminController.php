@@ -221,6 +221,70 @@ class AdminController
     }
 
     /**
+     * GET /api/admin/export — Export all scenarios and facts as Excel file.
+     */
+    public function exportScenarios(): void
+    {
+        if (!$this->isAdmin()) {
+            http_response_code(401);
+            echo 'Unauthorized';
+            return;
+        }
+
+        $scenarios = $this->scenarioModel->getAll();
+        $facts = $this->factModel->getAll();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // Sheet 1: Scenarios
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Scenarios');
+        $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf', 'Type_Goal'];
+        foreach ($headers as $col => $h) {
+            $sheet->setCellValueByColumnAndRow($col + 1, 1, $h);
+        }
+
+        foreach ($scenarios as $rowIdx => $scenario) {
+            $data = json_decode($scenario['json_data'], true);
+            $row = [
+                $data['StrtNm'] ?? '',
+                $data['BldgNb'] ?? '',
+                $data['PstCd'] ?? '',
+                $data['TwnNm'] ?? '',
+                $data['Ctry'] ?? '',
+                $data['AdtlAdrInf'] ?? '',
+                $scenario['goal_type'],
+            ];
+            foreach ($row as $col => $value) {
+                $sheet->setCellValueByColumnAndRow($col + 1, $rowIdx + 2, $value);
+            }
+        }
+
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Sheet 2: Facts
+        $factsSheet = $spreadsheet->createSheet();
+        $factsSheet->setTitle('Facts');
+        $factsSheet->setCellValue('A1', 'Fact');
+        foreach ($facts as $idx => $fact) {
+            $factsSheet->setCellValue('A' . ($idx + 2), $fact['message_text']);
+        }
+        $factsSheet->getColumnDimension('A')->setAutoSize(true);
+
+        // Output
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'scenarios_export_' . date('Y-m-d_His') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer->save('php://output');
+    }
+
+    /**
      * Check if current session is authenticated as admin.
      */
     public function isAdmin(): bool

@@ -90,6 +90,13 @@ if (!$db->connect()) {
 }
 $db->initSchema();
 
+// GET export route (requires admin session)
+$action = $_GET['action'] ?? '';
+if ($action === 'admin/export') {
+    (new AdminController())->exportScenarios();
+    exit;
+}
+
 // Serve the SPA shell
 require __DIR__ . '/../app/Views/layout.php';
 

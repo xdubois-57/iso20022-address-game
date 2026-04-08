@@ -225,7 +225,6 @@
         if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
-        html += '<p style="margin-top:1.25rem;font-size:0.85rem;"><a href="assets/Scenarios.xlsx" download class="download-link">\u2B07 Download example Excel file</a></p>';
         html += '</div></section>';
         appContainer.innerHTML = html;
 
@@ -793,7 +792,11 @@
         html += '<div class="admin-section"><h3>Upload Scenarios</h3>';
         html += '<p>Upload an Excel file (.xlsx) with scenario data and "Did you know?" facts.</p>';
         html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
-        html += '<div id="uploadStatus" class="upload-status hidden"></div></div>';
+        html += '<div id="uploadStatus" class="upload-status hidden"></div>';
+        html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
+        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary" style="text-decoration:none;display:inline-block;">\u2B07 Download Example Excel</a>';
+        html += '<button class="btn-secondary" id="exportScenariosBtn">\u2B07 Export Current Scenarios</button>';
+        html += '</div></div>';
 
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
@@ -837,6 +840,10 @@
             if (data && data.success) {
                 alert('Leaderboard purged');
             }
+        });
+
+        document.getElementById('exportScenariosBtn').addEventListener('click', function () {
+            window.location.href = API_URL + '?action=admin/export';
         });
 
         document.getElementById('adminLogoutBtn').addEventListener('click', async function () {
