@@ -57,8 +57,13 @@ class LeaderboardModel
         $rows = $stmt->fetchAll();
 
         return array_map(function ($row) {
-            $decrypted = $this->encryption->decrypt($row['encrypted_name']);
-            $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
+            try {
+                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
+            } catch (\Throwable $e) {
+                // Decryption failed (likely due to key change) - show anonymized
+                $row['player_name'] = '[redacted]';
+            }
             unset($row['encrypted_name']);
             return $row;
         }, $rows);
