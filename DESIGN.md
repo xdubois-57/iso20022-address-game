@@ -1,0 +1,134 @@
+<!--
+ISO 20022 Address Structuring Game
+Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+
+# DESIGN — ISO 20022 Address Structuring Game
+
+## 1. Project Vision
+
+A secure, high-performance Single Page Application (SPA) built to educate users on ISO 20022 address structuring (Standard Release 2026). Designed for kiosk-style deployment on tablets in landscape mode, featuring a touch-first interface and a "zero-refresh" dynamic experience.
+
+## 2. Technical Architecture (MVC)
+
+### 2.1 Model (Data & Logic)
+
+- **Database**: MySQL with PDO
+- **Encryption**: AES-256-CTR via `openssl_encrypt` for player names (PII) and sensitive tokens
+- **Data Parsing**: `PhpOffice\PhpSpreadsheet` for Excel scenario extraction
+- **Validation**: Chip-to-Slot accuracy based on PMPG rules
+
+### 2.2 View (UI/UX)
+
+- **Framework**: PicoCSS (semantic HTML, minimal footprint)
+- **Branding** (Swift.com Palette):
+  - Primary: `#003a70` (Swift Blue)
+  - Accent: `#daaa00` (Swift Gold)
+  - Secondary: `#75787b` (Slate)
+  - Background: `#f4f7f9`
+- **Animations**: `canvas-confetti` for high-score celebrations
+
+### 2.3 Controller (Traffic & API)
+
+- **Front Controller**: `public/index.php` serves as SPA entry point
+- **API Routes**: All communication via POST with `X-Action` header
+- **No URL parameters** — prevents state-tampering and maintains clean kiosk URL
+
+## 3. Game Mechanics
+
+### Structured Mode
+Each chip must match its specific semantic slot:
+- `StrtNm` → `<StrtNm>`
+- `BldgNb` → `<BldgNb>`
+- `PstCd` → `<PstCd>`
+- `TwnNm` → `<TwnNm>` (mandatory)
+- `Ctry` → `<Ctry>` (mandatory)
+
+### Hybrid Mode
+- `TwnNm` and `Ctry` are mandatory slots
+- Other components can be grouped into two `<AdrLine>` slots (max 70 chars each)
+
+### Session Management
+- 30s inactivity timer triggers a 10s countdown overlay
+- Global "Stop" button always available for immediate reset
+
+## 4. Data Structures
+
+### 4.1 Excel Specification (Scenarios.xlsx)
+
+**Sheet 1 — Scenarios:**
+
+| Column | Description |
+|--------|-------------|
+| StrtNm | Street Name |
+| BldgNb | Building Number |
+| PstCd | Postal Code |
+| TwnNm | Town Name (mandatory) |
+| Ctry | Country Code — ISO 2-letter (mandatory) |
+| AdtlAdrInf | Additional address info (e.g., "Floor 10") |
+| Type_Goal | `Structured` or `Hybrid` |
+
+**Sheet 2 — Facts (optional):**
+
+| Column | Description |
+|--------|-------------|
+| Fact | "Did you know?" message text |
+
+### 4.2 Database Schema
+
+```sql
+scenarios: id, json_data, goal_type, created_at
+leaderboard: id, encrypted_name, score, created_at
+facts: id, message_text, created_at
+settings: setting_key, setting_value, updated_at
+```
+
+## 5. Security & GDPR
+
+- **No cookies, no tracking**
+- **Pseudonymisation**: Player names encrypted with AES-256-CTR at rest
+- **Retention**: Auto-deletion of leaderboard entries after 30 days
+- **Input sanitisation**: All inputs sanitised; outputs use `htmlspecialchars()`
+- **Sessions**: Secure PHP sessions with `session_regenerate_id()`
+- **Credentials**: `config/credentials.php` excluded from version control
+
+## 6. Directory Structure
+
+```
+/project-root
+├── app/
+│   ├── Controllers/    # API Logic
+│   ├── Models/         # DB, Encryption, Excel Parsing
+│   └── Views/          # SPA Template Fragments
+├── config/
+│   ├── .htaccess       # Protects config files
+│   ├── credentials.php # DB Passwords & AES Keys (gitignored)
+│   └── db_config.json  # Fallback DB config (gitignored)
+├── public/
+│   ├── index.php       # Front Controller
+│   ├── .htaccess       # URL rewriting
+│   └── assets/         # CSS, JS
+├── scripts/
+│   ├── cleanup.php     # GDPR retention cron job
+│   └── schema.sql      # Database schema
+├── tests/              # PHPUnit tests
+├── vendor/             # Composer dependencies
+├── composer.json
+├── phpunit.xml
+├── README.md
+├── DESIGN.md
+└── LICENSE
+```

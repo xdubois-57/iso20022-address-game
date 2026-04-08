@@ -1,0 +1,102 @@
+<?php
+/**
+ * ISO 20022 Address Structuring Game
+ * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+// Autoload
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use App\Models\Database;
+use App\Controllers\GameController;
+use App\Controllers\AdminController;
+use App\Controllers\LeaderboardController;
+use App\Controllers\SetupController;
+
+// Secure session
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+session_start();
+
+// All API communication is via POST with an X-Action header.
+// GET requests serve the SPA shell or the setup page.
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Handle POST API requests (including setup routes that don't need DB)
+if ($method === 'POST') {
+    $action = $_SERVER['HTTP_X_ACTION'] ?? '';
+
+    // Setup routes work without a DB connection
+    if (str_starts_with($action, 'setup/')) {
+        $controller = new SetupController();
+        match ($action) {
+            'setup/test' => $controller->testConnection(),
+            'setup/save' => $controller->saveConfig(),
+            default => jsonError('Unknown setup action', 404),
+        };
+        exit;
+    }
+
+    // All other API routes require a DB connection
+    $db = Database::getInstance();
+    if (!$db->connect()) {
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Database unavailable', 'setup_required' => true]);
+        exit;
+    }
+    $db->initSchema();
+
+    match ($action) {
+        // Game
+        'game/scenario' => (new GameController())->getScenario(),
+        'game/validate' => (new GameController())->validate(),
+
+        // Leaderboard
+        'leaderboard/top' => (new LeaderboardController())->getTop(),
+        'leaderboard/submit' => (new LeaderboardController())->submit(),
+
+        // Admin
+        'admin/login' => (new AdminController())->login(),
+        'admin/logout' => (new AdminController())->logout(),
+        'admin/upload' => (new AdminController())->upload(),
+        'admin/change-pin' => (new AdminController())->changePin(),
+        'admin/purge-leaderboard' => (new AdminController())->purgeLeaderboard(),
+
+        default => jsonError('Unknown action', 404),
+    };
+    exit;
+}
+
+// GET: Try to connect to DB. If it fails, show setup page.
+$db = Database::getInstance();
+if (!$db->connect()) {
+    require __DIR__ . '/../app/Views/setup.php';
+    exit;
+}
+$db->initSchema();
+
+// Serve the SPA shell
+require __DIR__ . '/../app/Views/layout.php';
+
+// Helper
+function jsonError(string $message, int $code): void
+{
+    http_response_code($code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => $message]);
+}

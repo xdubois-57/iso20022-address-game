@@ -1,0 +1,735 @@
+/**
+ * ISO 20022 Address Structuring Game
+ * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/* =========================================================
+   Swift.com Branding Palette
+   ========================================================= */
+:root {
+    --swift-blue: #003a70;
+    --swift-gold: #daaa00;
+    --swift-slate: #75787b;
+    --swift-bg: #f4f7f9;
+    --swift-white: #ffffff;
+    --swift-danger: #c0392b;
+    --swift-success: #27ae60;
+    --pico-primary: #003a70;
+    --pico-primary-hover: #002952;
+}
+
+/* =========================================================
+   Global
+   ========================================================= */
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--swift-bg);
+    color: #1a1a2e;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* =========================================================
+   Header
+   ========================================================= */
+.game-header {
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    padding: 0.75rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.logo {
+    font-size: 1.4rem;
+    margin: 0;
+    font-weight: 700;
+    color: var(--swift-gold);
+}
+
+.header-nav {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.nav-btn {
+    background: rgba(255,255,255,0.15);
+    color: var(--swift-white);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.nav-btn:hover, .nav-btn:focus {
+    background: rgba(255,255,255,0.25);
+}
+
+.nav-btn.active {
+    background: var(--swift-gold);
+    color: var(--swift-blue);
+    border-color: var(--swift-gold);
+}
+
+.stop-btn {
+    background: var(--swift-danger);
+    border-color: var(--swift-danger);
+}
+
+.stop-btn:hover {
+    background: #a93226;
+}
+
+/* =========================================================
+   Footer
+   ========================================================= */
+.game-footer {
+    text-align: center;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.privacy-link {
+    color: var(--swift-slate);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* =========================================================
+   Main / SPA Container
+   ========================================================= */
+.game-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem;
+    min-height: calc(100vh - 120px);
+}
+
+/* =========================================================
+   Game Screen — Two-panel landscape layout
+   ========================================================= */
+.game-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    min-height: 60vh;
+}
+
+.source-panel, .target-panel {
+    background: var(--swift-white);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.source-panel h2, .target-panel h2 {
+    font-size: 1.15rem;
+    color: var(--swift-blue);
+    margin-bottom: 0.75rem;
+}
+
+.hint-text {
+    font-size: 0.9rem;
+    color: var(--swift-slate);
+    margin-bottom: 1rem;
+}
+
+/* =========================================================
+   Chips (draggable)
+   ========================================================= */
+.chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    min-height: 60px;
+    padding: 0.75rem;
+    border: 2px dashed var(--swift-slate);
+    border-radius: 8px;
+    background: var(--swift-bg);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: grab;
+    touch-action: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+}
+
+.chip:active {
+    cursor: grabbing;
+    transform: scale(1.06);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.chip.dragging {
+    opacity: 0.5;
+}
+
+.chip-label {
+    font-size: 0.7rem;
+    color: var(--swift-gold);
+    font-weight: 400;
+}
+
+/* =========================================================
+   Slots (drop targets)
+   ========================================================= */
+.slot-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.slot {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--swift-bg);
+    border: 2px solid #dde2e8;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    min-height: 48px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.slot.drag-over {
+    border-color: var(--swift-gold);
+    background: #fdf8e8;
+}
+
+.slot.filled {
+    border-color: var(--swift-blue);
+    background: #e8f0f8;
+}
+
+.slot.mandatory {
+    border-left: 4px solid var(--swift-gold);
+}
+
+.slot-tag {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--swift-slate);
+    min-width: 100px;
+}
+
+.slot-label {
+    font-size: 0.85rem;
+    color: var(--swift-slate);
+    flex: 1;
+}
+
+.slot-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    border-radius: 20px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.slot-remove {
+    background: none;
+    border: none;
+    color: var(--swift-white);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 0.3rem;
+    margin-left: 0.3rem;
+    opacity: 0.7;
+}
+
+.slot-remove:hover {
+    opacity: 1;
+}
+
+.goal-badge {
+    display: inline-block;
+    background: var(--swift-gold);
+    color: var(--swift-blue);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+/* =========================================================
+   Buttons
+   ========================================================= */
+.btn-primary {
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #002952;
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: var(--swift-slate);
+    color: var(--swift-white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #5a5c5f;
+}
+
+.btn-danger {
+    background: var(--swift-danger);
+    color: var(--swift-white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background: #a93226;
+}
+
+.btn-validate {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+/* =========================================================
+   Fact Box
+   ========================================================= */
+.fact-box {
+    margin-top: 1.5rem;
+    background: #fdf8e8;
+    border-left: 4px solid var(--swift-gold);
+    border-radius: 0 8px 8px 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+}
+
+.fact-box strong {
+    color: var(--swift-blue);
+}
+
+/* =========================================================
+   Overlays
+   ========================================================= */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    background: var(--swift-white);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* =========================================================
+   Result Card
+   ========================================================= */
+.result-card h2 {
+    margin-top: 0.5rem;
+}
+
+.result-icon-success {
+    font-size: 3rem;
+}
+
+.result-icon-fail {
+    font-size: 3rem;
+}
+
+.error-list {
+    text-align: left;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.error-item {
+    background: #fdecea;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.4rem;
+    color: var(--swift-danger);
+}
+
+.name-input {
+    width: 100%;
+    padding: 0.6rem;
+    border: 2px solid #dde2e8;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* =========================================================
+   PIN Pad (Admin)
+   ========================================================= */
+.pin-panel {
+    max-width: 360px;
+    margin: 2rem auto;
+    text-align: center;
+}
+
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+}
+
+.pin-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #dde2e8;
+    transition: background 0.2s;
+}
+
+.pin-dot.filled {
+    background: var(--swift-blue);
+}
+
+.pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+.pin-key {
+    background: var(--swift-white);
+    border: 2px solid #dde2e8;
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.pin-key:hover, .pin-key:active {
+    background: var(--swift-bg);
+    border-color: var(--swift-blue);
+}
+
+.pin-key-clear {
+    color: var(--swift-danger);
+}
+
+.pin-key-submit {
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    border-color: var(--swift-blue);
+}
+
+.pin-key-submit:hover {
+    background: #002952;
+}
+
+.pin-error {
+    color: var(--swift-danger);
+    font-weight: 600;
+    margin-top: 0.75rem;
+}
+
+/* =========================================================
+   Admin Dashboard
+   ========================================================= */
+.admin-dashboard {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.admin-section {
+    background: var(--swift-white);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.admin-section h3 {
+    color: var(--swift-blue);
+    margin-bottom: 0.5rem;
+}
+
+.pin-change-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.pin-change-form input {
+    flex: 1;
+    padding: 0.6rem;
+    border: 2px solid #dde2e8;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.upload-status {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+/* =========================================================
+   Leaderboard
+   ========================================================= */
+.leaderboard-screen {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.leaderboard-table-wrap {
+    background: var(--swift-white);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table th {
+    background: var(--swift-blue);
+    color: var(--swift-white);
+    padding: 0.75rem;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.leaderboard-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #eee;
+    font-size: 0.95rem;
+}
+
+.leaderboard-table tr:nth-child(1) td {
+    background: #fdf8e8;
+    font-weight: 700;
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--swift-slate);
+    padding: 2rem;
+}
+
+/* =========================================================
+   Privacy
+   ========================================================= */
+.privacy-screen {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.privacy-screen article {
+    background: var(--swift-white);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* =========================================================
+   Setup Screen (DB config fallback)
+   ========================================================= */
+.setup-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.setup-card {
+    max-width: 480px;
+    width: 100%;
+    background: var(--swift-white);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.setup-card header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.setup-card header h1 {
+    color: var(--swift-blue);
+    font-size: 1.4rem;
+}
+
+.setup-card label {
+    display: block;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--swift-blue);
+}
+
+.setup-card input {
+    width: 100%;
+    padding: 0.6rem;
+    border: 2px solid #dde2e8;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-top: 0.3rem;
+}
+
+.setup-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.setup-actions button {
+    flex: 1;
+}
+
+.setup-status {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.status-success {
+    background: #e8f8ef;
+    color: var(--swift-success);
+}
+
+.status-error {
+    background: #fdecea;
+    color: var(--swift-danger);
+}
+
+/* =========================================================
+   Dropzone Override
+   ========================================================= */
+.dropzone {
+    border: 2px dashed var(--swift-slate) !important;
+    border-radius: 12px !important;
+    background: var(--swift-bg) !important;
+    min-height: 120px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dropzone .dz-message {
+    font-size: 1rem;
+    color: var(--swift-slate);
+}
+
+/* =========================================================
+   Utility
+   ========================================================= */
+.hidden {
+    display: none !important;
+}
+
+/* Landscape tablet optimisation */
+@media (max-width: 1024px) {
+    .game-layout {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+    }
+}

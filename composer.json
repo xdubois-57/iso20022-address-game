@@ -1,0 +1,27 @@
+{
+    "name": "xdubois-57/iso20022-address-game",
+    "description": "Interactive game to learn ISO 20022 postal address structuring",
+    "type": "project",
+    "license": "GPL-3.0-or-later",
+    "homepage": "https://github.com/xdubois-57/iso20022-address-game",
+    "require": {
+        "php": ">=8.1",
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --configuration phpunit.xml"
+    }
+}

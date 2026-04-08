@@ -1,0 +1,22 @@
+# Dependencies
+vendor/
+
+# Config with secrets
+config/credentials.php
+config/db_config.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploaded files
+uploads/*.xlsx
