@@ -546,9 +546,9 @@
             var v = slotMapping[slotId];
             if (!v) return;
             if (Array.isArray(v)) {
-                mapping[slotId] = v.map(function (c) { return c.value; }).join(' ');
+                mapping[slotId] = v.map(function (c) { return decodeHtml(c.value); }).join(' ');
             } else {
-                mapping[slotId] = v.value;
+                mapping[slotId] = decodeHtml(v.value);
             }
         });
 
@@ -1000,6 +1000,12 @@
         var div = document.createElement('div');
         div.textContent = str || '';
         return div.innerHTML;
+    }
+
+    function decodeHtml(str) {
+        var div = document.createElement('div');
+        div.innerHTML = str || '';
+        return div.textContent;
     }
 
     function formatDate(dateStr) {
