@@ -146,11 +146,19 @@ class Database
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 encrypted_name VARCHAR(512) NOT NULL,
                 score INT NOT NULL DEFAULT 0,
+                time_seconds INT NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_score (score DESC),
                 INDEX idx_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+
+        // Migration: add time_seconds if missing (existing installs)
+        try {
+            $this->pdo->exec("ALTER TABLE leaderboard ADD COLUMN time_seconds INT NOT NULL DEFAULT 0 AFTER score");
+        } catch (\PDOException $e) {
+            // Column already exists — ignore
+        }
 
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS facts (

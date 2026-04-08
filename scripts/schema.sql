@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS leaderboard (
     id INT AUTO_INCREMENT PRIMARY KEY,
     encrypted_name VARCHAR(512) NOT NULL,
     score INT NOT NULL DEFAULT 0,
+    time_seconds INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_score (score DESC),
     INDEX idx_created (created_at)

@@ -41,21 +41,66 @@ class AdminController
     }
 
     /**
-     * POST /api/admin/login — Verify PIN.
+     * POST /api/admin/login — Verify PIN (bcrypt hashed).
      */
     public function login(): void
     {
         $input = $this->getJsonInput();
         $pin = $input['pin'] ?? '';
 
-        $storedPin = $this->getStoredPin();
+        $stored = $this->getStoredPin();
 
-        if ($pin === $storedPin) {
+        // Check if stored value is already a bcrypt hash
+        $isHashed = str_starts_with($stored, '$2y$') || str_starts_with($stored, '$2b$');
+
+        if ($isHashed) {
+            $valid = password_verify($pin, $stored);
+        } else {
+            // Legacy plaintext comparison — upgrade to hash on success
+            $valid = ($pin === $stored);
+            if ($valid) {
+                $this->upgradePinToHash($pin);
+            }
+        }
+
+        if ($valid) {
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             $this->jsonResponse(['success' => true]);
         } else {
             $this->jsonResponse(['error' => 'Invalid PIN'], 401);
+        }
+    }
+
+    /**
+     * Upgrade a plaintext PIN to a bcrypt hash in both DB and config file.
+     */
+    private function upgradePinToHash(string $pin): void
+    {
+        $hash = password_hash($pin, PASSWORD_BCRYPT);
+
+        // Store in DB
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare(
+            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
+            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+        );
+        $stmt->execute(['admin_pin', $hash]);
+
+        // Also update config file if it has plaintext
+        $credFile = __DIR__ . '/../../config/credentials.php';
+        if (file_exists($credFile)) {
+            $content = file_get_contents($credFile);
+            $escaped = preg_quote($pin, '/');
+            $updated = preg_replace(
+                "/'pin'\s*=>\s*'" . $escaped . "'/",
+                "'pin' => '" . addcslashes($hash, "'") . "'",
+                $content
+            );
+            if ($updated !== $content) {
+                file_put_contents($credFile, $updated);
+            }
         }
     }
 
@@ -148,13 +193,15 @@ class AdminController
             return;
         }
 
+        $hash = password_hash($newPin, PASSWORD_BCRYPT);
+
         $db = Database::getInstance();
         $pdo = $db->getPdo();
         $stmt = $pdo->prepare(
             'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
             . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
         );
-        $stmt->execute(['admin_pin', $newPin]);
+        $stmt->execute(['admin_pin', $hash]);
 
         $this->jsonResponse(['success' => true]);
     }

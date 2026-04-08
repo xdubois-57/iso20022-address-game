@@ -44,11 +44,20 @@ class ScenarioModel
     }
 
     /**
-     * Get a random scenario.
+     * Get a random scenario, optionally excluding specific IDs.
      */
-    public function getRandom(): ?array
+    public function getRandom(array $excludeIds = []): ?array
     {
-        $stmt = $this->pdo->query('SELECT id, json_data, goal_type FROM scenarios ORDER BY RAND() LIMIT 1');
+        $sql = 'SELECT id, json_data, goal_type FROM scenarios';
+        $params = [];
+        if (!empty($excludeIds)) {
+            $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
+            $sql .= ' WHERE id NOT IN (' . $placeholders . ')';
+            $params = array_map('intval', $excludeIds);
+        }
+        $sql .= ' ORDER BY RAND() LIMIT 1';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch();
         if ($row) {
             $row['json_data'] = json_decode($row['json_data'], true);

@@ -37,11 +37,14 @@ class GameController
     }
 
     /**
-     * GET /api/game/scenario — Load a random scenario for the player.
+     * POST /api/game/scenario — Load a random scenario for the player.
      */
     public function getScenario(): void
     {
-        $scenario = $this->scenarioModel->getRandom();
+        $input = $this->getJsonInput();
+        $excludeIds = $input['exclude_ids'] ?? [];
+
+        $scenario = $this->scenarioModel->getRandom($excludeIds);
         if (!$scenario) {
             $this->jsonResponse(['error' => 'No scenarios available. Ask an admin to upload scenarios.'], 404);
             return;
@@ -55,6 +58,7 @@ class GameController
                 'goal_type' => $scenario['goal_type'],
                 'chips' => $this->generateChips($scenario['json_data']),
                 'slots' => $this->getSlots($scenario['goal_type']),
+                'address_display' => $this->formatAddressDisplay($scenario['json_data']),
             ],
             'fact' => $fact,
         ]);
@@ -140,6 +144,33 @@ class GameController
             ['id' => 'AdrLine1', 'label' => 'Address Line 1 (max 70 chars)', 'tag' => '<AdrLine>', 'mandatory' => false],
             ['id' => 'AdrLine2', 'label' => 'Address Line 2 (max 70 chars)', 'tag' => '<AdrLine>', 'mandatory' => false],
         ];
+    }
+
+    /**
+     * Format address data as a human-readable multi-line string (like an envelope).
+     */
+    private function formatAddressDisplay(array $data): string
+    {
+        $lines = [];
+        $street = trim($data['StrtNm'] ?? '');
+        $bldg = trim($data['BldgNb'] ?? '');
+        if ($street !== '' || $bldg !== '') {
+            $lines[] = trim($street . ' ' . $bldg);
+        }
+        $extra = trim($data['AdtlAdrInf'] ?? '');
+        if ($extra !== '') {
+            $lines[] = $extra;
+        }
+        $postal = trim($data['PstCd'] ?? '');
+        $town = trim($data['TwnNm'] ?? '');
+        if ($postal !== '' || $town !== '') {
+            $lines[] = trim($postal . ' ' . $town);
+        }
+        $country = trim($data['Ctry'] ?? '');
+        if ($country !== '') {
+            $lines[] = $country;
+        }
+        return implode("\n", $lines);
     }
 
     private function getJsonInput(): array

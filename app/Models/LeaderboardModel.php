@@ -35,13 +35,13 @@ class LeaderboardModel
     /**
      * Add a new leaderboard entry.
      */
-    public function addEntry(string $playerName, int $score): int
+    public function addEntry(string $playerName, int $score, int $timeSeconds = 0): int
     {
         $encryptedName = $this->encryption->encrypt($playerName);
         $stmt = $this->pdo->prepare(
-            'INSERT INTO leaderboard (encrypted_name, score) VALUES (?, ?)'
+            'INSERT INTO leaderboard (encrypted_name, score, time_seconds) VALUES (?, ?, ?)'
         );
-        $stmt->execute([$encryptedName, $score]);
+        $stmt->execute([$encryptedName, $score, $timeSeconds]);
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -51,7 +51,7 @@ class LeaderboardModel
     public function getTopEntries(int $limit = 10): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, encrypted_name, score, created_at FROM leaderboard ORDER BY score DESC, created_at ASC LIMIT ?'
+            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY score DESC, time_seconds ASC, created_at ASC LIMIT ?'
         );
         $stmt->execute([$limit]);
         $rows = $stmt->fetchAll();

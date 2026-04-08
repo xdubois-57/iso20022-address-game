@@ -56,6 +56,8 @@ class LeaderboardController
             return;
         }
 
+        $timeSeconds = (int) ($input['time_seconds'] ?? 0);
+
         if ($score < 0 || $score > 100) {
             $this->jsonResponse(['error' => 'Invalid score'], 400);
             return;
@@ -64,7 +66,7 @@ class LeaderboardController
         // Sanitize name
         $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
 
-        $id = $this->leaderboardModel->addEntry($name, $score);
+        $id = $this->leaderboardModel->addEntry($name, $score, $timeSeconds);
         $this->jsonResponse([
             'success' => true,
             'entry_id' => $id,
