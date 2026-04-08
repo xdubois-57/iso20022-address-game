@@ -5,6 +5,9 @@ vendor/
 config/credentials.php
 config/db_config.json
 
+# Deploy script (contains FTP credentials)
+deploy.sh
+
 # Logs
 *.log
 

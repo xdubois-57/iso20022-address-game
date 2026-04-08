@@ -142,8 +142,8 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    showStatus('Database configured! Redirecting...', false);
-                    setTimeout(function() { window.location.reload(); }, 1500);
+                    showStatus(data.message || 'Database configured! Redirecting...', false);
+                    setTimeout(function() { window.location.reload(); }, 3000);
                 } else {
                     showStatus(data.error || 'Save failed', true);
                     saveBtn.disabled = false;
