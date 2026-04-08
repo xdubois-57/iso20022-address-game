@@ -1,0 +1,10 @@
+# ISO 20022 Address Game - Root .htaccess
+# Redirect all requests to the public/ directory
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Redirect to public/ subdirectory
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
