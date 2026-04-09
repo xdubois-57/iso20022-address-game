@@ -786,9 +786,20 @@ html, body {
 }
 
 .btn-start {
+    background: var(--swift-emerald);
+    color: var(--swift-white);
+    border: none;
+    border-radius: 8px;
     width: 100%;
     padding: 1rem;
     font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-start:hover {
+    background: #018a76;
 }
 
 /* =========================================================
