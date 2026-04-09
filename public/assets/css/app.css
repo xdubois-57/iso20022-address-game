@@ -17,19 +17,20 @@
  */
 
 /* =========================================================
-   Swift.com Branding Palette
+   Swift Brand Palette
    ========================================================= */
 :root {
-    --swift-blue: #00354e;
-    --swift-blue-light: #1a8fdd;
-    --swift-gold: #e8a800;
-    --swift-slate: #6b7280;
-    --swift-bg: #f7f8fa;
+    --swift-peppermint: #acf9e9;
+    --swift-dark-green: #333d3e;
+    --swift-emerald: #01a990;
+    --swift-light-peppermint: #cffbf2;
+    --swift-grey-green: #698287;
     --swift-white: #ffffff;
-    --swift-danger: #d32f2f;
-    --swift-success: #2e7d32;
-    --pico-primary: #00354e;
-    --pico-primary-hover: #002438;
+    --swift-neutral: #f8f8f8;
+    --swift-danger: #c0392b;
+    --swift-success: #01a990;
+    --pico-primary: #01a990;
+    --pico-primary-hover: #018a76;
 }
 
 /* =========================================================
@@ -38,9 +39,9 @@
 html, body {
     margin: 0;
     padding: 0;
-    background: var(--swift-bg);
-    color: #1e293b;
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--swift-neutral);
+    color: var(--swift-dark-green);
+    font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
     overflow-x: hidden;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -53,7 +54,7 @@ html, body {
    Header
    ========================================================= */
 .game-header {
-    background: var(--swift-blue);
+    background: var(--swift-dark-green);
     color: var(--swift-white);
     padding: 1rem 1.5rem;
     position: sticky;
@@ -73,7 +74,7 @@ html, body {
     font-size: 1.4rem;
     margin: 0;
     font-weight: 700;
-    color: var(--swift-gold);
+    color: var(--swift-peppermint);
 }
 
 .header-nav {
@@ -99,9 +100,9 @@ html, body {
 }
 
 .nav-btn.active {
-    background: var(--swift-gold);
-    color: var(--swift-blue);
-    border-color: var(--swift-gold);
+    background: var(--swift-peppermint);
+    color: var(--swift-dark-green);
+    border-color: var(--swift-peppermint);
 }
 
 .stop-btn {
@@ -123,7 +124,7 @@ html, body {
 }
 
 .privacy-link {
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     text-decoration: underline;
     cursor: pointer;
 }
@@ -157,13 +158,13 @@ html, body {
 
 .source-panel h2, .target-panel h2 {
     font-size: 1.15rem;
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     margin-bottom: 0.75rem;
 }
 
 .hint-text {
     font-size: 0.9rem;
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     margin-bottom: 1rem;
 }
 
@@ -176,16 +177,16 @@ html, body {
     gap: 0.6rem;
     min-height: 60px;
     padding: 0.75rem;
-    border: 2px dashed var(--swift-slate);
+    border: 2px dashed var(--swift-grey-green);
     border-radius: 8px;
-    background: var(--swift-bg);
+    background: var(--swift-neutral);
 }
 
 .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    background: var(--swift-blue);
+    background: var(--swift-emerald);
     color: var(--swift-white);
     border-radius: 20px;
     padding: 0.5rem 1rem;
@@ -209,7 +210,7 @@ html, body {
 
 .chip-label {
     font-size: 0.7rem;
-    color: var(--swift-gold);
+    color: var(--swift-peppermint);
     font-weight: 400;
 }
 
@@ -226,7 +227,7 @@ html, body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    background: var(--swift-bg);
+    background: var(--swift-neutral);
     border: 2px solid #dde2e8;
     border-radius: 8px;
     padding: 0.75rem 1rem;
@@ -235,36 +236,36 @@ html, body {
 }
 
 .slot.drag-over {
-    border-color: var(--swift-gold);
-    background: #fdf8e8;
+    border-color: var(--swift-emerald);
+    background: var(--swift-light-peppermint);
 }
 
 .slot.filled {
-    border-color: var(--swift-blue);
-    background: #e8f0f8;
+    border-color: var(--swift-emerald);
+    background: var(--swift-light-peppermint);
 }
 
 .slot.mandatory {
-    border-left: 4px solid var(--swift-gold);
+    border-left: 4px solid var(--swift-emerald);
 }
 
 .slot-tag {
     font-family: monospace;
     font-size: 0.8rem;
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     min-width: 100px;
 }
 
 .slot-label {
     font-size: 0.85rem;
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     flex: 1;
 }
 
 .slot-chip {
     display: inline-flex;
     align-items: center;
-    background: var(--swift-blue);
+    background: var(--swift-emerald);
     color: var(--swift-white);
     border-radius: 20px;
     padding: 0.35rem 0.75rem;
@@ -289,8 +290,8 @@ html, body {
 
 .goal-badge {
     display: inline-block;
-    background: var(--swift-gold);
-    color: var(--swift-blue);
+    background: var(--swift-peppermint);
+    color: var(--swift-dark-green);
     border-radius: 4px;
     padding: 0.2rem 0.6rem;
     font-size: 0.8rem;
@@ -302,7 +303,7 @@ html, body {
    Buttons
    ========================================================= */
 .btn-primary {
-    background: var(--swift-blue);
+    background: var(--swift-emerald);
     color: var(--swift-white);
     border: none;
     border-radius: 8px;
@@ -314,7 +315,7 @@ html, body {
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #002438;
+    background: #018a76;
 }
 
 .btn-primary:disabled {
@@ -323,7 +324,7 @@ html, body {
 }
 
 .btn-secondary {
-    background: var(--swift-slate);
+    background: var(--swift-grey-green);
     color: var(--swift-white);
     border: none;
     border-radius: 8px;
@@ -334,7 +335,7 @@ html, body {
 }
 
 .btn-secondary:hover {
-    background: #5a5c5f;
+    background: #566b70;
 }
 
 .btn-danger {
@@ -364,29 +365,29 @@ html, body {
    ========================================================= */
 .fact-box {
     margin-top: 1.5rem;
-    background: #fdf8e8;
-    border-left: 4px solid var(--swift-gold);
+    background: var(--swift-light-peppermint);
+    border-left: 4px solid var(--swift-emerald);
     border-radius: 0 8px 8px 0;
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
 }
 
 .fact-box strong {
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
 }
 
 /* =========================================================
    Download Link
    ========================================================= */
 .download-link {
-    color: var(--swift-blue-light);
+    color: var(--swift-emerald);
     text-decoration: none;
     font-weight: 600;
 }
 
 .download-link:hover {
     text-decoration: underline;
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
 }
 
 /* =========================================================
@@ -488,7 +489,7 @@ html, body {
 }
 
 .pin-dot.filled {
-    background: var(--swift-blue);
+    background: var(--swift-emerald);
 }
 
 .pin-pad {
@@ -501,7 +502,7 @@ html, body {
 
 .pin-key {
     background: var(--swift-white) !important;
-    color: var(--swift-blue) !important;
+    color: var(--swift-dark-green) !important;
     border: 2px solid #dde2e8 !important;
     border-radius: 12px;
     padding: 1rem;
@@ -513,8 +514,8 @@ html, body {
 }
 
 .pin-key:hover, .pin-key:active {
-    background: var(--swift-bg);
-    border-color: var(--swift-blue);
+    background: var(--swift-neutral);
+    border-color: var(--swift-emerald);
 }
 
 .pin-key-clear {
@@ -522,13 +523,13 @@ html, body {
 }
 
 .pin-key-submit {
-    background: var(--swift-blue) !important;
+    background: var(--swift-emerald) !important;
     color: var(--swift-white) !important;
-    border-color: var(--swift-blue) !important;
+    border-color: var(--swift-emerald) !important;
 }
 
 .pin-key-submit:hover {
-    background: #002952;
+    background: #018a76;
 }
 
 .pin-error {
@@ -554,7 +555,7 @@ html, body {
 }
 
 .admin-section h3 {
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     margin-bottom: 0.5rem;
 }
 
@@ -600,8 +601,8 @@ html, body {
 }
 
 .leaderboard-table th {
-    background: var(--swift-blue);
-    color: var(--swift-white);
+    background: var(--swift-dark-green);
+    color: var(--swift-peppermint);
     padding: 0.75rem;
     text-align: left;
     font-size: 0.9rem;
@@ -614,13 +615,24 @@ html, body {
 }
 
 .leaderboard-table tr:nth-child(1) td {
-    background: #fdf8e8;
+    background: var(--swift-light-peppermint);
     font-weight: 700;
+}
+
+.leaderboard-table tr.my-entry td {
+    background: var(--swift-peppermint);
+    font-weight: 700;
+    animation: partyPulse 1.5s ease-in-out 3;
+}
+
+@keyframes partyPulse {
+    0%, 100% { background: var(--swift-peppermint); }
+    50% { background: var(--swift-light-peppermint); }
 }
 
 .empty-state {
     text-align: center;
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     padding: 2rem;
 }
 
@@ -665,7 +677,7 @@ html, body {
 }
 
 .setup-card header h1 {
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     font-size: 1.4rem;
 }
 
@@ -674,7 +686,7 @@ html, body {
     margin-bottom: 1rem;
     font-weight: 600;
     font-size: 0.9rem;
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
 }
 
 .setup-card input {
@@ -718,9 +730,9 @@ html, body {
    Dropzone Override
    ========================================================= */
 .dropzone {
-    border: 2px dashed var(--swift-slate) !important;
+    border: 2px dashed var(--swift-grey-green) !important;
     border-radius: 12px !important;
-    background: var(--swift-bg) !important;
+    background: var(--swift-neutral) !important;
     min-height: 120px !important;
     display: flex;
     align-items: center;
@@ -729,7 +741,7 @@ html, body {
 
 .dropzone .dz-message {
     font-size: 1rem;
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
 }
 
 /* =========================================================
@@ -753,12 +765,12 @@ html, body {
 }
 
 .welcome-card h2 {
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     margin-bottom: 0.5rem;
 }
 
 .welcome-card p {
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     margin-bottom: 1.5rem;
 }
 
@@ -790,21 +802,21 @@ html, body {
 }
 
 .round-info {
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     font-size: 1rem;
 }
 
 .game-timer {
     font-size: 1.15rem;
-    color: var(--swift-blue);
+    color: var(--swift-emerald);
     font-variant-numeric: tabular-nums;
-    background: var(--swift-bg);
+    background: var(--swift-neutral);
     padding: 0.3rem 0.9rem;
     border-radius: 8px;
 }
 
 .player-info {
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     font-size: 0.95rem;
     max-width: 160px;
     overflow: hidden;
@@ -817,13 +829,13 @@ html, body {
    ========================================================= */
 .address-block {
     background: #fff;
-    border: 2px solid var(--swift-blue);
+    border: 2px solid var(--swift-dark-green);
     border-radius: 8px;
     padding: 1rem 1.25rem;
     font-family: 'Courier New', Courier, monospace;
     font-size: 1rem;
     line-height: 1.7;
-    color: #1a1a2e;
+    color: var(--swift-dark-green);
     margin-bottom: 1rem;
     white-space: pre-line;
 }
@@ -850,20 +862,20 @@ html, body {
 
 .final-score-card h1 {
     font-size: 2rem;
-    color: var(--swift-blue);
+    color: var(--swift-dark-green);
     margin-bottom: 0.5rem;
 }
 
 .final-score-value {
     font-size: 4rem;
     font-weight: 800;
-    color: var(--swift-blue);
+    color: var(--swift-emerald);
     margin: 0.5rem 0;
     line-height: 1;
 }
 
 .final-score-detail {
-    color: var(--swift-slate);
+    color: var(--swift-grey-green);
     font-size: 1rem;
     margin: 0.25rem 0;
 }
@@ -885,13 +897,13 @@ html, body {
 }
 
 .round-badge.perfect {
-    background: #e8f8ef;
-    color: var(--swift-success);
+    background: var(--swift-light-peppermint);
+    color: var(--swift-emerald);
 }
 
 .round-badge.partial {
-    background: #fdf8e8;
-    color: #b8860b;
+    background: var(--swift-neutral);
+    color: var(--swift-grey-green);
 }
 
 .final-score-card .result-actions {

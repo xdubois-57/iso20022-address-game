@@ -90,6 +90,19 @@ if (!$db->connect()) {
 }
 $db->initSchema();
 
+// Poor man's cron: run GDPR cleanup once per day on visitor traffic
+$cleanupStamp = __DIR__ . '/../storage/last_cleanup.txt';
+$cleanupDir = dirname($cleanupStamp);
+if (!is_dir($cleanupDir)) {
+    @mkdir($cleanupDir, 0755, true);
+}
+$lastCleanup = @file_get_contents($cleanupStamp);
+if ($lastCleanup === false || (time() - (int)$lastCleanup) > 86400) {
+    @file_put_contents($cleanupStamp, (string)time());
+    $leaderboard = new \App\Models\LeaderboardModel($db->getPdo());
+    $leaderboard->purgeExpired(30);
+}
+
 // GET export route (requires admin session)
 $action = $_GET['action'] ?? '';
 if ($action === 'admin/export') {

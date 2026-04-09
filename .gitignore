@@ -21,5 +21,8 @@ Thumbs.db
 *.swp
 *.swo
 
+# Storage (cleanup timestamps etc.)
+storage/
+
 # Uploaded files
 uploads/*.xlsx

@@ -46,6 +46,7 @@
     let gameTimerInterval = null;
     let gameElapsedSeconds = 0;
     let playedScenarioIds = [];
+    let lastSubmittedEntry = null;
 
     /* =======================================================
        DOM References
@@ -180,6 +181,7 @@
         roundScores = [];
         playedScenarioIds = [];
         playerName = '';
+        lastSubmittedEntry = null;
         showScreen('game');
     }
 
@@ -663,7 +665,10 @@
                 score: finalPct,
                 time_seconds: gameElapsedSeconds,
             });
-            if (data && data.success) { showScreen('leaderboard'); }
+            if (data && data.success) {
+                lastSubmittedEntry = { name: playerName, score: finalPct, time: gameElapsedSeconds };
+                showScreen('leaderboard');
+            }
         });
 
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {
@@ -682,6 +687,7 @@
         if (!data) return;
 
         var entries = data.entries || [];
+        var highlightIdx = -1;
         var html = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>';
         html += '<div class="leaderboard-table-wrap">';
 
@@ -696,7 +702,13 @@
                 var tm = Math.floor(ts / 60);
                 var tss = ts % 60;
                 var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
-                html += '<tr><td>' + (i + 1) + '</td>';
+                var isMe = lastSubmittedEntry &&
+                    entry.player_name === lastSubmittedEntry.name &&
+                    parseInt(entry.score) === lastSubmittedEntry.score &&
+                    parseInt(entry.time_seconds) === lastSubmittedEntry.time &&
+                    highlightIdx === -1;
+                if (isMe) highlightIdx = i;
+                html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>' + (i + 1) + '</td>';
                 html += '<td>' + escapeHtml(entry.player_name) + '</td>';
                 html += '<td>' + entry.score + '%</td>';
                 html += '<td>' + timeDisplay + '</td>';
@@ -707,6 +719,23 @@
 
         html += '</div></section>';
         appContainer.innerHTML = html;
+
+        // Party effect on highlighted entry
+        if (highlightIdx >= 0) {
+            var myRow = document.querySelector('.my-entry');
+            if (myRow) {
+                myRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (typeof confetti === 'function') {
+                setTimeout(function () {
+                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                }, 200);
+                setTimeout(function () {
+                    confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0 } });
+                    confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1 } });
+                }, 500);
+            }
+        }
     }
 
     /* =======================================================
