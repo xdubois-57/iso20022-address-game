@@ -948,3 +948,27 @@ button.btn-start:hover,
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   Critical Overrides (must be last)
+   ========================================================= */
+/* Override PicoCSS button styles for Play button */
+#startGameBtn,
+button#startGameBtn,
+.btn-start,
+button.btn-start,
+.btn-primary.btn-start {
+    background-color: var(--swift-emerald) !important;
+    background: var(--swift-emerald) !important;
+    color: var(--swift-white) !important;
+    border-color: var(--swift-emerald) !important;
+}
+
+#startGameBtn:hover,
+button#startGameBtn:hover,
+.btn-start:hover,
+button.btn-start:hover,
+.btn-primary.btn-start:hover {
+    background-color: #018a76 !important;
+    background: #018a76 !important;
+}
