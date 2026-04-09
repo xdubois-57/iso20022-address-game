@@ -133,4 +133,37 @@ class LeaderboardModelTest extends TestCase
         $this->assertArrayNotHasKey('encrypted_name', $entries[0]);
         $this->assertArrayHasKey('player_name', $entries[0]);
     }
+
+    public function testDeleteEntryRemovesSpecificEntry(): void
+    {
+        $id1 = $this->model->addEntry('Alice', 90);
+        $id2 = $this->model->addEntry('Bob', 80);
+
+        $result = $this->model->deleteEntry($id1);
+        $this->assertTrue($result);
+
+        $entries = $this->model->getTopEntries(10);
+        $this->assertCount(1, $entries);
+        $this->assertEquals('Bob', $entries[0]['player_name']);
+    }
+
+    public function testDeleteEntryReturnsFalseForNonExistent(): void
+    {
+        $result = $this->model->deleteEntry(9999);
+        $this->assertFalse($result);
+    }
+
+    public function testDeleteEntryDoesNotAffectOtherEntries(): void
+    {
+        $id1 = $this->model->addEntry('Alice', 90);
+        $id2 = $this->model->addEntry('Bob', 80);
+        $id3 = $this->model->addEntry('Charlie', 70);
+
+        $this->model->deleteEntry($id2);
+
+        $entries = $this->model->getTopEntries(10);
+        $this->assertCount(2, $entries);
+        $this->assertEquals('Alice', $entries[0]['player_name']);
+        $this->assertEquals('Charlie', $entries[1]['player_name']);
+    }
 }

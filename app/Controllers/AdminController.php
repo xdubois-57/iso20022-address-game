@@ -239,6 +239,42 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/leaderboard-entries — Get all leaderboard entries for admin management.
+     */
+    public function getLeaderboardEntries(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $entries = $this->leaderboardModel->getTopEntries(200);
+        $this->jsonResponse(['entries' => $entries]);
+    }
+
+    /**
+     * POST /api/admin/delete-entry — Delete a single leaderboard entry.
+     */
+    public function deleteLeaderboardEntry(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $id = (int) ($input['id'] ?? 0);
+
+        if ($id <= 0) {
+            $this->jsonResponse(['error' => 'Invalid entry ID'], 400);
+            return;
+        }
+
+        $deleted = $this->leaderboardModel->deleteEntry($id);
+        $this->jsonResponse(['success' => $deleted]);
+    }
+
+    /**
      * POST /api/admin/purge-leaderboard — Delete all leaderboard entries.
      */
     public function purgeLeaderboard(): void

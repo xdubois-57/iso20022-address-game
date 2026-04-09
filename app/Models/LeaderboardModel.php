@@ -70,6 +70,16 @@ class LeaderboardModel
     }
 
     /**
+     * Delete a single leaderboard entry by ID.
+     */
+    public function deleteEntry(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM leaderboard WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
      * Purge all leaderboard data (admin action).
      */
     public function purgeAll(): void

@@ -717,6 +717,22 @@
                 html += '<td>' + timeDisplay + '</td>';
                 html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
             });
+
+            // If last submitted entry is not in the top 50, show it below a separator
+            if (lastSubmittedEntry && highlightIdx === -1) {
+                var lts = lastSubmittedEntry.time || 0;
+                var ltm = Math.floor(lts / 60);
+                var ltss = lts % 60;
+                var lTimeDisplay = ltm + ':' + (ltss < 10 ? '0' : '') + ltss;
+                html += '<tr class="leaderboard-separator"><td colspan="5">\u2022 \u2022 \u2022</td></tr>';
+                html += '<tr class="my-entry"><td>-</td>';
+                html += '<td>' + escapeHtml(lastSubmittedEntry.name) + '</td>';
+                html += '<td>' + lastSubmittedEntry.score + '%</td>';
+                html += '<td>' + lTimeDisplay + '</td>';
+                html += '<td>Just now</td></tr>';
+                highlightIdx = entries.length; // mark as found for party effect
+            }
+
             html += '</tbody></table>';
         }
 
@@ -837,10 +853,11 @@
         html += '<button class="btn-primary" id="changePinBtn">Update PIN</button>';
         html += '</div></div>';
 
-        // Purge
-        html += '<div class="admin-section"><h3>Purge Hall of Fame</h3>';
-        html += '<p>Permanently delete all leaderboard entries.</p>';
-        html += '<button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
+        // Hall of Fame management
+        html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
+        html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
+        html += '<div style="margin-top:1rem;"><button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
+        html += '</div>';
 
         html += '<button class="btn-secondary" id="adminLogoutBtn">Logout</button>';
         html += '</div></section>';
@@ -848,6 +865,58 @@
         appContainer.innerHTML = html;
         initAdminActions();
         initDropzone();
+        loadAdminLeaderboard();
+    }
+
+    async function loadAdminLeaderboard() {
+        var container = document.getElementById('adminLeaderboard');
+        if (!container) return;
+
+        var data = await api('admin/leaderboard-entries');
+        if (!data || !data.entries) {
+            container.innerHTML = '<p>Could not load entries.</p>';
+            return;
+        }
+
+        var entries = data.entries;
+        if (entries.length === 0) {
+            container.innerHTML = '<p class="empty-state">No entries yet.</p>';
+            return;
+        }
+
+        var html = '<table class="leaderboard-table admin-leaderboard-table"><thead><tr>';
+        html += '<th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Date</th><th></th>';
+        html += '</tr></thead><tbody>';
+        entries.forEach(function (entry, i) {
+            var ts = parseInt(entry.time_seconds) || 0;
+            var tm = Math.floor(ts / 60);
+            var tss = ts % 60;
+            var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
+            html += '<tr data-entry-id="' + entry.id + '">';
+            html += '<td>' + (i + 1) + '</td>';
+            html += '<td>' + escapeHtml(entry.player_name) + '</td>';
+            html += '<td>' + entry.score + '%</td>';
+            html += '<td>' + timeDisplay + '</td>';
+            html += '<td>' + formatDate(entry.created_at) + '</td>';
+            html += '<td><button class="btn-delete-entry" data-id="' + entry.id + '" title="Delete">&times;</button></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-delete-entry').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                var id = parseInt(this.dataset.id);
+                if (!confirm('Delete this entry?')) return;
+                var resp = await api('admin/delete-entry', { id: id });
+                if (resp && resp.success) {
+                    var row = container.querySelector('tr[data-entry-id="' + id + '"]');
+                    if (row) row.remove();
+                } else {
+                    alert(resp ? resp.error : 'Error deleting entry');
+                }
+            });
+        });
     }
 
     function initAdminActions() {
@@ -871,6 +940,7 @@
             var data = await api('admin/purge-leaderboard');
             if (data && data.success) {
                 alert('Leaderboard purged');
+                loadAdminLeaderboard();
             }
         });
 
@@ -898,7 +968,7 @@
             paramName: 'file',
             maxFiles: 1,
             acceptedFiles: '.xlsx',
-            headers: { 'X-Action': 'admin/upload' },
+            headers: { 'X-Action': 'admin/upload', 'X-CSRF-Token': csrfToken },
             dictDefaultMessage: 'Drop .xlsx file here or tap to browse',
             init: function () {
                 this.on('success', function (file, response) {

@@ -106,6 +106,8 @@ if ($method === 'POST') {
         'admin/logout' => (new AdminController())->logout(),
         'admin/upload' => (new AdminController())->upload(),
         'admin/change-pin' => (new AdminController())->changePin(),
+        'admin/leaderboard-entries' => (new AdminController())->getLeaderboardEntries(),
+        'admin/delete-entry' => (new AdminController())->deleteLeaderboardEntry(),
         'admin/purge-leaderboard' => (new AdminController())->purgeLeaderboard(),
 
         default => jsonError('Unknown action', 404),

@@ -38,7 +38,7 @@ class LeaderboardController
      */
     public function getTop(): void
     {
-        $entries = $this->leaderboardModel->getTopEntries(10);
+        $entries = $this->leaderboardModel->getTopEntries(50);
         $this->jsonResponse(['entries' => $entries]);
     }
 
