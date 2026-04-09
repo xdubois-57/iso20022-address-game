@@ -110,9 +110,9 @@ html, body {
 }
 
 .nav-btn.active {
-    background: var(--swift-peppermint);
-    color: var(--swift-dark-green);
-    border-color: var(--swift-peppermint);
+    background: #018a76;
+    color: var(--swift-white);
+    border-color: #018a76;
 }
 
 .stop-btn {
