@@ -785,7 +785,8 @@ html, body {
     font-size: 1.15rem;
 }
 
-.btn-start {
+button.btn-start,
+.btn-start.btn-primary {
     background: var(--swift-emerald) !important;
     color: var(--swift-white) !important;
     border: 1px solid var(--swift-emerald) !important;
@@ -798,7 +799,8 @@ html, body {
     transition: background 0.2s;
 }
 
-.btn-start:hover {
+button.btn-start:hover,
+.btn-start.btn-primary:hover {
     background: #018a76 !important;
 }
 
