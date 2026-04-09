@@ -907,13 +907,14 @@
         container.querySelectorAll('.btn-delete-entry').forEach(function (btn) {
             btn.addEventListener('click', async function () {
                 var id = parseInt(this.dataset.id);
-                if (!confirm('Delete this entry?')) return;
+                var confirmed = await showConfirm('Delete this entry?');
+                if (!confirmed) return;
                 var resp = await api('admin/delete-entry', { id: id });
                 if (resp && resp.success) {
                     var row = container.querySelector('tr[data-entry-id="' + id + '"]');
                     if (row) row.remove();
                 } else {
-                    alert(resp ? resp.error : 'Error deleting entry');
+                    await showModal(resp ? resp.error : 'Error deleting entry');
                 }
             });
         });
@@ -923,23 +924,24 @@
         document.getElementById('changePinBtn').addEventListener('click', async function () {
             var newPin = document.getElementById('newPinInput').value;
             if (!/^\d{4,8}$/.test(newPin)) {
-                alert('PIN must be 4-8 digits');
+                await showModal('PIN must be 4-8 digits');
                 return;
             }
             var data = await api('admin/change-pin', { new_pin: newPin });
             if (data && data.success) {
-                alert('PIN updated successfully');
+                await showModal('PIN updated successfully');
                 document.getElementById('newPinInput').value = '';
             } else {
-                alert(data ? data.error : 'Error');
+                await showModal(data ? data.error : 'Error');
             }
         });
 
         document.getElementById('purgeBtn').addEventListener('click', async function () {
-            if (!confirm('Are you sure? This cannot be undone.')) return;
+            var confirmed = await showConfirm('Are you sure? This cannot be undone.');
+            if (!confirmed) return;
             var data = await api('admin/purge-leaderboard');
             if (data && data.success) {
-                alert('Leaderboard purged');
+                await showModal('Leaderboard purged');
                 loadAdminLeaderboard();
             }
         });
@@ -1114,6 +1116,53 @@
         if (!dateStr) return '';
         var d = new Date(dateStr);
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    /**
+     * Custom overlay modal to replace window.alert() — stays in fullscreen.
+     */
+    function showModal(message) {
+        return new Promise(function (resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.innerHTML =
+                '<div class="overlay-content">' +
+                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
+                '<button class="btn-primary" id="modalOkBtn">OK</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+            document.getElementById('modalOkBtn').addEventListener('click', function () {
+                overlay.remove();
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Custom overlay confirm dialog to replace window.confirm() — stays in fullscreen.
+     * Returns a Promise that resolves to true (confirm) or false (cancel).
+     */
+    function showConfirm(message) {
+        return new Promise(function (resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.innerHTML =
+                '<div class="overlay-content">' +
+                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
+                '<div style="display:flex;gap:0.75rem;justify-content:center;">' +
+                '<button class="btn-secondary" id="confirmCancelBtn">Cancel</button>' +
+                '<button class="btn-danger" id="confirmOkBtn">Confirm</button>' +
+                '</div></div>';
+            document.body.appendChild(overlay);
+            document.getElementById('confirmOkBtn').addEventListener('click', function () {
+                overlay.remove();
+                resolve(true);
+            });
+            document.getElementById('confirmCancelBtn').addEventListener('click', function () {
+                overlay.remove();
+                resolve(false);
+            });
+        });
     }
 
     /* =======================================================
