@@ -786,9 +786,9 @@ html, body {
 }
 
 .btn-start {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
-    border: none;
+    background: var(--swift-emerald) !important;
+    color: var(--swift-white) !important;
+    border: 1px solid var(--swift-emerald) !important;
     border-radius: 8px;
     width: 100%;
     padding: 1rem;
@@ -799,7 +799,7 @@ html, body {
 }
 
 .btn-start:hover {
-    background: #018a76;
+    background: #018a76 !important;
 }
 
 /* =========================================================
