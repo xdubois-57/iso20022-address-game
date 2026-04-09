@@ -41,6 +41,7 @@ class LeaderboardModelTest extends TestCase
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 encrypted_name TEXT NOT NULL,
                 score INTEGER NOT NULL DEFAULT 0,
+                time_seconds INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ");
@@ -102,5 +103,34 @@ class LeaderboardModelTest extends TestCase
 
         $this->assertNotEquals('SecretName', $row['encrypted_name']);
         $this->assertNotEmpty($row['encrypted_name']);
+    }
+
+    public function testAddEntryWithTimeSeconds(): void
+    {
+        $id = $this->model->addEntry('Alice', 85, 120);
+        $this->assertGreaterThan(0, $id);
+
+        $stmt = $this->pdo->query('SELECT time_seconds FROM leaderboard WHERE id = ' . $id);
+        $row = $stmt->fetch();
+        $this->assertEquals(120, $row['time_seconds']);
+    }
+
+    public function testGetTopEntriesSortsByScoreThenTime(): void
+    {
+        $this->model->addEntry('Slow', 90, 300);
+        $this->model->addEntry('Fast', 90, 60);
+
+        $entries = $this->model->getTopEntries(10);
+        // Same score, lower time should come first
+        $this->assertEquals('Fast', $entries[0]['player_name']);
+        $this->assertEquals('Slow', $entries[1]['player_name']);
+    }
+
+    public function testGetTopEntriesRemovesEncryptedNameField(): void
+    {
+        $this->model->addEntry('Alice', 50);
+        $entries = $this->model->getTopEntries(10);
+        $this->assertArrayNotHasKey('encrypted_name', $entries[0]);
+        $this->assertArrayHasKey('player_name', $entries[0]);
     }
 }

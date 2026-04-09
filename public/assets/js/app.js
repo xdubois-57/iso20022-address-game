@@ -60,15 +60,18 @@
     /* =======================================================
        API Helper
        ======================================================= */
+    var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
     async function api(action, body, isUpload) {
         const opts = { method: 'POST' };
         if (isUpload) {
-            opts.headers = { 'X-Action': action };
+            opts.headers = { 'X-Action': action, 'X-CSRF-Token': csrfToken };
             opts.body = body;
         } else {
             opts.headers = {
                 'Content-Type': 'application/json',
                 'X-Action': action,
+                'X-CSRF-Token': csrfToken,
             };
             opts.body = JSON.stringify(body || {});
         }

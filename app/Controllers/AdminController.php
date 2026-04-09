@@ -43,8 +43,27 @@ class AdminController
     /**
      * POST /api/admin/login — Verify PIN (bcrypt hashed).
      */
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_SECONDS = 300; // 5 minutes
+
     public function login(): void
     {
+        // Rate limiting
+        $attempts = $_SESSION['login_attempts'] ?? 0;
+        $lockUntil = $_SESSION['login_lock_until'] ?? 0;
+
+        if ($attempts >= self::MAX_LOGIN_ATTEMPTS && time() < $lockUntil) {
+            $remaining = $lockUntil - time();
+            $this->jsonResponse(['error' => "Too many attempts. Try again in {$remaining}s."], 429);
+            return;
+        }
+
+        // Reset if lockout expired
+        if (time() >= $lockUntil && $attempts >= self::MAX_LOGIN_ATTEMPTS) {
+            $_SESSION['login_attempts'] = 0;
+            $attempts = 0;
+        }
+
         $input = $this->getJsonInput();
         $pin = $input['pin'] ?? '';
 
@@ -64,10 +83,16 @@ class AdminController
         }
 
         if ($valid) {
+            $_SESSION['login_attempts'] = 0;
+            unset($_SESSION['login_lock_until']);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             $this->jsonResponse(['success' => true]);
         } else {
+            $_SESSION['login_attempts'] = $attempts + 1;
+            if ($attempts + 1 >= self::MAX_LOGIN_ATTEMPTS) {
+                $_SESSION['login_lock_until'] = time() + self::LOCKOUT_SECONDS;
+            }
             $this->jsonResponse(['error' => 'Invalid PIN'], 401);
         }
     }
@@ -130,6 +155,13 @@ class AdminController
         }
 
         $file = $_FILES['file'];
+
+        // File size limit: 5 MB
+        if ($file['size'] > 5 * 1024 * 1024) {
+            $this->jsonResponse(['error' => 'File exceeds 5 MB limit'], 400);
+            return;
+        }
+
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if ($ext !== 'xlsx') {
             $this->jsonResponse(['error' => 'Only .xlsx files are accepted'], 400);
@@ -140,7 +172,7 @@ class AdminController
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
-        $tmpPath = $uploadDir . 'upload_' . time() . '.xlsx';
+        $tmpPath = $uploadDir . 'upload_' . bin2hex(random_bytes(8)) . '.xlsx';
         move_uploaded_file($file['tmp_name'], $tmpPath);
 
         $parser = new ExcelParser();

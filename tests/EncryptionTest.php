@@ -87,7 +87,52 @@ class EncryptionTest extends TestCase
         $encrypted = $this->encryption->encrypt('Secret Data');
         $otherEncryption = new Encryption('different_key_that_is_32_bytes!!');
         $result = $otherEncryption->decrypt($encrypted);
-        // With a different key, decryption produces garbage, not the original
-        $this->assertNotEquals('Secret Data', $result);
+        // GCM: wrong key should return false (authentication failure)
+        $this->assertFalse($result);
+    }
+
+    public function testGcmEncryptionProducesGcmPrefix(): void
+    {
+        $encrypted = $this->encryption->encrypt('test');
+        $decoded = base64_decode($encrypted, true);
+        // GCM format starts with 'gcm:' prefix
+        $this->assertStringStartsWith('gcm:', $decoded);
+    }
+
+    public function testGcmTamperDetection(): void
+    {
+        $encrypted = $this->encryption->encrypt('Sensitive Data');
+        $decoded = base64_decode($encrypted, true);
+        // Flip a bit in the ciphertext (after the gcm: prefix + IV + tag)
+        $tampered = $decoded;
+        $pos = strlen($tampered) - 1;
+        $tampered[$pos] = chr(ord($tampered[$pos]) ^ 0x01);
+        $result = $this->encryption->decrypt(base64_encode($tampered));
+        // GCM should detect tampering and return false
+        $this->assertFalse($result);
+    }
+
+    public function testLegacyCtrDecryptionStillWorks(): void
+    {
+        // Simulate a legacy CTR-encrypted value (no 'gcm:' prefix)
+        $key = 'test_key_for_unit_testing_32bytes!';
+        $iv = openssl_random_pseudo_bytes(16);
+        $ciphertext = openssl_encrypt(
+            'Legacy Name',
+            'aes-256-ctr',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv
+        );
+        $legacyEncoded = base64_encode($iv . $ciphertext);
+
+        $result = $this->encryption->decrypt($legacyEncoded);
+        $this->assertEquals('Legacy Name', $result);
+    }
+
+    public function testDecryptWithEmptyStringReturnsFalse(): void
+    {
+        $result = $this->encryption->decrypt('');
+        $this->assertFalse($result);
     }
 }

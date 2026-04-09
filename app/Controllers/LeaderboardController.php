@@ -63,9 +63,6 @@ class LeaderboardController
             return;
         }
 
-        // Sanitize name
-        $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-
         $id = $this->leaderboardModel->addEntry($name, $score, $timeSeconds);
         $this->jsonResponse([
             'success' => true,

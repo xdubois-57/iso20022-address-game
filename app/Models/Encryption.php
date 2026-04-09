@@ -21,7 +21,9 @@ namespace App\Models;
 
 class Encryption
 {
-    private const CIPHER = 'aes-256-ctr';
+    private const CIPHER_GCM = 'aes-256-gcm';
+    private const CIPHER_CTR = 'aes-256-ctr';
+    private const TAG_LENGTH = 16;
     private string $key;
 
     public function __construct(?string $key = null)
@@ -36,25 +38,29 @@ class Encryption
     }
 
     /**
-     * Encrypt a plaintext string using AES-256-CTR.
-     * Returns base64-encoded IV + ciphertext.
+     * Encrypt a plaintext string using AES-256-GCM (authenticated encryption).
+     * Returns base64-encoded: "gcm:" prefix + IV (12 bytes) + tag (16 bytes) + ciphertext.
      */
     public function encrypt(string $plaintext): string
     {
-        $ivLength = openssl_cipher_iv_length(self::CIPHER);
-        $iv = openssl_random_pseudo_bytes($ivLength);
+        $iv = openssl_random_pseudo_bytes(12);
+        $tag = '';
         $ciphertext = openssl_encrypt(
             $plaintext,
-            self::CIPHER,
+            self::CIPHER_GCM,
             $this->key,
             OPENSSL_RAW_DATA,
-            $iv
+            $iv,
+            $tag,
+            '',
+            self::TAG_LENGTH
         );
-        return base64_encode($iv . $ciphertext);
+        return base64_encode('gcm:' . $iv . $tag . $ciphertext);
     }
 
     /**
-     * Decrypt a base64-encoded IV + ciphertext string.
+     * Decrypt a base64-encoded ciphertext string.
+     * Supports both GCM (prefixed with "gcm:") and legacy CTR format.
      */
     public function decrypt(string $encoded): string|false
     {
@@ -62,7 +68,39 @@ class Encryption
         if ($data === false) {
             return false;
         }
-        $ivLength = openssl_cipher_iv_length(self::CIPHER);
+
+        // GCM format: "gcm:" (4 bytes) + IV (12 bytes) + tag (16 bytes) + ciphertext
+        if (str_starts_with($data, 'gcm:')) {
+            return $this->decryptGcm(substr($data, 4));
+        }
+
+        // Legacy CTR format: IV (16 bytes) + ciphertext
+        return $this->decryptCtr($data);
+    }
+
+    private function decryptGcm(string $data): string|false
+    {
+        $minLength = 12 + self::TAG_LENGTH;
+        if (strlen($data) < $minLength) {
+            return false;
+        }
+        $iv = substr($data, 0, 12);
+        $tag = substr($data, 12, self::TAG_LENGTH);
+        $ciphertext = substr($data, $minLength);
+        $result = openssl_decrypt(
+            $ciphertext,
+            self::CIPHER_GCM,
+            $this->key,
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+        return $result !== false ? $result : false;
+    }
+
+    private function decryptCtr(string $data): string|false
+    {
+        $ivLength = openssl_cipher_iv_length(self::CIPHER_CTR);
         if (strlen($data) < $ivLength) {
             return false;
         }
@@ -70,7 +108,7 @@ class Encryption
         $ciphertext = substr($data, $ivLength);
         return openssl_decrypt(
             $ciphertext,
-            self::CIPHER,
+            self::CIPHER_CTR,
             $this->key,
             OPENSSL_RAW_DATA,
             $iv

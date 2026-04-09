@@ -29,7 +29,22 @@ use App\Controllers\SetupController;
 // Secure session
 ini_set('session.use_strict_mode', '1');
 ini_set('session.use_only_cookies', '1');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Strict');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    ini_set('session.cookie_secure', '1');
+}
 session_start();
+
+// Generate CSRF token if not present
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self';");
 
 // All API communication is via POST with an X-Action header.
 // GET requests serve the SPA shell or the setup page.
@@ -40,14 +55,26 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'POST') {
     $action = $_SERVER['HTTP_X_ACTION'] ?? '';
 
-    // Setup routes work without a DB connection
+    // Setup routes work without a DB connection — locked once configured
     if (str_starts_with($action, 'setup/')) {
+        $credFile = __DIR__ . '/../config/credentials.php';
+        if (file_exists($credFile)) {
+            jsonError('Setup is disabled — application is already configured', 403);
+            exit;
+        }
         $controller = new SetupController();
         match ($action) {
             'setup/test' => $controller->testConnection(),
             'setup/save' => $controller->saveConfig(),
             default => jsonError('Unknown setup action', 404),
         };
+        exit;
+    }
+
+    // CSRF verification for all non-setup POST requests
+    $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfToken)) {
+        jsonError('Invalid CSRF token', 403);
         exit;
     }
 
@@ -59,7 +86,11 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'Database unavailable', 'setup_required' => true]);
         exit;
     }
-    $db->initSchema();
+    // Init schema once per session to avoid repeated DDL
+    if (empty($_SESSION['schema_ready'])) {
+        $db->initSchema();
+        $_SESSION['schema_ready'] = true;
+    }
 
     match ($action) {
         // Game
@@ -88,7 +119,11 @@ if (!$db->connect()) {
     require __DIR__ . '/../app/Views/setup.php';
     exit;
 }
-$db->initSchema();
+// Init schema once per session to avoid repeated DDL
+if (empty($_SESSION['schema_ready'])) {
+    $db->initSchema();
+    $_SESSION['schema_ready'] = true;
+}
 
 // Poor man's cron: run GDPR cleanup once per day on visitor traffic
 $cleanupStamp = __DIR__ . '/../storage/last_cleanup.txt';
