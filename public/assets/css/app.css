@@ -29,8 +29,18 @@
     --swift-neutral: #f8f8f8;
     --swift-danger: #c0392b;
     --swift-success: #01a990;
+    /* PicoCSS overrides — all button variables */
     --pico-primary: #01a990;
+    --pico-primary-background: #01a990;
+    --pico-primary-border: #01a990;
+    --pico-primary-underline: #01a990;
     --pico-primary-hover: #018a76;
+    --pico-primary-hover-background: #018a76;
+    --pico-primary-hover-border: #018a76;
+    --pico-primary-focus: rgba(1, 169, 144, 0.25);
+    --pico-primary-inverse: #ffffff;
+    --pico-form-element-focus-color: rgba(1, 169, 144, 0.25);
+    --pico-font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
 }
 
 /* =========================================================
@@ -785,23 +795,10 @@ html, body {
     font-size: 1.15rem;
 }
 
-button.btn-start,
-.btn-start.btn-primary {
-    background: var(--swift-emerald) !important;
-    color: var(--swift-white) !important;
-    border: 1px solid var(--swift-emerald) !important;
-    border-radius: 8px;
+.btn-start {
     width: 100%;
     padding: 1rem;
     font-size: 1.2rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-button.btn-start:hover,
-.btn-start.btn-primary:hover {
-    background: #018a76 !important;
 }
 
 /* =========================================================
@@ -949,26 +946,3 @@ button.btn-start:hover,
     }
 }
 
-/* =========================================================
-   Critical Overrides (must be last)
-   ========================================================= */
-/* Override PicoCSS button styles for Play button */
-#startGameBtn,
-button#startGameBtn,
-.btn-start,
-button.btn-start,
-.btn-primary.btn-start {
-    background-color: var(--swift-emerald) !important;
-    background: var(--swift-emerald) !important;
-    color: var(--swift-white) !important;
-    border-color: var(--swift-emerald) !important;
-}
-
-#startGameBtn:hover,
-button#startGameBtn:hover,
-.btn-start:hover,
-button.btn-start:hover,
-.btn-primary.btn-start:hover {
-    background-color: #018a76 !important;
-    background: #018a76 !important;
-}

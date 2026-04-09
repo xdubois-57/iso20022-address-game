@@ -226,7 +226,7 @@
         html += '<input type="text" id="welcomeNameInput" placeholder="Enter your name to start" maxlength="50" class="name-input"';
         if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
-        html += '<button class="btn-primary btn-start" id="startGameBtn" style="background:#01a990!important;background-color:#01a990!important;color:#fff!important;border:1px solid #01a990!important;">Start Game</button>';
+        html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
         html += '</div></section>';
         appContainer.innerHTML = html;
 
