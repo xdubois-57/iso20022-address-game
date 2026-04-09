@@ -54,8 +54,8 @@ html, body {
    Header
    ========================================================= */
 .game-header {
-    background: var(--swift-peppermint);
-    color: var(--swift-dark-green);
+    background: var(--swift-emerald);
+    color: var(--swift-white);
     padding: 1rem 1.5rem;
     position: sticky;
     top: 0;
@@ -74,7 +74,7 @@ html, body {
     font-size: 1.4rem;
     margin: 0;
     font-weight: 700;
-    color: var(--swift-dark-green);
+    color: var(--swift-white);
 }
 
 .header-nav {
@@ -83,9 +83,9 @@ html, body {
 }
 
 .nav-btn {
-    background: var(--swift-white);
-    color: var(--swift-dark-green);
-    border: 1px solid var(--swift-dark-green);
+    background: rgba(255,255,255,0.12);
+    color: var(--swift-white);
+    border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
     padding: 0.6rem 1.3rem;
     font-size: 0.95rem;
@@ -96,13 +96,13 @@ html, body {
 }
 
 .nav-btn:hover, .nav-btn:focus {
-    background: var(--swift-light-peppermint);
+    background: rgba(255,255,255,0.25);
 }
 
 .nav-btn.active {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
-    border-color: var(--swift-emerald);
+    background: var(--swift-peppermint);
+    color: var(--swift-dark-green);
+    border-color: var(--swift-peppermint);
 }
 
 .stop-btn {
