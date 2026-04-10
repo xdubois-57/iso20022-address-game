@@ -70,6 +70,29 @@ class LeaderboardModel
     }
 
     /**
+     * Get N most recent entries by creation date.
+     */
+    public function getRecentEntries(int $limit = 5): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY created_at DESC LIMIT ?'
+        );
+        $stmt->execute([$limit]);
+        $rows = $stmt->fetchAll();
+
+        return array_map(function ($row) {
+            try {
+                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
+            } catch (\Throwable $e) {
+                $row['player_name'] = '[redacted]';
+            }
+            unset($row['encrypted_name']);
+            return $row;
+        }, $rows);
+    }
+
+    /**
      * Delete a single leaderboard entry by ID.
      */
     public function deleteEntry(int $id): bool

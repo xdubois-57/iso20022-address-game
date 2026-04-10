@@ -35,11 +35,25 @@ class LeaderboardController
 
     /**
      * POST /api/leaderboard/top — Get the Hall of Fame.
+     * Returns top 50 by score + 5 most recent entries (always visible).
      */
     public function getTop(): void
     {
-        $entries = $this->leaderboardModel->getTopEntries(50);
-        $this->jsonResponse(['entries' => $entries]);
+        $topEntries = $this->leaderboardModel->getTopEntries(50);
+        $recentEntries = $this->leaderboardModel->getRecentEntries(5);
+        
+        // Extract IDs from top 50 for deduplication
+        $topIds = array_column($topEntries, 'id');
+        
+        // Filter recent entries that are NOT in top 50
+        $additionalRecent = array_filter($recentEntries, function($entry) use ($topIds) {
+            return !in_array($entry['id'], $topIds);
+        });
+        
+        $this->jsonResponse([
+            'entries' => $topEntries,
+            'recent' => array_values($additionalRecent)
+        ]);
     }
 
     /**

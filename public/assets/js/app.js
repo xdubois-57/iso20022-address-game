@@ -711,16 +711,19 @@
         if (!data) return;
 
         var entries = data.entries || [];
+        var recentEntries = data.recent || [];
         var highlightIdx = -1;
         var html = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>';
         html += '<div class="leaderboard-table-wrap">';
 
-        if (entries.length === 0) {
+        if (entries.length === 0 && recentEntries.length === 0) {
             html += '<p class="empty-state">No entries yet. Be the first to play!</p>';
         } else {
             html += '<table class="leaderboard-table"><thead><tr>';
             html += '<th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Date</th>';
             html += '</tr></thead><tbody>';
+            
+            // Display top 50 entries
             entries.forEach(function (entry, i) {
                 var ts = parseInt(entry.time_seconds) || 0;
                 var tm = Math.floor(ts / 60);
@@ -739,19 +742,26 @@
                 html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
             });
 
-            // If last submitted entry is not in the top 50, show it below a separator
-            if (lastSubmittedEntry && highlightIdx === -1) {
-                var lts = lastSubmittedEntry.time || 0;
-                var ltm = Math.floor(lts / 60);
-                var ltss = lts % 60;
-                var lTimeDisplay = ltm + ':' + (ltss < 10 ? '0' : '') + ltss;
-                html += '<tr class="leaderboard-separator"><td colspan="5">\u2022 \u2022 \u2022</td></tr>';
-                html += '<tr class="my-entry"><td>-</td>';
-                html += '<td>' + escapeHtml(lastSubmittedEntry.name) + '</td>';
-                html += '<td>' + lastSubmittedEntry.score + '%</td>';
-                html += '<td>' + lTimeDisplay + '</td>';
-                html += '<td>Just now</td></tr>';
-                highlightIdx = entries.length; // mark as found for party effect
+            // Display 5 most recent entries not in top 50 (below separator)
+            if (recentEntries.length > 0) {
+                html += '<tr class="leaderboard-separator"><td colspan="5">Recent Entries</td></tr>';
+                recentEntries.forEach(function (entry) {
+                    var ts = parseInt(entry.time_seconds) || 0;
+                    var tm = Math.floor(ts / 60);
+                    var tss = ts % 60;
+                    var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
+                    var isMe = lastSubmittedEntry &&
+                        entry.player_name === lastSubmittedEntry.name &&
+                        parseInt(entry.score) === lastSubmittedEntry.score &&
+                        parseInt(entry.time_seconds) === lastSubmittedEntry.time &&
+                        highlightIdx === -1;
+                    if (isMe) highlightIdx = entries.length + recentEntries.indexOf(entry);
+                    html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>-</td>';
+                    html += '<td>' + escapeHtml(entry.player_name) + '</td>';
+                    html += '<td>' + entry.score + '%</td>';
+                    html += '<td>' + timeDisplay + '</td>';
+                    html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
+                });
             }
 
             html += '</tbody></table>';
