@@ -26,7 +26,9 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
 - **Hall of Fame** — Encrypted leaderboard with GDPR-compliant 30-day retention
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
-- **Privacy by Design** — No cookies, no tracking, AES-256-CTR encryption at rest
+- **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
+- **Responsive** — Mobile hamburger menu, touch-first design for tablets
+- **Cache Busting** — Automatic browser refresh when CSS/JS files change
 
 ## Requirements
 
@@ -92,9 +94,21 @@ Configure your web server's document root to the `public/` directory.
 |------|
 | ISO 20022 is used by over 200 market infrastructures worldwide. |
 
+## Security
+
+- **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
+- **CSRF protection**: Token-based validation on all POST requests
+- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout)
+- **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options
+- **Admin PIN**: Stored as bcrypt hash; legacy plaintext auto-upgraded on login
+- **Prepared statements**: All database queries use parameterised PDO statements
+- **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
+
 ## Running Tests
 
 ```bash
+composer install --dev
 composer test
 ```
 
@@ -106,7 +120,17 @@ Schedule the cleanup script to run daily:
 0 3 * * * php /path/to/scripts/cleanup.php
 ```
 
-This deletes leaderboard entries older than 30 days.
+This deletes leaderboard entries older than 30 days. A fallback "poor man's cron" also runs cleanup automatically once per day on visitor traffic.
+
+## Deployment
+
+An FTP deployment script is included:
+
+```bash
+./deploy.sh
+```
+
+This script runs `composer install --no-dev`, then syncs files to the production server via `lftp`.
 
 ## License
 

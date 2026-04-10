@@ -1050,19 +1050,20 @@
 
         html += '<h3>3. Categories of Personal Data Collected</h3>';
         html += '<table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
-        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Encrypted at rest (AES-256-CTR)</td><td>30 days, then automatically deleted</td></tr>';
+        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Encrypted at rest (AES-256-GCM)</td><td>30 days, then automatically deleted</td></tr>';
         html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>30 days</td></tr>';
-        html += '<tr><td>Admin session ID</td><td>Admin authentication only</td><td>Server-side session (no cookie for players)</td><td>Session duration only</td></tr>';
+        html += '<tr><td>Session cookie (PHPSESSID)</td><td>CSRF protection &amp; admin authentication</td><td>Server-side; cookie contains only a random session ID</td><td>Browser session (deleted on close)</td></tr>';
         html += '</tbody></table>';
-        html += '<p>No other personal data (e-mail, IP address, device fingerprint, location, etc.) is collected, stored, or processed.</p>';
+        html += '<p>No other personal data (e-mail, IP address, device fingerprint, location, etc.) is collected, stored, or processed. The session cookie is a strictly necessary technical cookie and does not require consent under GDPR (Recital 30, ePrivacy Directive Art. 5(3) exemption).</p>';
 
         html += '<h3>4. Data Minimisation (Art. 5(1)(c))</h3>';
         html += '<p>This application strictly follows the principle of data minimisation. Only the player name is collected &mdash; and only when the player voluntarily submits it. ';
         html += 'No personal data is required to play the game. The game can be played without submitting any personal information.</p>';
 
-        html += '<h3>5. No Cookies, No Tracking, No Analytics</h3>';
+        html += '<h3>5. Cookies, Tracking &amp; Analytics</h3>';
         html += '<p>This application:</p>';
         html += '<ul>';
+        html += '<li>Uses a single <strong>strictly necessary</strong> session cookie (PHPSESSID) for security (CSRF protection). This cookie contains no personal data and is deleted when the browser is closed.</li>';
         html += '<li>Does <strong>not</strong> use cookies for tracking or advertising.</li>';
         html += '<li>Does <strong>not</strong> use any analytics services (Google Analytics, Matomo, etc.).</li>';
         html += '<li>Does <strong>not</strong> employ browser fingerprinting or any other tracking technology.</li>';
@@ -1074,7 +1075,7 @@
         html += '<h3>6. Pseudonymisation &amp; Security Measures (Art. 32)</h3>';
         html += '<p>The following technical and organisational measures are implemented to protect personal data:</p>';
         html += '<ul>';
-        html += '<li><strong>Encryption at rest</strong> &mdash; Player names are encrypted using AES-256-CTR with a unique initialisation vector (IV) per entry before storage. The encryption key is stored separately from the database.</li>';
+        html += '<li><strong>Encryption at rest</strong> &mdash; Player names are encrypted using AES-256-GCM (authenticated encryption) with a unique initialisation vector (IV) per entry before storage. The encryption key is stored separately from the database.</li>';
         html += '<li><strong>Encryption in transit</strong> &mdash; HTTPS/TLS should be enabled on the hosting server (deployment responsibility of the data controller).</li>';
         html += '<li><strong>Hashed credentials</strong> &mdash; The admin PIN is stored as a bcrypt hash. Plaintext PINs are never stored.</li>';
         html += '<li><strong>Session security</strong> &mdash; Session IDs are regenerated on authentication events to prevent session fixation attacks.</li>';

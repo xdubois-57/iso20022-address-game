@@ -75,7 +75,7 @@ class LeaderboardModel
     public function getRecentEntries(int $limit = 5): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY created_at DESC LIMIT ?'
+            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY id DESC LIMIT ?'
         );
         $stmt->execute([$limit]);
         $rows = $stmt->fetchAll();

@@ -166,4 +166,41 @@ class LeaderboardModelTest extends TestCase
         $this->assertEquals('Alice', $entries[0]['player_name']);
         $this->assertEquals('Charlie', $entries[1]['player_name']);
     }
+
+    public function testGetRecentEntriesReturnsMostRecent(): void
+    {
+        $this->model->addEntry('First', 50);
+        $this->model->addEntry('Second', 60);
+        $this->model->addEntry('Third', 70);
+
+        $recent = $this->model->getRecentEntries(2);
+        $this->assertCount(2, $recent);
+        // Most recent first
+        $this->assertEquals('Third', $recent[0]['player_name']);
+        $this->assertEquals('Second', $recent[1]['player_name']);
+    }
+
+    public function testGetRecentEntriesRespectsLimit(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->model->addEntry("Player$i", $i * 10);
+        }
+
+        $recent = $this->model->getRecentEntries(5);
+        $this->assertCount(5, $recent);
+    }
+
+    public function testGetRecentEntriesRemovesEncryptedNameField(): void
+    {
+        $this->model->addEntry('Alice', 50);
+        $recent = $this->model->getRecentEntries(5);
+        $this->assertArrayNotHasKey('encrypted_name', $recent[0]);
+        $this->assertArrayHasKey('player_name', $recent[0]);
+    }
+
+    public function testGetRecentEntriesEmptyTable(): void
+    {
+        $recent = $this->model->getRecentEntries(5);
+        $this->assertCount(0, $recent);
+    }
 }

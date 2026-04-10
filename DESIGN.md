@@ -27,18 +27,19 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 ### 2.1 Model (Data & Logic)
 
 - **Database**: MySQL with PDO
-- **Encryption**: AES-256-CTR via `openssl_encrypt` for player names (PII) and sensitive tokens
+- **Encryption**: AES-256-GCM (authenticated encryption) via `openssl_encrypt` for player names (PII), with legacy AES-256-CTR decryption support
 - **Data Parsing**: `PhpOffice\PhpSpreadsheet` for Excel scenario extraction
 - **Validation**: Chip-to-Slot accuracy based on PMPG rules
 
 ### 2.2 View (UI/UX)
 
 - **Framework**: PicoCSS (semantic HTML, minimal footprint)
-- **Branding** (Swift.com Palette):
-  - Primary: `#003a70` (Swift Blue)
-  - Accent: `#daaa00` (Swift Gold)
-  - Secondary: `#75787b` (Slate)
-  - Background: `#f4f7f9`
+- **Branding** (Swift Palette):
+  - Primary: `#01a990` (Emerald)
+  - Accent: `#acf9e9` (Peppermint)
+  - Text/Headers: `#333d3e` (Dark Green)
+  - Muted: `#698287` (Grey Green)
+  - Background: `#ffffff` (White)
 - **Animations**: `canvas-confetti` for high-score celebrations
 
 ### 2.3 Controller (Traffic & API)
@@ -64,6 +65,11 @@ Each chip must match its specific semantic slot:
 ### Session Management
 - 30s inactivity timer triggers a 10s countdown overlay
 - Global "Stop" button always available for immediate reset
+- Custom overlay modals replace native `alert()` / `confirm()` to maintain fullscreen mode
+
+### Responsive Design
+- Hamburger menu on mobile (≤768px) collapses header navigation
+- Grid layout adapts to single-column on smaller screens
 
 ## 4. Data Structures
 
@@ -91,19 +97,24 @@ Each chip must match its specific semantic slot:
 
 ```sql
 scenarios: id, json_data, goal_type, created_at
-leaderboard: id, encrypted_name, score, created_at
+leaderboard: id, encrypted_name, score, time_seconds, created_at
 facts: id, message_text, created_at
 settings: setting_key, setting_value, updated_at
 ```
 
 ## 5. Security & GDPR
 
-- **No cookies, no tracking**
-- **Pseudonymisation**: Player names encrypted with AES-256-CTR at rest
-- **Retention**: Auto-deletion of leaderboard entries after 30 days
-- **Input sanitisation**: All inputs sanitised; outputs use `htmlspecialchars()`
-- **Sessions**: Secure PHP sessions with `session_regenerate_id()`
-- **Credentials**: `config/credentials.php` excluded from version control
+- **Session cookie**: A single strictly necessary PHPSESSID cookie is used for CSRF protection and admin authentication. No tracking cookies.
+- **CSRF protection**: All POST requests validated via `hash_equals()` token comparison
+- **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
+- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout)
+- **Retention**: Auto-deletion of leaderboard entries after 30 days (cron + poor man's cron fallback)
+- **Input sanitisation**: All inputs validated and sanitised; XSS prevention via `escapeHtml()` on client and `htmlspecialchars()` on server
+- **Sessions**: Secure PHP sessions with `session_regenerate_id()`, HttpOnly, SameSite=Strict flags
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options
+- **Credentials**: `config/credentials.php` excluded from version control, protected by `.htaccess`
+- **Admin PIN**: Stored as bcrypt hash; legacy plaintext PINs auto-upgraded on login
+- **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
 
 ## 6. Directory Structure
 
@@ -124,10 +135,12 @@ settings: setting_key, setting_value, updated_at
 ├── scripts/
 │   ├── cleanup.php     # GDPR retention cron job
 │   └── schema.sql      # Database schema
+├── storage/            # Runtime data (last_cleanup timestamp)
 ├── tests/              # PHPUnit tests
 ├── vendor/             # Composer dependencies
 ├── composer.json
 ├── phpunit.xml
+├── deploy.sh           # FTP deployment script
 ├── README.md
 ├── DESIGN.md
 └── LICENSE

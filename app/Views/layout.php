@@ -18,10 +18,12 @@
  */
 
 // Cache busting helper: appends file modification timestamp to URL
-function assetUrl($path) {
-    $fullPath = __DIR__ . '/../../public/' . $path;
-    $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
-    return $path . '?v=' . $mtime;
+if (!function_exists('assetUrl')) {
+    function assetUrl($path) {
+        $fullPath = __DIR__ . '/../../public/' . $path;
+        $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
+        return $path . '?v=' . $mtime;
+    }
 }
 ?>
 <!DOCTYPE html>

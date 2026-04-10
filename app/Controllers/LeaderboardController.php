@@ -47,7 +47,7 @@ class LeaderboardController
         
         // Filter recent entries that are NOT in top 50
         $additionalRecent = array_filter($recentEntries, function($entry) use ($topIds) {
-            return !in_array($entry['id'], $topIds);
+            return !in_array($entry['id'], $topIds, true);
         });
         
         $this->jsonResponse([
