@@ -166,33 +166,26 @@ html, body {
     font-size: 0.85rem;
 }
 
-.privacy-link {
+.footer-link {
     color: var(--swift-emerald);
     text-decoration: underline;
     cursor: pointer;
+    font-size: 0.85rem;
 }
 
-.privacy-link:hover {
+.footer-link:hover {
     color: var(--swift-dark-green);
 }
 
 .footer-separator {
     margin: 0 0.5rem;
     color: var(--swift-grey-green);
+    font-size: 0.85rem;
 }
 
-.footer-disclaimer {
-    font-size: 0.75rem;
+.footer-text {
     color: var(--swift-grey-green);
-}
-
-.footer-disclaimer a {
-    color: var(--swift-grey-green);
-    text-decoration: underline;
-}
-
-.footer-disclaimer a:hover {
-    color: var(--swift-emerald);
+    font-size: 0.85rem;
 }
 
 /* =========================================================

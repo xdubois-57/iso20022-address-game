@@ -57,9 +57,13 @@ function assetUrl($path) {
     </main>
 
     <footer class="game-footer">
-        <a href="#" data-screen="privacy" class="privacy-link">Privacy &amp; GDPR</a>
+        <a href="#" data-screen="privacy" class="footer-link">Privacy &amp; GDPR</a>
         <span class="footer-separator">•</span>
-        <span class="footer-disclaimer">For entertainment only • <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener">GPL-3.0</a></span>
+        <span class="footer-text">For entertainment only</span>
+        <span class="footer-separator">•</span>
+        <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener" class="footer-link">GPL-3.0</a>
+        <span class="footer-separator">•</span>
+        <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener" class="footer-link">GitHub</a>
     </footer>
 
     <!-- Inactivity overlay -->
