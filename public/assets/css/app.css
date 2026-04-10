@@ -176,6 +176,25 @@ html, body {
     color: var(--swift-dark-green);
 }
 
+.footer-separator {
+    margin: 0 0.5rem;
+    color: var(--swift-grey-green);
+}
+
+.footer-disclaimer {
+    font-size: 0.75rem;
+    color: var(--swift-grey-green);
+}
+
+.footer-disclaimer a {
+    color: var(--swift-grey-green);
+    text-decoration: underline;
+}
+
+.footer-disclaimer a:hover {
+    color: var(--swift-emerald);
+}
+
 /* =========================================================
    Main / SPA Container
    ========================================================= */
