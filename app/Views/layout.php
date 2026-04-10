@@ -16,6 +16,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+
+// Cache busting helper: appends file modification timestamp to URL
+function assetUrl($path) {
+    $fullPath = __DIR__ . '/../../public/' . $path;
+    $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
+    return $path . '?v=' . $mtime;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -25,7 +32,7 @@
     <title>ISO 20022 Address Game</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css">
-    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="<?= assetUrl('assets/css/app.css') ?>">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>
@@ -64,6 +71,6 @@
 
     <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>
