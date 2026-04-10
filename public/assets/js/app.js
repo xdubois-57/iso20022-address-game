@@ -56,6 +56,8 @@
     const countdownTimer = document.getElementById('countdownTimer');
     const continueBtn = document.getElementById('continueBtn');
     const stopBtn = document.getElementById('stopBtn');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const headerNav = document.getElementById('headerNav');
 
     /* =======================================================
        API Helper
@@ -127,11 +129,30 @@
     document.querySelectorAll('[data-screen]').forEach(function (el) {
         el.addEventListener('click', function (e) {
             e.preventDefault();
+            closeHamburger();
             showScreen(this.dataset.screen);
         });
     });
 
-    stopBtn.addEventListener('click', resetSession);
+    stopBtn.addEventListener('click', function () {
+        closeHamburger();
+        resetSession();
+    });
+
+    /* =======================================================
+       Hamburger Menu (mobile)
+       ======================================================= */
+    function closeHamburger() {
+        hamburgerBtn.classList.remove('open');
+        hamburgerBtn.setAttribute('aria-expanded', 'false');
+        headerNav.classList.remove('open');
+    }
+
+    hamburgerBtn.addEventListener('click', function () {
+        var isOpen = headerNav.classList.toggle('open');
+        hamburgerBtn.classList.toggle('open', isOpen);
+        hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+    });
 
     /* =======================================================
        Inactivity Timer
@@ -268,7 +289,7 @@
             if (currentRound > 1) { showFinalScore(); return; }
             appContainer.innerHTML = '<div style="text-align:center;padding:2rem;">' +
                 '<h2>No Scenarios Available</h2>' +
-                '<p>' + (data ? data.error : 'Network error') + '</p>' +
+                '<p>' + escapeHtml(data ? data.error : 'Network error') + '</p>' +
                 '<button class="btn-primary" onclick="location.reload()">Retry</button></div>';
             return;
         }
@@ -299,9 +320,9 @@
         html += '<p class="hint-text">Drag the value chips to the correct ISO 20022 fields \u2192</p>';
         html += '<div class="chip-container" id="chipContainer">';
         scenario.chips.forEach(function (chip) {
-            html += '<div class="chip" draggable="true" data-chip-id="' + chip.id +
-                '" data-chip-field="' + chip.field + '" data-chip-value="' + chip.value + '">' +
-                chip.value + '</div>';
+            html += '<div class="chip" draggable="true" data-chip-id="' + escapeHtml(chip.id) +
+                '" data-chip-field="' + escapeHtml(chip.field) + '" data-chip-value="' + escapeHtml(chip.value) + '">' +
+                escapeHtml(chip.value) + '</div>';
         });
         html += '</div>';
         if (data.fact) {
@@ -313,7 +334,7 @@
         // Right: Target panel
         html += '<div class="target-panel">';
         html += '<h2>ISO 20022 Structured Address</h2>';
-        html += '<div class="goal-badge">' + scenario.goal_type + '</div>';
+        html += '<div class="goal-badge">' + escapeHtml(scenario.goal_type) + '</div>';
         html += '<div class="slot-container" id="slotContainer">';
         scenario.slots.forEach(function (slot) {
             html += '<div class="slot' + (slot.mandatory ? ' mandatory' : '') +
@@ -500,8 +521,8 @@
             var inner = '';
             chips.forEach(function (c) {
                 inner += '<span class="slot-chip">' + escapeHtml(c.value) +
-                    '<button class="slot-remove" data-remove-chip="' + c.id +
-                    '" data-slot="' + slotId + '">&times;</button></span> ';
+                    '<button class="slot-remove" data-remove-chip="' + escapeHtml(c.id) +
+                    '" data-slot="' + escapeHtml(slotId) + '">&times;</button></span> ';
             });
             contentEl.innerHTML = inner;
             slotEl.classList.add('filled');
@@ -1107,9 +1128,9 @@
     }
 
     function decodeHtml(str) {
-        var div = document.createElement('div');
-        div.innerHTML = str || '';
-        return div.textContent;
+        var ta = document.createElement('textarea');
+        ta.textContent = str || '';
+        return ta.value;
     }
 
     function formatDate(dateStr) {

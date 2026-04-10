@@ -33,7 +33,10 @@
     <header class="game-header">
         <div class="header-content">
             <h1 class="logo">ISO 20022 Address Game</h1>
-            <nav class="header-nav">
+            <button class="hamburger" id="hamburgerBtn" aria-label="Menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="header-nav" id="headerNav">
                 <button class="nav-btn" data-screen="game" aria-label="Play">Play</button>
                 <button class="nav-btn" data-screen="leaderboard" aria-label="Hall of Fame">Hall of Fame</button>
                 <button class="nav-btn" data-screen="admin" aria-label="Admin">Admin</button>

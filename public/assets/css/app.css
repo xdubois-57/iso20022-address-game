@@ -92,6 +92,38 @@ html, body {
     gap: 0.5rem;
 }
 
+/* Hamburger button — hidden on desktop */
+.hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.hamburger span {
+    display: block;
+    width: 26px;
+    height: 3px;
+    background: var(--swift-dark-green);
+    border-radius: 2px;
+    transition: transform 0.25s, opacity 0.25s;
+}
+
+.hamburger.open span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger.open span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.open span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
 .nav-btn {
     background: var(--swift-emerald);
     color: var(--swift-white);
@@ -979,6 +1011,37 @@ html, body {
 @media (max-width: 768px) {
     .game-layout {
         grid-template-columns: 1fr;
+    }
+
+    .hamburger {
+        display: flex;
+    }
+
+    .header-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        left: 0;
+        background: var(--swift-peppermint);
+        flex-direction: column;
+        padding: 0.5rem 1rem 1rem;
+        gap: 0.4rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 101;
+    }
+
+    .header-nav.open {
+        display: flex;
+    }
+
+    .header-nav .nav-btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .game-header {
+        position: relative;
     }
 }
 
