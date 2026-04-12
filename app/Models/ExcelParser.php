@@ -31,16 +31,15 @@ class ExcelParser
     ];
 
     /**
-     * Parse the uploaded Excel file and return scenarios + facts.
+     * Parse the uploaded Excel file and return scenarios.
      *
      * Sheet 1 ("Scenarios"): Address scenarios
-     * Sheet 2 ("Facts"): "Did you know?" messages
      *
-     * @return array{scenarios: array, facts: array, errors: array}
+     * @return array{scenarios: array, errors: array}
      */
     public function parse(string $filePath): array
     {
-        $result = ['scenarios' => [], 'facts' => [], 'errors' => []];
+        $result = ['scenarios' => [], 'errors' => []];
 
         try {
             $spreadsheet = IOFactory::load($filePath);
@@ -51,9 +50,6 @@ class ExcelParser
 
         // Parse Scenarios sheet
         $result = $this->parseScenarios($spreadsheet, $result);
-
-        // Parse Facts sheet
-        $result = $this->parseFacts($spreadsheet, $result);
 
         return $result;
     }
@@ -137,34 +133,4 @@ class ExcelParser
         return $result;
     }
 
-    /**
-     * Parse the Facts sheet (second sheet).
-     */
-    private function parseFacts(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, array $result): array
-    {
-        try {
-            $sheet = $spreadsheet->getSheet(1);
-        } catch (\Exception $e) {
-            // Facts sheet is optional
-            return $result;
-        }
-
-        $rows = $sheet->toArray(null, true, true, true);
-        if (empty($rows)) {
-            return $result;
-        }
-
-        // Skip header row
-        array_shift($rows);
-
-        foreach ($rows as $row) {
-            $values = array_values($row);
-            $text = trim((string) ($values[0] ?? ''));
-            if ($text !== '') {
-                $result['facts'][] = $text;
-            }
-        }
-
-        return $result;
-    }
 }

@@ -88,12 +88,6 @@ Configure your web server's document root to the `public/` directory.
 |--------|--------|-------|--------|------|------------|-----------|
 | Main St | 123 | 10001 | New York | US | Floor 10 | Structured |
 
-### Sheet 2: Facts (optional)
-
-| Fact |
-|------|
-| ISO 20022 is used by over 200 market infrastructures worldwide. |
-
 ## Security
 
 - **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest

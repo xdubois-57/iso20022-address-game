@@ -26,10 +26,6 @@
             <div class="chip-container" id="chipContainer">
                 <!-- Chips rendered dynamically by JS -->
             </div>
-            <div class="fact-box" id="factBox">
-                <strong>Did you know?</strong>
-                <p id="factText"></p>
-            </div>
         </div>
 
         <!-- Right panel: ISO 20022 Target Slots -->

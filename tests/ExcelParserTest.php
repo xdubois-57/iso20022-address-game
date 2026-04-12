@@ -44,7 +44,7 @@ class ExcelParserTest extends TestCase
         rmdir($this->tmpDir);
     }
 
-    private function createTestExcel(array $scenarioRows, array $factRows = []): string
+    private function createTestExcel(array $scenarioRows): string
     {
         $spreadsheet = new Spreadsheet();
 
@@ -58,16 +58,6 @@ class ExcelParserTest extends TestCase
         foreach ($scenarioRows as $rowIdx => $row) {
             foreach ($row as $col => $value) {
                 $sheet->setCellValueByColumnAndRow($col + 1, $rowIdx + 2, $value);
-            }
-        }
-
-        // Sheet 2: Facts
-        if (!empty($factRows)) {
-            $factsSheet = $spreadsheet->createSheet();
-            $factsSheet->setTitle('Facts');
-            $factsSheet->setCellValue('A1', 'Fact');
-            foreach ($factRows as $idx => $fact) {
-                $factsSheet->setCellValue('A' . ($idx + 2), $fact);
             }
         }
 
@@ -137,21 +127,6 @@ class ExcelParserTest extends TestCase
         $result = $parser->parse($filePath);
 
         $this->assertNotEmpty($result['errors']);
-    }
-
-    public function testParseFacts(): void
-    {
-        $filePath = $this->createTestExcel(
-            [['Main St', '123', '10001', 'New York', 'US', '', 'Structured']],
-            ['ISO 20022 is the global standard.', 'SWIFT processes billions of messages.']
-        );
-
-        $parser = new ExcelParser();
-        $result = $parser->parse($filePath);
-
-        $this->assertEmpty($result['errors']);
-        $this->assertCount(2, $result['facts']);
-        $this->assertEquals('ISO 20022 is the global standard.', $result['facts'][0]);
     }
 
     public function testParseNonExistentFileReportsError(): void

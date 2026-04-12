@@ -3,7 +3,7 @@
  * ISO 20022 Address Structuring Game
  * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
  *
- * Generates the default Scenarios.xlsx with 50 credible entries and 15 facts.
+ * Generates the default Scenarios.xlsx with 50 credible entries.
  * Run: php scripts/generate_default_excel.php
  */
 
@@ -139,42 +139,9 @@ foreach (range('A', 'G') as $col) {
     $sheet->getColumnDimension($col)->setAutoSize(true);
 }
 
-// ── Sheet 2: Facts ──
-$factsSheet = $spreadsheet->createSheet();
-$factsSheet->setTitle('Facts');
-$factsSheet->setCellValue('A1', 'Fact');
-
-$facts = [
-    'ISO 20022 is used by over 200 market infrastructures across 70+ countries worldwide.',
-    'The SWIFT network processes an average of 44.8 million messages per day.',
-    'Structured addresses reduce payment repair rates by up to 40%.',
-    'ISO 20022 supports 10 address components, replacing the legacy 4-line free-text format.',
-    'The <TwnNm> and <Ctry> fields are the only mandatory address elements in ISO 20022.',
-    'Country codes in ISO 20022 must follow the ISO 3166-1 alpha-2 standard (2-letter codes).',
-    'Each <AdrLine> element in hybrid mode is limited to 70 characters maximum.',
-    'SWIFT\'s CBPR+ guidelines require structured addresses for cross-border payments from 2026.',
-    'The European Payments Council mandates ISO 20022 for all SEPA transactions.',
-    'ISO 20022 was first published in 2004 and has been adopted globally over two decades.',
-    'Hybrid addressing allows mixing structured fields with free-text address lines.',
-    'The <BldgNb> field can contain letters and numbers (e.g., "221B").',
-    'ISO 20022 address data improves sanctions screening accuracy by 25%.',
-    'The Fedwire Funds Service migrated to ISO 20022 in March 2025.',
-    'Over 10,000 financial institutions worldwide exchange ISO 20022 messages daily.',
-    'The Bank of England adopted ISO 20022 for CHAPS in June 2023.',
-    'Structured addresses enable straight-through processing (STP) without manual intervention.',
-    'In ISO 20022, <PstCd> (Postal Code) is optional but strongly recommended for accuracy.',
-    'The TARGET2 system in the Eurozone completed its migration to ISO 20022 in March 2023.',
-    'ISO 20022 messages use XML syntax and can represent over 400 different business processes.',
-];
-
-foreach ($facts as $idx => $fact) {
-    $factsSheet->setCellValue('A' . ($idx + 2), $fact);
-}
-$factsSheet->getColumnDimension('A')->setAutoSize(true);
-
 // ── Write ──
 $outputPath = __DIR__ . '/../public/assets/Scenarios.xlsx';
 $writer = new Xlsx($spreadsheet);
 $writer->save($outputPath);
 
-echo "Generated $outputPath with " . count($scenarios) . " scenarios and " . count($facts) . " facts.\n";
+echo "Generated $outputPath with " . count($scenarios) . " scenarios.\n";

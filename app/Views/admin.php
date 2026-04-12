@@ -50,7 +50,7 @@
 
         <div class="admin-section">
             <h3>Upload Scenarios</h3>
-            <p>Upload an Excel file (.xlsx) with scenario data and "Did you know?" facts.</p>
+            <p>Upload an Excel file (.xlsx) with scenario data.</p>
             <form class="dropzone" id="excelDropzone" action="#">
                 <div class="dz-message">
                     <span>Drop .xlsx file here or tap to browse</span>

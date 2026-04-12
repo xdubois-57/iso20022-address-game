@@ -21,19 +21,16 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\ScenarioModel;
-use App\Models\FactModel;
 
 class GameController
 {
     private ScenarioModel $scenarioModel;
-    private FactModel $factModel;
 
     public function __construct()
     {
         $db = Database::getInstance();
         $pdo = $db->getPdo();
         $this->scenarioModel = new ScenarioModel($pdo);
-        $this->factModel = new FactModel($pdo);
     }
 
     /**
@@ -50,8 +47,6 @@ class GameController
             return;
         }
 
-        $fact = $this->factModel->getRandom();
-
         $this->jsonResponse([
             'scenario' => [
                 'id' => $scenario['id'],
@@ -60,7 +55,6 @@ class GameController
                 'slots' => $this->getSlots($scenario['goal_type']),
                 'address_display' => $this->formatAddressDisplay($scenario['json_data']),
             ],
-            'fact' => $fact,
         ]);
     }
 

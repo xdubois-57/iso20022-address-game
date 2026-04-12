@@ -21,14 +21,12 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\ScenarioModel;
-use App\Models\FactModel;
 use App\Models\LeaderboardModel;
 use App\Models\ExcelParser;
 
 class AdminController
 {
     private ScenarioModel $scenarioModel;
-    private FactModel $factModel;
     private LeaderboardModel $leaderboardModel;
 
     public function __construct()
@@ -36,7 +34,6 @@ class AdminController
         $db = Database::getInstance();
         $pdo = $db->getPdo();
         $this->scenarioModel = new ScenarioModel($pdo);
-        $this->factModel = new FactModel($pdo);
         $this->leaderboardModel = new LeaderboardModel($pdo);
     }
 
@@ -190,19 +187,12 @@ class AdminController
             $this->scenarioModel->create($s['json_data'], $s['goal_type']);
         }
 
-        // Replace facts
-        $this->factModel->deleteAll();
-        foreach ($result['facts'] as $factText) {
-            $this->factModel->create($factText);
-        }
-
         unlink($tmpPath);
 
         $this->jsonResponse([
             'success' => true,
             'imported' => [
                 'scenarios' => count($result['scenarios']),
-                'facts' => count($result['facts']),
             ],
         ]);
     }
@@ -289,7 +279,7 @@ class AdminController
     }
 
     /**
-     * GET /api/admin/export — Export all scenarios and facts as Excel file.
+     * GET /api/admin/export — Export all scenarios as Excel file.
      */
     public function exportScenarios(): void
     {
@@ -300,7 +290,6 @@ class AdminController
         }
 
         $scenarios = $this->scenarioModel->getAll();
-        $facts = $this->factModel->getAll();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 
@@ -331,15 +320,6 @@ class AdminController
         foreach (range('A', 'G') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
-
-        // Sheet 2: Facts
-        $factsSheet = $spreadsheet->createSheet();
-        $factsSheet->setTitle('Facts');
-        $factsSheet->setCellValue('A1', 'Fact');
-        foreach ($facts as $idx => $fact) {
-            $factsSheet->setCellValue('A' . ($idx + 2), $fact['message_text']);
-        }
-        $factsSheet->getColumnDimension('A')->setAutoSize(true);
 
         // Output
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);

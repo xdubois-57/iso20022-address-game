@@ -420,22 +420,6 @@ html, body {
 }
 
 /* =========================================================
-   Fact Box
-   ========================================================= */
-.fact-box {
-    margin-top: 1.5rem;
-    background: var(--swift-light-peppermint);
-    border-left: 4px solid var(--swift-emerald);
-    border-radius: 0 8px 8px 0;
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-}
-
-.fact-box strong {
-    color: var(--swift-dark-green);
-}
-
-/* =========================================================
    Download Link
    ========================================================= */
 .download-link {

@@ -34,12 +34,6 @@ CREATE TABLE IF NOT EXISTS leaderboard (
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS facts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    message_text TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE IF NOT EXISTS settings (
     setting_key VARCHAR(64) PRIMARY KEY,
     setting_value TEXT NOT NULL,

@@ -87,18 +87,11 @@ Each chip must match its specific semantic slot:
 | AdtlAdrInf | Additional address info (e.g., "Floor 10") |
 | Type_Goal | `Structured` or `Hybrid` |
 
-**Sheet 2 — Facts (optional):**
-
-| Column | Description |
-|--------|-------------|
-| Fact | "Did you know?" message text |
-
 ### 4.2 Database Schema
 
 ```sql
 scenarios: id, json_data, goal_type, created_at
 leaderboard: id, encrypted_name, score, time_seconds, created_at
-facts: id, message_text, created_at
 settings: setting_key, setting_value, updated_at
 ```
 

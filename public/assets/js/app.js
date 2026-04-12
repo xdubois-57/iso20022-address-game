@@ -325,10 +325,6 @@
                 escapeHtml(chip.value) + '</div>';
         });
         html += '</div>';
-        if (data.fact) {
-            html += '<div class="fact-box"><strong>Did you know?</strong><p>' +
-                escapeHtml(data.fact) + '</p></div>';
-        }
         html += '</div>';
 
         // Right: Target panel
@@ -869,7 +865,7 @@
 
         // Upload section
         html += '<div class="admin-section"><h3>Upload Scenarios</h3>';
-        html += '<p>Upload an Excel file (.xlsx) with scenario data and "Did you know?" facts.</p>';
+        html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
         html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
         html += '<div id="uploadStatus" class="upload-status hidden"></div>';
         html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
@@ -1007,8 +1003,7 @@
                 this.on('success', function (file, response) {
                     var status = document.getElementById('uploadStatus');
                     if (response.success) {
-                        status.textContent = 'Imported ' + response.imported.scenarios +
-                            ' scenarios and ' + response.imported.facts + ' facts.';
+                        status.textContent = 'Imported ' + response.imported.scenarios + ' scenarios.';
                         status.className = 'upload-status status-success';
                     } else {
                         status.textContent = (response.errors || []).join('; ');
