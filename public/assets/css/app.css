@@ -699,40 +699,50 @@ html, body {
     background: linear-gradient(135deg, var(--swift-dark-green), #1a2526);
     color: var(--swift-peppermint);
     border-radius: 12px;
-    padding: 0.75rem 1.25rem;
+    padding: 1rem 3rem;
     margin-bottom: 1rem;
     text-align: center;
-    white-space: nowrap;
-    max-width: 600px;
+    max-width: 500px;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .countdown-banner .countdown-label {
-    font-size: 0.85rem;
-    opacity: 0.85;
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
 }
 
 .countdown-banner .countdown-timer {
-    font-size: 1.1rem;
+    display: block;
+    font-size: 1.4rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    white-space: nowrap;
 }
 
 .countdown-banner .countdown-unit {
     display: inline-block;
-    min-width: 1.6em;
-    text-align: center;
+    min-width: 2ch;
+    text-align: right;
+}
+
+.countdown-banner .countdown-suffix {
+    display: inline-block;
+    min-width: 1.2em;
+    text-align: left;
 }
 
 .countdown-banner .countdown-sep {
-    opacity: 0.5;
-    margin: 0 0.05em;
+    opacity: 0.4;
+    margin: 0 0.25em;
 }
 
 .countdown-expired {
     color: var(--swift-danger);
     font-weight: 700;
+    font-size: 1.2rem;
 }
 
 .upload-status {

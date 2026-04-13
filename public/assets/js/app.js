@@ -252,8 +252,8 @@
         var now = new Date();
         var diff = targetDate.getTime() - now.getTime();
         if (diff <= 0) {
-            el.innerHTML = '<span class="countdown-label">Support for unstructured addresses has ended &mdash; </span>'
-                + '<span class="countdown-expired">Deadline reached</span>';
+            el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
+                + '<div class="countdown-expired">Deadline reached</div>';
             stopDeadlineCountdown();
             return;
         }
@@ -265,16 +265,16 @@
 
         function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-        el.innerHTML = '<span class="countdown-label">Unstructured address support ends in </span>'
-            + '<span class="countdown-timer">'
-            + '<span class="countdown-unit">' + days + '</span>d'
-            + '<span class="countdown-sep"> : </span>'
-            + '<span class="countdown-unit">' + pad(hours) + '</span>h'
-            + '<span class="countdown-sep"> : </span>'
-            + '<span class="countdown-unit">' + pad(minutes) + '</span>m'
-            + '<span class="countdown-sep"> : </span>'
-            + '<span class="countdown-unit">' + pad(seconds) + '</span>s'
-            + '</span>';
+        el.innerHTML = '<div class="countdown-label">Unstructured address support ends in</div>'
+            + '<div class="countdown-timer">'
+            + '<span class="countdown-unit">' + days + '</span><span class="countdown-suffix">d</span>'
+            + '<span class="countdown-sep">:</span>'
+            + '<span class="countdown-unit">' + pad(hours) + '</span><span class="countdown-suffix">h</span>'
+            + '<span class="countdown-sep">:</span>'
+            + '<span class="countdown-unit">' + pad(minutes) + '</span><span class="countdown-suffix">m</span>'
+            + '<span class="countdown-sep">:</span>'
+            + '<span class="countdown-unit">' + pad(seconds) + '</span><span class="countdown-suffix">s</span>'
+            + '</div>';
     }
 
     function renderGameScreen() {
