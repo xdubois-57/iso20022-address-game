@@ -252,35 +252,29 @@
         var now = new Date();
         var diff = targetDate.getTime() - now.getTime();
         if (diff <= 0) {
-            el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
-                + '<div class="countdown-expired">Deadline reached</div>';
+            el.innerHTML = '<span class="countdown-label">Support for unstructured addresses has ended &mdash; </span>'
+                + '<span class="countdown-expired">Deadline reached</span>';
             stopDeadlineCountdown();
             return;
         }
-        // Calculate months, days, hours, minutes, seconds
         var totalSeconds = Math.floor(diff / 1000);
-        var totalMinutes = Math.floor(totalSeconds / 60);
-        var totalHours = Math.floor(totalMinutes / 60);
-        var totalDays = Math.floor(totalHours / 24);
-
-        // Approximate months (30.44 days avg)
-        var months = Math.floor(totalDays / 30.44);
-        var remainingDays = totalDays - Math.floor(months * 30.44);
-        var hours = totalHours % 24;
-        var minutes = totalMinutes % 60;
+        var days = Math.floor(totalSeconds / 86400);
+        var hours = Math.floor((totalSeconds % 86400) / 3600);
+        var minutes = Math.floor((totalSeconds % 3600) / 60);
         var seconds = totalSeconds % 60;
 
         function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-        var parts = [];
-        if (months > 0) parts.push('<span class="countdown-unit">' + months + '</span> month' + (months !== 1 ? 's' : ''));
-        parts.push('<span class="countdown-unit">' + remainingDays + '</span> day' + (remainingDays !== 1 ? 's' : ''));
-        parts.push('<span class="countdown-unit">' + pad(hours) + '</span>h');
-        parts.push('<span class="countdown-unit">' + pad(minutes) + '</span>m');
-        parts.push('<span class="countdown-unit">' + pad(seconds) + '</span>s');
-
-        el.innerHTML = '<div class="countdown-label">Unstructured address support ends in</div>'
-            + '<div class="countdown-timer">' + parts.join('<span class="countdown-sep"> : </span>') + '</div>';
+        el.innerHTML = '<span class="countdown-label">Unstructured address support ends in </span>'
+            + '<span class="countdown-timer">'
+            + '<span class="countdown-unit">' + days + '</span>d'
+            + '<span class="countdown-sep"> : </span>'
+            + '<span class="countdown-unit">' + pad(hours) + '</span>h'
+            + '<span class="countdown-sep"> : </span>'
+            + '<span class="countdown-unit">' + pad(minutes) + '</span>m'
+            + '<span class="countdown-sep"> : </span>'
+            + '<span class="countdown-unit">' + pad(seconds) + '</span>s'
+            + '</span>';
     }
 
     function renderGameScreen() {
@@ -289,8 +283,9 @@
         stopGameTimer();
         stopDeadlineCountdown();
 
-        var html = '<section class="game-welcome"><div class="welcome-card">';
+        var html = '<section class="game-welcome">';
         html += '<div id="countdownBanner"></div>';
+        html += '<div class="welcome-card">';
         html += '<h2>ISO 20022 Address Game</h2>';
         html += '<p>Structure <strong>' + TOTAL_ROUNDS + ' addresses</strong> into ISO 20022 format as fast as you can!</p>';
         html += '<input type="text" id="welcomeNameInput" placeholder="Enter your name to start" maxlength="50" class="name-input"';

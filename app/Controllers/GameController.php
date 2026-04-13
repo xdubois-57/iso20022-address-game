@@ -93,9 +93,11 @@ class GameController
     /**
      * POST /api/game/deadline — Get the unstructured address deadline (public, no auth).
      */
+    private const DEFAULT_DEADLINE = '2026-11-14T18:00';
+
     public function getDeadline(): void
     {
-        $deadline = AdminController::fetchDeadlineStatic();
+        $deadline = AdminController::fetchDeadlineStatic() ?? self::DEFAULT_DEADLINE;
         $this->jsonResponse(['deadline' => $deadline]);
     }
 

@@ -699,19 +699,21 @@ html, body {
     background: linear-gradient(135deg, var(--swift-dark-green), #1a2526);
     color: var(--swift-peppermint);
     border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.25rem;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
     text-align: center;
+    white-space: nowrap;
+    max-width: 600px;
+    width: 100%;
 }
 
 .countdown-banner .countdown-label {
     font-size: 0.85rem;
     opacity: 0.85;
-    margin-bottom: 0.4rem;
 }
 
 .countdown-banner .countdown-timer {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.5px;
@@ -719,13 +721,13 @@ html, body {
 
 .countdown-banner .countdown-unit {
     display: inline-block;
-    min-width: 2.2em;
+    min-width: 1.6em;
     text-align: center;
 }
 
 .countdown-banner .countdown-sep {
     opacity: 0.5;
-    margin: 0 0.1em;
+    margin: 0 0.05em;
 }
 
 .countdown-expired {
@@ -947,6 +949,7 @@ html, body {
    ========================================================= */
 .game-welcome {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     min-height: 60vh;
