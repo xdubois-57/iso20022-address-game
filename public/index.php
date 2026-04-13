@@ -95,6 +95,7 @@ if ($method === 'POST') {
     match ($action) {
         // Game
         'game/check-name' => (new GameController())->checkName(),
+        'game/deadline' => (new GameController())->getDeadline(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
 
@@ -110,6 +111,8 @@ if ($method === 'POST') {
         'admin/leaderboard-entries' => (new AdminController())->getLeaderboardEntries(),
         'admin/delete-entry' => (new AdminController())->deleteLeaderboardEntry(),
         'admin/purge-leaderboard' => (new AdminController())->purgeLeaderboard(),
+        'admin/set-deadline' => (new AdminController())->setDeadline(),
+        'admin/get-deadline' => (new AdminController())->getDeadline(),
 
         default => jsonError('Unknown action', 404),
     };

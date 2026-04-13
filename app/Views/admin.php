@@ -69,6 +69,17 @@
         </div>
 
         <div class="admin-section">
+            <h3>Unstructured Address Deadline</h3>
+            <p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players.</p>
+            <div class="deadline-form">
+                <input type="datetime-local" id="deadlineInput" class="deadline-input">
+                <button class="btn-primary" id="setDeadlineBtn">Save Deadline</button>
+                <button class="btn-secondary" id="clearDeadlineBtn">Clear</button>
+            </div>
+            <p id="deadlineStatus" class="deadline-status hidden"></p>
+        </div>
+
+        <div class="admin-section">
             <h3>Purge Hall of Fame</h3>
             <p>Permanently delete all leaderboard entries.</p>
             <button class="btn-danger" id="purgeBtn">Purge All Entries</button>

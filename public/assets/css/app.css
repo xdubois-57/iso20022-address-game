@@ -673,6 +673,66 @@ html, body {
     font-size: 1rem;
 }
 
+.deadline-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.deadline-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem;
+    border: 2px solid #dde2e8;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.deadline-status {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--swift-emerald);
+}
+
+.countdown-banner {
+    background: linear-gradient(135deg, var(--swift-dark-green), #1a2526);
+    color: var(--swift-peppermint);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+
+.countdown-banner .countdown-label {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    margin-bottom: 0.4rem;
+}
+
+.countdown-banner .countdown-timer {
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+}
+
+.countdown-banner .countdown-unit {
+    display: inline-block;
+    min-width: 2.2em;
+    text-align: center;
+}
+
+.countdown-banner .countdown-sep {
+    opacity: 0.5;
+    margin: 0 0.1em;
+}
+
+.countdown-expired {
+    color: var(--swift-danger);
+    font-weight: 700;
+}
+
 .upload-status {
     margin-top: 0.75rem;
     padding: 0.5rem 0.75rem;

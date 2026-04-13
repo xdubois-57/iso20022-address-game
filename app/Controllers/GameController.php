@@ -21,6 +21,7 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\ScenarioModel;
+use App\Controllers\AdminController;
 use Snipe\BanBuilder\CensorWords;
 
 class GameController
@@ -87,6 +88,15 @@ class GameController
 
         $result = $this->scenarioModel->validateAnswer($scenario, $mapping, $goalType);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * POST /api/game/deadline — Get the unstructured address deadline (public, no auth).
+     */
+    public function getDeadline(): void
+    {
+        $deadline = AdminController::fetchDeadlineStatic();
+        $this->jsonResponse(['deadline' => $deadline]);
     }
 
     /**

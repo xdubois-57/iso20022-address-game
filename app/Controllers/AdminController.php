@@ -279,6 +279,75 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/set-deadline — Set the unstructured address deadline.
+     */
+    public function setDeadline(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $deadline = trim($input['deadline'] ?? '');
+
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare(
+            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
+            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+        );
+
+        if ($deadline === '') {
+            // Clear the deadline
+            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['unstructured_deadline']);
+            $this->jsonResponse(['success' => true, 'deadline' => null]);
+            return;
+        }
+
+        // Validate ISO 8601 date/time
+        $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $deadline);
+        if (!$dt) {
+            $this->jsonResponse(['error' => 'Invalid date/time format. Use YYYY-MM-DDTHH:MM.'], 400);
+            return;
+        }
+
+        $stmt->execute(['unstructured_deadline', $deadline]);
+        $this->jsonResponse(['success' => true, 'deadline' => $deadline]);
+    }
+
+    /**
+     * POST /api/admin/get-deadline — Get the unstructured address deadline (admin).
+     */
+    public function getDeadline(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $this->jsonResponse(['deadline' => $this->fetchDeadline()]);
+    }
+
+    /**
+     * Fetch the stored deadline value from the settings table.
+     */
+    public static function fetchDeadlineStatic(): ?string
+    {
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
+        $stmt->execute(['unstructured_deadline']);
+        $row = $stmt->fetch();
+        return $row ? $row['setting_value'] : null;
+    }
+
+    private function fetchDeadline(): ?string
+    {
+        return self::fetchDeadlineStatic();
+    }
+
+    /**
      * GET /api/admin/export — Export all scenarios as Excel file.
      */
     public function exportScenarios(): void

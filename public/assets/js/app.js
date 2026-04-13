@@ -242,12 +242,55 @@
     /* =======================================================
        Game Screen — Welcome (ask name first)
        ======================================================= */
+    var countdownInterval = null;
+
+    function stopCountdown() {
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    }
+
+    function updateCountdown(targetDate, el) {
+        var now = new Date();
+        var diff = targetDate.getTime() - now.getTime();
+        if (diff <= 0) {
+            el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
+                + '<div class="countdown-expired">Deadline reached</div>';
+            stopCountdown();
+            return;
+        }
+        // Calculate months, days, hours, minutes, seconds
+        var totalSeconds = Math.floor(diff / 1000);
+        var totalMinutes = Math.floor(totalSeconds / 60);
+        var totalHours = Math.floor(totalMinutes / 60);
+        var totalDays = Math.floor(totalHours / 24);
+
+        // Approximate months (30.44 days avg)
+        var months = Math.floor(totalDays / 30.44);
+        var remainingDays = totalDays - Math.floor(months * 30.44);
+        var hours = totalHours % 24;
+        var minutes = totalMinutes % 60;
+        var seconds = totalSeconds % 60;
+
+        function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+        var parts = [];
+        if (months > 0) parts.push('<span class="countdown-unit">' + months + '</span> month' + (months !== 1 ? 's' : ''));
+        parts.push('<span class="countdown-unit">' + remainingDays + '</span> day' + (remainingDays !== 1 ? 's' : ''));
+        parts.push('<span class="countdown-unit">' + pad(hours) + '</span>h');
+        parts.push('<span class="countdown-unit">' + pad(minutes) + '</span>m');
+        parts.push('<span class="countdown-unit">' + pad(seconds) + '</span>s');
+
+        el.innerHTML = '<div class="countdown-label">Unstructured address support ends in</div>'
+            + '<div class="countdown-timer">' + parts.join('<span class="countdown-sep"> : </span>') + '</div>';
+    }
+
     function renderGameScreen() {
         gameActive = false;
         stopInactivityTimer();
         stopGameTimer();
+        stopCountdown();
 
         var html = '<section class="game-welcome"><div class="welcome-card">';
+        html += '<div id="countdownBanner"></div>';
         html += '<h2>ISO 20022 Address Game</h2>';
         html += '<p>Structure <strong>' + TOTAL_ROUNDS + ' addresses</strong> into ISO 20022 format as fast as you can!</p>';
         html += '<input type="text" id="welcomeNameInput" placeholder="Enter your name to start" maxlength="50" class="name-input"';
@@ -256,6 +299,21 @@
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
         html += '</div></section>';
         appContainer.innerHTML = html;
+
+        // Fetch deadline and start countdown
+        (async function () {
+            var data = await api('game/deadline', {});
+            if (data && data.deadline) {
+                var banner = document.getElementById('countdownBanner');
+                if (!banner) return;
+                banner.className = 'countdown-banner';
+                var target = new Date(data.deadline);
+                updateCountdown(target, banner);
+                countdownInterval = setInterval(function () {
+                    updateCountdown(target, banner);
+                }, 1000);
+            }
+        })();
 
         var nameInput = document.getElementById('welcomeNameInput');
         document.getElementById('startGameBtn').addEventListener('click', async function () {
@@ -277,6 +335,7 @@
                 nameInput.focus();
                 return;
             }
+            stopCountdown();
             startGame();
         });
         nameInput.addEventListener('keydown', function (e) {
@@ -993,6 +1052,17 @@
         html += '<button class="btn-primary" id="changePinBtn">Update PIN</button>';
         html += '</div></div>';
 
+        // Deadline
+        html += '<div class="admin-section"><h3>Unstructured Address Deadline</h3>';
+        html += '<p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players.</p>';
+        html += '<div class="deadline-form">';
+        html += '<input type="datetime-local" id="deadlineInput" class="deadline-input">';
+        html += '<button class="btn-primary" id="setDeadlineBtn">Save Deadline</button>';
+        html += '<button class="btn-secondary" id="clearDeadlineBtn">Clear</button>';
+        html += '</div>';
+        html += '<p id="deadlineStatus" class="deadline-status hidden"></p>';
+        html += '</div>';
+
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
         html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
@@ -1006,6 +1076,7 @@
         initAdminActions();
         initDropzone();
         loadAdminLeaderboard();
+        loadAdminDeadline();
     }
 
     async function loadAdminLeaderboard() {
@@ -1060,6 +1131,16 @@
         });
     }
 
+    async function loadAdminDeadline() {
+        var data = await api('admin/get-deadline');
+        if (data && data.deadline) {
+            document.getElementById('deadlineInput').value = data.deadline;
+            var status = document.getElementById('deadlineStatus');
+            status.textContent = 'Current deadline: ' + new Date(data.deadline).toLocaleString();
+            status.classList.remove('hidden');
+        }
+    }
+
     function initAdminActions() {
         document.getElementById('changePinBtn').addEventListener('click', async function () {
             var newPin = document.getElementById('newPinInput').value;
@@ -1073,6 +1154,31 @@
                 document.getElementById('newPinInput').value = '';
             } else {
                 await showModal(data ? data.error : 'Error');
+            }
+        });
+
+        document.getElementById('setDeadlineBtn').addEventListener('click', async function () {
+            var val = document.getElementById('deadlineInput').value;
+            if (!val) { await showModal('Please select a date and time.'); return; }
+            var data = await api('admin/set-deadline', { deadline: val });
+            if (data && data.success) {
+                var status = document.getElementById('deadlineStatus');
+                status.textContent = 'Deadline saved: ' + new Date(val).toLocaleString();
+                status.classList.remove('hidden');
+                await showModal('Deadline saved successfully');
+            } else {
+                await showModal(data ? data.error : 'Error saving deadline');
+            }
+        });
+
+        document.getElementById('clearDeadlineBtn').addEventListener('click', async function () {
+            var data = await api('admin/set-deadline', { deadline: '' });
+            if (data && data.success) {
+                document.getElementById('deadlineInput').value = '';
+                var status = document.getElementById('deadlineStatus');
+                status.textContent = 'Deadline cleared';
+                status.classList.remove('hidden');
+                await showModal('Deadline cleared');
             }
         });
 
