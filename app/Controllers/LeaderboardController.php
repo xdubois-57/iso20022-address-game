@@ -21,6 +21,7 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\LeaderboardModel;
+use Snipe\BanBuilder\CensorWords;
 
 class LeaderboardController
 {
@@ -67,6 +68,15 @@ class LeaderboardController
 
         if ($name === '' || mb_strlen($name) > 50) {
             $this->jsonResponse(['error' => 'Player name must be 1-50 characters'], 400);
+            return;
+        }
+
+        // Profanity safety net
+        $censor = new CensorWords();
+        $censor->setDictionary(['en-us', 'en-uk', 'fr']);
+        $check = $censor->censorString($name, true);
+        if (!empty($check['matched'])) {
+            $this->jsonResponse(['error' => 'Offensive language is not allowed'], 400);
             return;
         }
 

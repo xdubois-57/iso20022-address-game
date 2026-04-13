@@ -94,6 +94,7 @@ if ($method === 'POST') {
 
     match ($action) {
         // Game
+        'game/check-name' => (new GameController())->checkName(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
 

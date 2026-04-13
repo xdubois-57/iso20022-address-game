@@ -21,6 +21,7 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\ScenarioModel;
+use Snipe\BanBuilder\CensorWords;
 
 class GameController
 {
@@ -86,6 +87,34 @@ class GameController
 
         $result = $this->scenarioModel->validateAnswer($scenario, $mapping, $goalType);
         $this->jsonResponse($result);
+    }
+
+    /**
+     * POST /api/game/check-name — Validate player name for profanity.
+     */
+    public function checkName(): void
+    {
+        $input = $this->getJsonInput();
+        $name = trim($input['name'] ?? '');
+
+        if ($name === '' || mb_strlen($name) > 50) {
+            $this->jsonResponse(['error' => 'Name must be 1-50 characters'], 400);
+            return;
+        }
+
+        $censor = new CensorWords();
+        $censor->setDictionary(['en-us', 'en-uk', 'fr']);
+        $result = $censor->censorString($name, true);
+
+        if (!empty($result['matched'])) {
+            $this->jsonResponse([
+                'allowed' => false,
+                'message' => 'Please choose a different name — offensive language is not allowed.',
+            ]);
+            return;
+        }
+
+        $this->jsonResponse(['allowed' => true]);
     }
 
     /**

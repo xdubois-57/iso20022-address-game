@@ -258,9 +258,25 @@
         appContainer.innerHTML = html;
 
         var nameInput = document.getElementById('welcomeNameInput');
-        document.getElementById('startGameBtn').addEventListener('click', function () {
+        document.getElementById('startGameBtn').addEventListener('click', async function () {
             playerName = nameInput.value.trim();
             if (!playerName) { nameInput.style.borderColor = '#c0392b'; nameInput.focus(); return; }
+            // Check name for profanity
+            var check = await api('game/check-name', { name: playerName });
+            if (!check) return;
+            if (!check.allowed) {
+                nameInput.style.borderColor = '#c0392b';
+                var warn = document.createElement('p');
+                warn.className = 'profanity-warning';
+                warn.textContent = check.message || 'Please choose a different name.';
+                var existing = document.querySelector('.profanity-warning');
+                if (existing) existing.remove();
+                nameInput.parentNode.insertBefore(warn, nameInput.nextSibling);
+                nameInput.value = '';
+                playerName = '';
+                nameInput.focus();
+                return;
+            }
             startGame();
         });
         nameInput.addEventListener('keydown', function (e) {

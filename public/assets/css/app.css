@@ -550,6 +550,14 @@ html, body {
     margin-bottom: 0.75rem;
 }
 
+.profanity-warning {
+    color: var(--swift-danger);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+    text-align: center;
+}
+
 .result-actions {
     display: flex;
     flex-direction: column;
