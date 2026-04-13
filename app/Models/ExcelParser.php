@@ -27,7 +27,7 @@ class ExcelParser
      * Expected column headers for scenario data.
      */
     private const SCENARIO_COLUMNS = [
-        'StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf', 'Type_Goal',
+        'StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf',
     ];
 
     /**
@@ -112,20 +112,8 @@ class ExcelParser
                 continue;
             }
 
-            $goalType = $scenario['Type_Goal'];
-            if (!in_array($goalType, ['Structured', 'Hybrid'])) {
-                $result['errors'][] = "Row $rowNum: Type_Goal must be 'Structured' or 'Hybrid'.";
-                $rowNum++;
-                continue;
-            }
-
-            // Remove Type_Goal from data, store separately
-            $jsonData = $scenario;
-            unset($jsonData['Type_Goal']);
-
             $result['scenarios'][] = [
-                'json_data' => $jsonData,
-                'goal_type' => $goalType,
+                'json_data' => $scenario,
             ];
             $rowNum++;
         }

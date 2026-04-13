@@ -51,7 +51,7 @@ class ExcelParserTest extends TestCase
         // Sheet 1: Scenarios
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Scenarios');
-        $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf', 'Type_Goal'];
+        $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf'];
         foreach ($headers as $col => $header) {
             $sheet->setCellValueByColumnAndRow($col + 1, 1, $header);
         }
@@ -71,8 +71,8 @@ class ExcelParserTest extends TestCase
     public function testParseValidScenarios(): void
     {
         $filePath = $this->createTestExcel([
-            ['Main St', '123', '10001', 'New York', 'US', '', 'Structured'],
-            ['Baker St', '221B', 'NW1 6XE', 'London', 'GB', 'Floor 2', 'Hybrid'],
+            ['Main St', '123', '10001', 'New York', 'US', ''],
+            ['Baker St', '221B', 'NW1 6XE', 'London', 'GB', 'Floor 2'],
         ]);
 
         $parser = new ExcelParser();
@@ -80,15 +80,14 @@ class ExcelParserTest extends TestCase
 
         $this->assertEmpty($result['errors']);
         $this->assertCount(2, $result['scenarios']);
-        $this->assertEquals('Structured', $result['scenarios'][0]['goal_type']);
         $this->assertEquals('New York', $result['scenarios'][0]['json_data']['TwnNm']);
-        $this->assertEquals('Hybrid', $result['scenarios'][1]['goal_type']);
+        $this->assertEquals('London', $result['scenarios'][1]['json_data']['TwnNm']);
     }
 
     public function testParseMissingTownNameReportsError(): void
     {
         $filePath = $this->createTestExcel([
-            ['Main St', '123', '10001', '', 'US', '', 'Structured'],
+            ['Main St', '123', '10001', '', 'US', ''],
         ]);
 
         $parser = new ExcelParser();
@@ -101,7 +100,7 @@ class ExcelParserTest extends TestCase
     public function testParseInvalidCountryCodeReportsError(): void
     {
         $filePath = $this->createTestExcel([
-            ['Main St', '123', '10001', 'New York', 'USA', '', 'Structured'],
+            ['Main St', '123', '10001', 'New York', 'USA', ''],
         ]);
 
         $parser = new ExcelParser();
@@ -115,18 +114,6 @@ class ExcelParserTest extends TestCase
             }
         }
         $this->assertTrue($hasCtryError);
-    }
-
-    public function testParseInvalidGoalTypeReportsError(): void
-    {
-        $filePath = $this->createTestExcel([
-            ['Main St', '123', '10001', 'New York', 'US', '', 'Invalid'],
-        ]);
-
-        $parser = new ExcelParser();
-        $result = $parser->parse($filePath);
-
-        $this->assertNotEmpty($result['errors']);
     }
 
     public function testParseNonExistentFileReportsError(): void

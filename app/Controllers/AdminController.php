@@ -184,7 +184,7 @@ class AdminController
         // Replace scenarios
         $this->scenarioModel->deleteAll();
         foreach ($result['scenarios'] as $s) {
-            $this->scenarioModel->create($s['json_data'], $s['goal_type']);
+            $this->scenarioModel->create($s['json_data']);
         }
 
         unlink($tmpPath);
@@ -296,7 +296,7 @@ class AdminController
         // Sheet 1: Scenarios
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Scenarios');
-        $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf', 'Type_Goal'];
+        $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf'];
         foreach ($headers as $col => $h) {
             $sheet->setCellValueByColumnAndRow($col + 1, 1, $h);
         }
@@ -310,14 +310,13 @@ class AdminController
                 $data['TwnNm'] ?? '',
                 $data['Ctry'] ?? '',
                 $data['AdtlAdrInf'] ?? '',
-                $scenario['goal_type'],
             ];
             foreach ($row as $col => $value) {
                 $sheet->setCellValueByColumnAndRow($col + 1, $rowIdx + 2, $value);
             }
         }
 
-        foreach (range('A', 'G') as $col) {
+        foreach (range('A', 'F') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 

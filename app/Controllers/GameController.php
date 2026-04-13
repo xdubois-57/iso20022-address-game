@@ -50,7 +50,6 @@ class GameController
         $this->jsonResponse([
             'scenario' => [
                 'id' => $scenario['id'],
-                'goal_type' => $scenario['goal_type'],
                 'chips' => $this->generateChips($scenario['json_data']),
                 'slots_structured' => $this->getSlots('Structured'),
                 'slots_hybrid' => $this->getSlots('Hybrid'),

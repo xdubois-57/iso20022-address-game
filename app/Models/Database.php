@@ -136,10 +136,16 @@ class Database
             CREATE TABLE IF NOT EXISTS scenarios (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 json_data JSON NOT NULL,
-                goal_type ENUM('Structured', 'Hybrid') NOT NULL DEFAULT 'Structured',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+
+        // Migration: drop goal_type column if present (existing installs)
+        try {
+            $this->pdo->exec("ALTER TABLE scenarios DROP COLUMN goal_type");
+        } catch (\PDOException $e) {
+            // Column already removed — ignore
+        }
 
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS leaderboard (

@@ -84,9 +84,9 @@ Configure your web server's document root to the `public/` directory.
 
 ### Sheet 1: Scenarios
 
-| StrtNm | BldgNb | PstCd | TwnNm | Ctry | AdtlAdrInf | Type_Goal |
-|--------|--------|-------|--------|------|------------|-----------|
-| Main St | 123 | 10001 | New York | US | Floor 10 | Structured |
+| StrtNm | BldgNb | PstCd | TwnNm | Ctry | AdtlAdrInf |
+|--------|--------|-------|--------|------|------------|
+| Main St | 123 | 10001 | New York | US | Floor 10 |
 
 ## Security
 

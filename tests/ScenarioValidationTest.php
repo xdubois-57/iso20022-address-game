@@ -36,7 +36,6 @@ class ScenarioValidationTest extends TestCase
     public function testStructuredModePerfectScore(): void
     {
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'StrtNm' => 'Main Street',
                 'BldgNb' => '123',
@@ -54,7 +53,7 @@ class ScenarioValidationTest extends TestCase
             'Ctry' => 'US',
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Structured');
         $this->assertTrue($result['perfect']);
         $this->assertEquals(100, $result['percentage']);
         $this->assertEmpty($result['errors']);
@@ -63,7 +62,6 @@ class ScenarioValidationTest extends TestCase
     public function testStructuredModePartialScore(): void
     {
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'StrtNm' => 'Main Street',
                 'BldgNb' => '123',
@@ -79,7 +77,7 @@ class ScenarioValidationTest extends TestCase
             'Ctry' => 'US',
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Structured');
         $this->assertFalse($result['perfect']);
         $this->assertLessThan(100, $result['percentage']);
         $this->assertNotEmpty($result['errors']);
@@ -88,7 +86,6 @@ class ScenarioValidationTest extends TestCase
     public function testStructuredModeCaseInsensitive(): void
     {
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'TwnNm' => 'New York',
                 'Ctry' => 'US',
@@ -100,14 +97,13 @@ class ScenarioValidationTest extends TestCase
             'Ctry' => 'us',
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Structured');
         $this->assertTrue($result['perfect']);
     }
 
     public function testStructuredModeEmptyFieldsSkipped(): void
     {
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'StrtNm' => '',
                 'TwnNm' => 'Berlin',
@@ -120,14 +116,13 @@ class ScenarioValidationTest extends TestCase
             'Ctry' => 'DE',
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Structured');
         $this->assertTrue($result['perfect']);
     }
 
     public function testHybridModePerfectWithFieldNames(): void
     {
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'BldgNb' => '221B',
@@ -143,7 +138,7 @@ class ScenarioValidationTest extends TestCase
             'AdrLine2' => [],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertTrue($result['perfect']);
         $this->assertEquals(100, $result['percentage']);
     }
@@ -151,7 +146,6 @@ class ScenarioValidationTest extends TestCase
     public function testHybridModeSplitAcrossLines(): void
     {
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'BldgNb' => '221B',
@@ -169,14 +163,13 @@ class ScenarioValidationTest extends TestCase
             'AdrLine2' => ['PstCd'],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertTrue($result['perfect']);
     }
 
     public function testHybridModeWrongOrder(): void
     {
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'BldgNb' => '221B',
@@ -193,7 +186,7 @@ class ScenarioValidationTest extends TestCase
             'AdrLine2' => [],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertFalse($result['perfect']);
         $hasOrderError = false;
         foreach ($result['errors'] as $err) {
@@ -207,7 +200,6 @@ class ScenarioValidationTest extends TestCase
     public function testHybridModeMandatoryFieldMissing(): void
     {
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'TwnNm' => 'London',
@@ -221,14 +213,13 @@ class ScenarioValidationTest extends TestCase
             'AdrLine1' => ['StrtNm'],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertFalse($result['perfect']);
     }
 
     public function testHybridModeMissingComponent(): void
     {
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'BldgNb' => '221B',
@@ -245,7 +236,7 @@ class ScenarioValidationTest extends TestCase
             'AdrLine2' => [],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertFalse($result['perfect']);
     }
 
@@ -253,7 +244,6 @@ class ScenarioValidationTest extends TestCase
     {
         $longStreet = str_repeat('A', 68);
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => $longStreet,
                 'BldgNb' => '999',
@@ -270,7 +260,7 @@ class ScenarioValidationTest extends TestCase
             'AdrLine2' => [],
         ];
 
-        $result = $this->model->validateAnswer($scenario, $mapping);
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
         $this->assertFalse($result['perfect']);
         $hasLengthError = false;
         foreach ($result['errors'] as $err) {
@@ -281,11 +271,9 @@ class ScenarioValidationTest extends TestCase
         $this->assertTrue($hasLengthError, 'Should have a 70 character limit error');
     }
 
-    public function testGoalTypeOverrideStructuredOnHybridScenario(): void
+    public function testPlayerChoosesStructured(): void
     {
-        // Scenario stored as Hybrid, but player chooses Structured
         $scenario = [
-            'goal_type' => 'Hybrid',
             'json_data' => [
                 'StrtNm' => 'Main Street',
                 'BldgNb' => '123',
@@ -305,11 +293,9 @@ class ScenarioValidationTest extends TestCase
         $this->assertTrue($result['perfect']);
     }
 
-    public function testGoalTypeOverrideHybridOnStructuredScenario(): void
+    public function testPlayerChoosesHybrid(): void
     {
-        // Scenario stored as Structured, but player chooses Hybrid
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'StrtNm' => 'Baker Street',
                 'BldgNb' => '221B',
@@ -329,10 +315,9 @@ class ScenarioValidationTest extends TestCase
         $this->assertTrue($result['perfect']);
     }
 
-    public function testGoalTypeDefaultsToScenarioType(): void
+    public function testDefaultGoalTypeIsStructured(): void
     {
         $scenario = [
-            'goal_type' => 'Structured',
             'json_data' => [
                 'TwnNm' => 'Berlin',
                 'Ctry' => 'DE',
@@ -344,7 +329,7 @@ class ScenarioValidationTest extends TestCase
             'Ctry' => 'DE',
         ];
 
-        // No goalType override — should use scenario's 'Structured'
+        // No goalType — defaults to Structured
         $result = $this->model->validateAnswer($scenario, $mapping);
         $this->assertTrue($result['perfect']);
     }

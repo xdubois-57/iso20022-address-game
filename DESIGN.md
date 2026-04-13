@@ -85,12 +85,11 @@ Each chip must match its specific semantic slot:
 | TwnNm | Town Name (mandatory) |
 | Ctry | Country Code — ISO 2-letter (mandatory) |
 | AdtlAdrInf | Additional address info (e.g., "Floor 10") |
-| Type_Goal | `Structured` or `Hybrid` |
 
 ### 4.2 Database Schema
 
 ```sql
-scenarios: id, json_data, goal_type, created_at
+scenarios: id, json_data, created_at
 leaderboard: id, encrypted_name, score, time_seconds, created_at
 settings: setting_key, setting_value, updated_at
 ```

@@ -20,7 +20,6 @@
 CREATE TABLE IF NOT EXISTS scenarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     json_data JSON NOT NULL,
-    goal_type ENUM('Structured', 'Hybrid') NOT NULL DEFAULT 'Structured',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

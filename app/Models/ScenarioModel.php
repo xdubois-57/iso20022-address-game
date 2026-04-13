@@ -35,7 +35,7 @@ class ScenarioModel
      */
     public function getAll(): array
     {
-        $stmt = $this->pdo->query('SELECT id, json_data, goal_type FROM scenarios ORDER BY id');
+        $stmt = $this->pdo->query('SELECT id, json_data FROM scenarios ORDER BY id');
         $rows = $stmt->fetchAll();
         return array_map(function ($row) {
             $row['json_data'] = json_decode($row['json_data'], true);
@@ -48,7 +48,7 @@ class ScenarioModel
      */
     public function getRandom(array $excludeIds = []): ?array
     {
-        $sql = 'SELECT id, json_data, goal_type FROM scenarios';
+        $sql = 'SELECT id, json_data FROM scenarios';
         $params = [];
         if (!empty($excludeIds)) {
             $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
@@ -70,7 +70,7 @@ class ScenarioModel
      */
     public function getById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, json_data, goal_type FROM scenarios WHERE id = ?');
+        $stmt = $this->pdo->prepare('SELECT id, json_data FROM scenarios WHERE id = ?');
         $stmt->execute([$id]);
         $row = $stmt->fetch();
         if ($row) {
@@ -82,10 +82,10 @@ class ScenarioModel
     /**
      * Insert a new scenario.
      */
-    public function create(array $jsonData, string $goalType): int
+    public function create(array $jsonData): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO scenarios (json_data, goal_type) VALUES (?, ?)');
-        $stmt->execute([json_encode($jsonData), $goalType]);
+        $stmt = $this->pdo->prepare('INSERT INTO scenarios (json_data) VALUES (?)');
+        $stmt->execute([json_encode($jsonData)]);
         return (int) $this->pdo->lastInsertId();
     }
 
@@ -112,12 +112,11 @@ class ScenarioModel
      *              the split point between lines does not matter. Each line
      *              must not exceed 70 characters.
      *
-     * @param string|null $goalType Override the scenario's stored goal_type (player choice).
+     * @param string $goalType The player's chosen mode ('Structured' or 'Hybrid').
      */
-    public function validateAnswer(array $scenario, array $userMapping, ?string $goalType = null): array
+    public function validateAnswer(array $scenario, array $userMapping, string $goalType = 'Structured'): array
     {
         $correct = $scenario['json_data'];
-        $goalType = $goalType ?? $scenario['goal_type'];
         $errors = [];
         $score = 0;
         $maxScore = 0;
