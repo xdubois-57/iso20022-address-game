@@ -52,7 +52,8 @@ class GameController
                 'id' => $scenario['id'],
                 'goal_type' => $scenario['goal_type'],
                 'chips' => $this->generateChips($scenario['json_data']),
-                'slots' => $this->getSlots($scenario['goal_type']),
+                'slots_structured' => $this->getSlots('Structured'),
+                'slots_hybrid' => $this->getSlots('Hybrid'),
                 'address_display' => $this->formatAddressDisplay($scenario['json_data']),
             ],
         ]);
@@ -66,9 +67,15 @@ class GameController
         $input = $this->getJsonInput();
         $scenarioId = (int) ($input['scenario_id'] ?? 0);
         $mapping = $input['mapping'] ?? [];
+        $goalType = $input['goal_type'] ?? null;
 
         if ($scenarioId <= 0 || empty($mapping)) {
             $this->jsonResponse(['error' => 'Missing scenario_id or mapping'], 400);
+            return;
+        }
+
+        if (!in_array($goalType, ['Structured', 'Hybrid'], true)) {
+            $this->jsonResponse(['error' => 'Invalid goal_type'], 400);
             return;
         }
 
@@ -78,7 +85,7 @@ class GameController
             return;
         }
 
-        $result = $this->scenarioModel->validateAnswer($scenario, $mapping);
+        $result = $this->scenarioModel->validateAnswer($scenario, $mapping, $goalType);
         $this->jsonResponse($result);
     }
 

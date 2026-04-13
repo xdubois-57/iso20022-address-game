@@ -98,15 +98,26 @@ class ScenarioModel
     }
 
     /**
+     * Expected order of non-mandatory fields in hybrid address lines.
+     */
+    private const HYBRID_FIELD_ORDER = ['StrtNm', 'BldgNb', 'AdtlAdrInf', 'PstCd'];
+
+    /**
      * Validate a user's chip-to-slot mapping against the scenario.
      *
      * Structured Mode: Each chip must land in its exact semantic slot.
-     * Hybrid Mode: TwnNm and Ctry are mandatory; rest can go into AdrLine (max 70 chars each).
+     * Hybrid Mode: TwnNm and Ctry are mandatory slots; remaining components
+     *              go into AdrLine1/AdrLine2 as field-name arrays. The order
+     *              across both lines must match the natural address order, but
+     *              the split point between lines does not matter. Each line
+     *              must not exceed 70 characters.
+     *
+     * @param string|null $goalType Override the scenario's stored goal_type (player choice).
      */
-    public function validateAnswer(array $scenario, array $userMapping): array
+    public function validateAnswer(array $scenario, array $userMapping, ?string $goalType = null): array
     {
         $correct = $scenario['json_data'];
-        $goalType = $scenario['goal_type'];
+        $goalType = $goalType ?? $scenario['goal_type'];
         $errors = [];
         $score = 0;
         $maxScore = 0;
@@ -132,7 +143,7 @@ class ScenarioModel
             }
         } else {
             // Hybrid mode
-            // Mandatory: TwnNm and Ctry
+            // Mandatory: TwnNm and Ctry (value comparison)
             foreach (['TwnNm', 'Ctry'] as $mandatory) {
                 $expected = trim($correct[$mandatory] ?? '');
                 $maxScore++;
@@ -149,30 +160,49 @@ class ScenarioModel
                 }
             }
 
-            // Address lines validation
-            $adrLine1 = trim($userMapping['AdrLine1'] ?? '');
-            $adrLine2 = trim($userMapping['AdrLine2'] ?? '');
+            // Address lines: arrays of field names in placement order
+            $adrLine1Fields = $userMapping['AdrLine1'] ?? [];
+            $adrLine2Fields = $userMapping['AdrLine2'] ?? [];
+            if (!is_array($adrLine1Fields)) {
+                $adrLine1Fields = [];
+            }
+            if (!is_array($adrLine2Fields)) {
+                $adrLine2Fields = [];
+            }
+
+            // Expected fields with values, in natural address order
+            $expectedOrder = array_values(array_filter(
+                self::HYBRID_FIELD_ORDER,
+                function ($f) use ($correct) {
+                    return trim($correct[$f] ?? '') !== '';
+                }
+            ));
+
+            $userFieldOrder = array_merge($adrLine1Fields, $adrLine2Fields);
             $maxScore++;
 
-            if (mb_strlen($adrLine1) > 70) {
-                $errors[] = ['field' => 'AdrLine1', 'error' => 'Exceeds 70 character limit'];
-            } elseif (mb_strlen($adrLine2) > 70) {
-                $errors[] = ['field' => 'AdrLine2', 'error' => 'Exceeds 70 character limit'];
-            } else {
-                // Check all non-mandatory components appear in the address lines
-                $combined = mb_strtolower($adrLine1 . ' ' . $adrLine2);
-                $allPresent = true;
-                foreach (['StrtNm', 'BldgNb', 'PstCd', 'AdtlAdrInf'] as $optField) {
-                    $val = trim($correct[$optField] ?? '');
-                    if ($val !== '' && mb_strpos($combined, mb_strtolower($val)) === false) {
-                        $allPresent = false;
-                        $errors[] = [
-                            'field' => $optField,
-                            'error' => "Component '$val' not found in address lines",
-                        ];
-                    }
+            $missing = array_diff($expectedOrder, $userFieldOrder);
+            if (!empty($missing)) {
+                foreach ($missing as $f) {
+                    $val = trim($correct[$f] ?? '');
+                    $errors[] = ['field' => $f, 'error' => "Component '$val' not found in address lines"];
                 }
-                if ($allPresent) {
+            } elseif ($userFieldOrder !== $expectedOrder) {
+                $errors[] = ['field' => 'AdrLine', 'error' => 'Components are in the wrong order'];
+            } else {
+                // Check 70-character limit per line
+                $line1Text = implode(' ', array_map(function ($f) use ($correct) {
+                    return trim($correct[$f] ?? '');
+                }, $adrLine1Fields));
+                $line2Text = implode(' ', array_map(function ($f) use ($correct) {
+                    return trim($correct[$f] ?? '');
+                }, $adrLine2Fields));
+
+                if (mb_strlen($line1Text) > 70) {
+                    $errors[] = ['field' => 'AdrLine1', 'error' => 'Exceeds 70 character limit'];
+                } elseif (mb_strlen($line2Text) > 70) {
+                    $errors[] = ['field' => 'AdrLine2', 'error' => 'Exceeds 70 character limit'];
+                } else {
                     $score++;
                 }
             }

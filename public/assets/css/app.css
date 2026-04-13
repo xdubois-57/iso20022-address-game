@@ -221,6 +221,49 @@ html, body {
     margin-bottom: 0.75rem;
 }
 
+.mode-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1rem;
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--swift-emerald);
+    background: transparent;
+    color: var(--swift-emerald);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+.mode-tab:first-child {
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+}
+
+.mode-tab:last-child {
+    border-radius: 0 8px 8px 0;
+}
+
+.mode-tab.active {
+    background: var(--swift-emerald);
+    color: var(--swift-white);
+}
+
+.mode-tab:not(.active):hover {
+    background: var(--swift-light-peppermint);
+}
+
+.mode-hint {
+    font-size: 0.85rem;
+    color: var(--swift-grey-green);
+    margin: 0.5rem 0 1rem 0;
+    font-style: italic;
+}
+
 .hint-text {
     font-size: 0.9rem;
     color: var(--swift-grey-green);

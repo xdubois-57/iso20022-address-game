@@ -124,7 +124,7 @@ class ScenarioValidationTest extends TestCase
         $this->assertTrue($result['perfect']);
     }
 
-    public function testHybridModeMandatoryFieldsCorrect(): void
+    public function testHybridModePerfectWithFieldNames(): void
     {
         $scenario = [
             'goal_type' => 'Hybrid',
@@ -139,12 +139,69 @@ class ScenarioValidationTest extends TestCase
         $mapping = [
             'TwnNm' => 'London',
             'Ctry' => 'GB',
-            'AdrLine1' => '221B Baker Street',
-            'AdrLine2' => '',
+            'AdrLine1' => ['StrtNm', 'BldgNb'],
+            'AdrLine2' => [],
         ];
 
         $result = $this->model->validateAnswer($scenario, $mapping);
         $this->assertTrue($result['perfect']);
+        $this->assertEquals(100, $result['percentage']);
+    }
+
+    public function testHybridModeSplitAcrossLines(): void
+    {
+        $scenario = [
+            'goal_type' => 'Hybrid',
+            'json_data' => [
+                'StrtNm' => 'Baker Street',
+                'BldgNb' => '221B',
+                'PstCd' => 'NW1 6XE',
+                'TwnNm' => 'London',
+                'Ctry' => 'GB',
+            ],
+        ];
+
+        // Split across lines — order preserved, split point irrelevant
+        $mapping = [
+            'TwnNm' => 'London',
+            'Ctry' => 'GB',
+            'AdrLine1' => ['StrtNm', 'BldgNb'],
+            'AdrLine2' => ['PstCd'],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping);
+        $this->assertTrue($result['perfect']);
+    }
+
+    public function testHybridModeWrongOrder(): void
+    {
+        $scenario = [
+            'goal_type' => 'Hybrid',
+            'json_data' => [
+                'StrtNm' => 'Baker Street',
+                'BldgNb' => '221B',
+                'TwnNm' => 'London',
+                'Ctry' => 'GB',
+            ],
+        ];
+
+        // Wrong order: BldgNb before StrtNm
+        $mapping = [
+            'TwnNm' => 'London',
+            'Ctry' => 'GB',
+            'AdrLine1' => ['BldgNb', 'StrtNm'],
+            'AdrLine2' => [],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping);
+        $this->assertFalse($result['perfect']);
+        $hasOrderError = false;
+        foreach ($result['errors'] as $err) {
+            if (isset($err['error']) && str_contains($err['error'], 'wrong order')) {
+                $hasOrderError = true;
+            }
+        }
+        $this->assertTrue($hasOrderError, 'Should have a wrong order error');
     }
 
     public function testHybridModeMandatoryFieldMissing(): void
@@ -161,7 +218,31 @@ class ScenarioValidationTest extends TestCase
         $mapping = [
             'TwnNm' => 'London',
             'Ctry' => 'XX',
-            'AdrLine1' => 'Baker Street',
+            'AdrLine1' => ['StrtNm'],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping);
+        $this->assertFalse($result['perfect']);
+    }
+
+    public function testHybridModeMissingComponent(): void
+    {
+        $scenario = [
+            'goal_type' => 'Hybrid',
+            'json_data' => [
+                'StrtNm' => 'Baker Street',
+                'BldgNb' => '221B',
+                'TwnNm' => 'London',
+                'Ctry' => 'GB',
+            ],
+        ];
+
+        // Only StrtNm placed, BldgNb missing
+        $mapping = [
+            'TwnNm' => 'London',
+            'Ctry' => 'GB',
+            'AdrLine1' => ['StrtNm'],
+            'AdrLine2' => [],
         ];
 
         $result = $this->model->validateAnswer($scenario, $mapping);
@@ -170,20 +251,23 @@ class ScenarioValidationTest extends TestCase
 
     public function testHybridModeAddressLineExceeds70Chars(): void
     {
+        $longStreet = str_repeat('A', 68);
         $scenario = [
             'goal_type' => 'Hybrid',
             'json_data' => [
+                'StrtNm' => $longStreet,
+                'BldgNb' => '999',
                 'TwnNm' => 'London',
                 'Ctry' => 'GB',
-                'StrtNm' => 'Short',
             ],
         ];
 
-        $longLine = str_repeat('A', 71);
+        // Both fields on one line = 68 + ' ' + '999' = 72 chars > 70
         $mapping = [
             'TwnNm' => 'London',
             'Ctry' => 'GB',
-            'AdrLine1' => $longLine,
+            'AdrLine1' => ['StrtNm', 'BldgNb'],
+            'AdrLine2' => [],
         ];
 
         $result = $this->model->validateAnswer($scenario, $mapping);
@@ -195,5 +279,73 @@ class ScenarioValidationTest extends TestCase
             }
         }
         $this->assertTrue($hasLengthError, 'Should have a 70 character limit error');
+    }
+
+    public function testGoalTypeOverrideStructuredOnHybridScenario(): void
+    {
+        // Scenario stored as Hybrid, but player chooses Structured
+        $scenario = [
+            'goal_type' => 'Hybrid',
+            'json_data' => [
+                'StrtNm' => 'Main Street',
+                'BldgNb' => '123',
+                'TwnNm' => 'New York',
+                'Ctry' => 'US',
+            ],
+        ];
+
+        $mapping = [
+            'StrtNm' => 'Main Street',
+            'BldgNb' => '123',
+            'TwnNm' => 'New York',
+            'Ctry' => 'US',
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Structured');
+        $this->assertTrue($result['perfect']);
+    }
+
+    public function testGoalTypeOverrideHybridOnStructuredScenario(): void
+    {
+        // Scenario stored as Structured, but player chooses Hybrid
+        $scenario = [
+            'goal_type' => 'Structured',
+            'json_data' => [
+                'StrtNm' => 'Baker Street',
+                'BldgNb' => '221B',
+                'TwnNm' => 'London',
+                'Ctry' => 'GB',
+            ],
+        ];
+
+        $mapping = [
+            'TwnNm' => 'London',
+            'Ctry' => 'GB',
+            'AdrLine1' => ['StrtNm', 'BldgNb'],
+            'AdrLine2' => [],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid');
+        $this->assertTrue($result['perfect']);
+    }
+
+    public function testGoalTypeDefaultsToScenarioType(): void
+    {
+        $scenario = [
+            'goal_type' => 'Structured',
+            'json_data' => [
+                'TwnNm' => 'Berlin',
+                'Ctry' => 'DE',
+            ],
+        ];
+
+        $mapping = [
+            'TwnNm' => 'Berlin',
+            'Ctry' => 'DE',
+        ];
+
+        // No goalType override — should use scenario's 'Structured'
+        $result = $this->model->validateAnswer($scenario, $mapping);
+        $this->assertTrue($result['perfect']);
     }
 }

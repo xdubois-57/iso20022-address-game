@@ -47,6 +47,7 @@
     let gameElapsedSeconds = 0;
     let playedScenarioIds = [];
     let lastSubmittedEntry = null;
+    let selectedGoalType = 'Structured';
 
     /* =======================================================
        DOM References
@@ -301,6 +302,8 @@
     }
 
     function renderRound(data) {
+        selectedGoalType = 'Structured';
+
         var html = '<section class="game-screen">';
         // Header bar: round, timer, player
         html += '<div class="game-header-bar">';
@@ -327,19 +330,16 @@
         html += '</div>';
         html += '</div>';
 
-        // Right: Target panel
+        // Right: Target panel with mode tabs
         html += '<div class="target-panel">';
-        html += '<h2>ISO 20022 Structured Address</h2>';
-        html += '<div class="goal-badge">' + escapeHtml(scenario.goal_type) + '</div>';
+        html += '<h2>ISO 20022 Address</h2>';
+        html += '<div class="mode-tabs">';
+        html += '<button class="mode-tab active" data-mode="Structured">Structured</button>';
+        html += '<button class="mode-tab" data-mode="Hybrid">Hybrid</button>';
+        html += '</div>';
+        html += '<p class="mode-hint" id="modeHint">You can also try <strong>Hybrid</strong> mode using the tab above</p>';
         html += '<div class="slot-container" id="slotContainer">';
-        scenario.slots.forEach(function (slot) {
-            html += '<div class="slot' + (slot.mandatory ? ' mandatory' : '') +
-                '" data-slot-id="' + slot.id + '" id="slot_' + slot.id + '">' +
-                '<span class="slot-tag">' + escapeHtml(slot.tag) + '</span>' +
-                '<span class="slot-label">' + escapeHtml(slot.label) + '</span>' +
-                '<span class="slot-content" id="slotContent_' + slot.id + '"></span>' +
-                '</div>';
-        });
+        html += getSlotsHtml(scenario.slots_structured);
         html += '</div>';
         html += '<button class="btn-primary btn-validate" id="validateBtn" disabled>Validate Answer</button>';
         html += '</div></div></section>';
@@ -348,27 +348,71 @@
         updateTimerDisplay();
         initDragAndDrop();
         document.getElementById('validateBtn').addEventListener('click', validateRound);
+
+        // Tab click handlers
+        document.querySelectorAll('.mode-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                switchMode(this.dataset.mode);
+            });
+        });
+    }
+
+    function getSlotsHtml(slots) {
+        var html = '';
+        slots.forEach(function (slot) {
+            html += '<div class="slot' + (slot.mandatory ? ' mandatory' : '') +
+                '" data-slot-id="' + slot.id + '" id="slot_' + slot.id + '">' +
+                '<span class="slot-tag">' + escapeHtml(slot.tag) + '</span>' +
+                '<span class="slot-label">' + escapeHtml(slot.label) + '</span>' +
+                '<span class="slot-content" id="slotContent_' + slot.id + '"></span>' +
+                '</div>';
+        });
+        return html;
+    }
+
+    function switchMode(newMode) {
+        if (newMode === selectedGoalType) return;
+
+        // Return all chips to source
+        Object.keys(slotMapping).forEach(function (sid) {
+            returnChipToSource(slotMapping[sid]);
+        });
+        slotMapping = {};
+
+        // Show all chips
+        document.querySelectorAll('.chip').forEach(function (c) {
+            c.classList.remove('hidden');
+        });
+
+        selectedGoalType = newMode;
+
+        // Update tab active state
+        document.querySelectorAll('.mode-tab').forEach(function (tab) {
+            tab.classList.toggle('active', tab.dataset.mode === newMode);
+        });
+
+        // Update mode hint text
+        var modeHint = document.getElementById('modeHint');
+        if (modeHint) {
+            var otherMode = newMode === 'Structured' ? 'Hybrid' : 'Structured';
+            modeHint.innerHTML = 'You can also try <strong>' + otherMode + '</strong> mode using the tab above';
+        }
+
+        // Re-render slots
+        var slots = newMode === 'Structured' ? scenario.slots_structured : scenario.slots_hybrid;
+        var slotContainer = document.getElementById('slotContainer');
+        slotContainer.innerHTML = getSlotsHtml(slots);
+
+        // Re-init slot drop listeners for new slot DOM elements
+        initSlotDropListeners();
+        updateValidateButton();
     }
 
     /* =======================================================
        Drag & Drop (Touch + Mouse)
        ======================================================= */
-    function initDragAndDrop() {
-        var chips = document.querySelectorAll('.chip');
-        var slots = document.querySelectorAll('.slot');
-
-        // Mouse drag
-        chips.forEach(function (chip) {
-            chip.addEventListener('dragstart', function (e) {
-                e.dataTransfer.setData('text/plain', chip.dataset.chipId);
-                chip.classList.add('dragging');
-            });
-            chip.addEventListener('dragend', function () {
-                chip.classList.remove('dragging');
-            });
-        });
-
-        slots.forEach(function (slot) {
+    function initSlotDropListeners() {
+        document.querySelectorAll('.slot').forEach(function (slot) {
             slot.addEventListener('dragover', function (e) {
                 e.preventDefault();
                 slot.classList.add('drag-over');
@@ -383,6 +427,24 @@
                 placeChipInSlot(chipId, slot.dataset.slotId);
             });
         });
+    }
+
+    function initDragAndDrop() {
+        var chips = document.querySelectorAll('.chip');
+
+        // Mouse drag on chips
+        chips.forEach(function (chip) {
+            chip.addEventListener('dragstart', function (e) {
+                e.dataTransfer.setData('text/plain', chip.dataset.chipId);
+                chip.classList.add('dragging');
+            });
+            chip.addEventListener('dragend', function () {
+                chip.classList.remove('dragging');
+            });
+        });
+
+        // Mouse drop on slots
+        initSlotDropListeners();
 
         // Touch drag
         var draggedChip = null;
@@ -412,8 +474,8 @@
             dragClone.style.left = (touch.clientX - 40) + 'px';
             dragClone.style.top = (touch.clientY - 20) + 'px';
 
-            // Highlight slot under touch
-            slots.forEach(function (s) { s.classList.remove('drag-over'); });
+            // Highlight slot under touch (queries live DOM)
+            document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
             var el = document.elementFromPoint(touch.clientX, touch.clientY);
             if (el) {
                 var slotEl = el.closest('.slot');
@@ -432,8 +494,8 @@
             dragClone = null;
             draggedChip.classList.remove('dragging');
 
-            // Find slot under drop point
-            slots.forEach(function (s) { s.classList.remove('drag-over'); });
+            // Find slot under drop point (queries live DOM)
+            document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
             var el = document.elementFromPoint(centerX, centerY);
             if (el) {
                 var slotEl = el.closest('.slot');
@@ -567,7 +629,10 @@
         Object.keys(slotMapping).forEach(function (slotId) {
             var v = slotMapping[slotId];
             if (!v) return;
-            if (Array.isArray(v)) {
+            if (isAdrLineSlot(slotId) && Array.isArray(v)) {
+                // Hybrid AdrLine: send field names in placement order
+                mapping[slotId] = v.map(function (c) { return c.field; });
+            } else if (Array.isArray(v)) {
                 mapping[slotId] = v.map(function (c) { return decodeHtml(c.value); }).join(' ');
             } else {
                 mapping[slotId] = decodeHtml(v.value);
@@ -576,6 +641,7 @@
 
         var data = await api('game/validate', {
             scenario_id: scenario.id,
+            goal_type: selectedGoalType,
             mapping: mapping,
         });
         if (!data) return;
