@@ -48,6 +48,8 @@
     let playedScenarioIds = [];
     let lastSubmittedEntry = null;
     let selectedGoalType = 'Structured';
+    let touchDragChip = null;
+    let touchDragClone = null;
 
     /* =======================================================
        DOM References
@@ -429,10 +431,26 @@
         });
     }
 
+    function startTouchDrag(el, chipId, e) {
+        touchDragChip = { el: el, chipId: chipId };
+        el.classList.add('dragging');
+
+        touchDragClone = el.cloneNode(true);
+        touchDragClone.style.position = 'fixed';
+        touchDragClone.style.pointerEvents = 'none';
+        touchDragClone.style.zIndex = '999';
+        touchDragClone.style.opacity = '0.8';
+        document.body.appendChild(touchDragClone);
+
+        var touch = e.touches[0];
+        touchDragClone.style.left = (touch.clientX - 40) + 'px';
+        touchDragClone.style.top = (touch.clientY - 20) + 'px';
+    }
+
     function initDragAndDrop() {
         var chips = document.querySelectorAll('.chip');
 
-        // Mouse drag on chips
+        // Mouse drag on source chips
         chips.forEach(function (chip) {
             chip.addEventListener('dragstart', function (e) {
                 e.dataTransfer.setData('text/plain', chip.dataset.chipId);
@@ -446,33 +464,19 @@
         // Mouse drop on slots
         initSlotDropListeners();
 
-        // Touch drag
-        var draggedChip = null;
-        var dragClone = null;
-
+        // Touch drag on source chips
         chips.forEach(function (chip) {
             chip.addEventListener('touchstart', function (e) {
-                draggedChip = chip;
-                chip.classList.add('dragging');
-
-                dragClone = chip.cloneNode(true);
-                dragClone.style.position = 'fixed';
-                dragClone.style.pointerEvents = 'none';
-                dragClone.style.zIndex = '999';
-                dragClone.style.opacity = '0.8';
-                document.body.appendChild(dragClone);
-
-                var touch = e.touches[0];
-                dragClone.style.left = (touch.clientX - 40) + 'px';
-                dragClone.style.top = (touch.clientY - 20) + 'px';
+                startTouchDrag(chip, chip.dataset.chipId, e);
             }, { passive: true });
         });
 
+        // Global touch move/end (handles both source and slot chip drags)
         document.addEventListener('touchmove', function (e) {
-            if (!dragClone) return;
+            if (!touchDragClone) return;
             var touch = e.touches[0];
-            dragClone.style.left = (touch.clientX - 40) + 'px';
-            dragClone.style.top = (touch.clientY - 20) + 'px';
+            touchDragClone.style.left = (touch.clientX - 40) + 'px';
+            touchDragClone.style.top = (touch.clientY - 20) + 'px';
 
             // Highlight slot under touch (queries live DOM)
             document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
@@ -484,15 +488,15 @@
         }, { passive: true });
 
         document.addEventListener('touchend', function () {
-            if (!draggedChip || !dragClone) return;
+            if (!touchDragChip || !touchDragClone) return;
 
-            var rect = dragClone.getBoundingClientRect();
+            var rect = touchDragClone.getBoundingClientRect();
             var centerX = rect.left + rect.width / 2;
             var centerY = rect.top + rect.height / 2;
 
-            dragClone.remove();
-            dragClone = null;
-            draggedChip.classList.remove('dragging');
+            touchDragClone.remove();
+            touchDragClone = null;
+            touchDragChip.el.classList.remove('dragging');
 
             // Find slot under drop point (queries live DOM)
             document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
@@ -500,10 +504,10 @@
             if (el) {
                 var slotEl = el.closest('.slot');
                 if (slotEl) {
-                    placeChipInSlot(draggedChip.dataset.chipId, slotEl.dataset.slotId);
+                    placeChipInSlot(touchDragChip.chipId, slotEl.dataset.slotId);
                 }
             }
-            draggedChip = null;
+            touchDragChip = null;
         });
     }
 
@@ -578,12 +582,30 @@
         if (chips.length > 0) {
             var inner = '';
             chips.forEach(function (c) {
-                inner += '<span class="slot-chip">' + escapeHtml(c.value) +
+                inner += '<span class="slot-chip" draggable="true" data-chip-id="' + escapeHtml(c.id) + '">' + escapeHtml(c.value) +
                     '<button class="slot-remove" data-remove-chip="' + escapeHtml(c.id) +
                     '" data-slot="' + escapeHtml(slotId) + '">&times;</button></span> ';
             });
             contentEl.innerHTML = inner;
             slotEl.classList.add('filled');
+
+            // Make placed chips re-draggable (mouse)
+            contentEl.querySelectorAll('.slot-chip[draggable]').forEach(function (sc) {
+                sc.addEventListener('dragstart', function (e) {
+                    e.dataTransfer.setData('text/plain', sc.dataset.chipId);
+                    sc.classList.add('dragging');
+                });
+                sc.addEventListener('dragend', function () {
+                    sc.classList.remove('dragging');
+                });
+            });
+
+            // Make placed chips re-draggable (touch)
+            contentEl.querySelectorAll('.slot-chip[draggable]').forEach(function (sc) {
+                sc.addEventListener('touchstart', function (e) {
+                    startTouchDrag(sc, sc.dataset.chipId, e);
+                }, { passive: true });
+            });
 
             contentEl.querySelectorAll('.slot-remove').forEach(function (btn) {
                 btn.addEventListener('click', function () {
@@ -658,6 +680,15 @@
     }
 
     function showRoundResult(data) {
+        // Party confetti on perfect round
+        if (data.perfect && typeof confetti === 'function') {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            setTimeout(function () {
+                confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
+                confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
+            }, 300);
+        }
+
         var overlay = document.createElement('div');
         overlay.className = 'overlay';
         overlay.id = 'roundResultOverlay';

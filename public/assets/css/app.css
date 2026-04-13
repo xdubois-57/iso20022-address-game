@@ -373,6 +373,12 @@ html, body {
     padding: 0.35rem 0.75rem;
     font-size: 0.9rem;
     font-weight: 600;
+    cursor: grab;
+}
+
+.slot-chip.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
 }
 
 .slot-remove {
