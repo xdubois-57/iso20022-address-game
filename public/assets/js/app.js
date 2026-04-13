@@ -242,10 +242,10 @@
     /* =======================================================
        Game Screen — Welcome (ask name first)
        ======================================================= */
-    var countdownInterval = null;
+    var deadlineCountdownInterval = null;
 
-    function stopCountdown() {
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    function stopDeadlineCountdown() {
+        if (deadlineCountdownInterval) { clearInterval(deadlineCountdownInterval); deadlineCountdownInterval = null; }
     }
 
     function updateCountdown(targetDate, el) {
@@ -254,7 +254,7 @@
         if (diff <= 0) {
             el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
                 + '<div class="countdown-expired">Deadline reached</div>';
-            stopCountdown();
+            stopDeadlineCountdown();
             return;
         }
         // Calculate months, days, hours, minutes, seconds
@@ -287,7 +287,7 @@
         gameActive = false;
         stopInactivityTimer();
         stopGameTimer();
-        stopCountdown();
+        stopDeadlineCountdown();
 
         var html = '<section class="game-welcome"><div class="welcome-card">';
         html += '<div id="countdownBanner"></div>';
@@ -309,7 +309,7 @@
                 banner.className = 'countdown-banner';
                 var target = new Date(data.deadline);
                 updateCountdown(target, banner);
-                countdownInterval = setInterval(function () {
+                deadlineCountdownInterval = setInterval(function () {
                     updateCountdown(target, banner);
                 }, 1000);
             }
@@ -335,7 +335,7 @@
                 nameInput.focus();
                 return;
             }
-            stopCountdown();
+            stopDeadlineCountdown();
             startGame();
         });
         nameInput.addEventListener('keydown', function (e) {
