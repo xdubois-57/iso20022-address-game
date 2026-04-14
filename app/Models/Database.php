@@ -178,6 +178,17 @@ class Database
         $stmt = $this->pdo->query("SHOW TABLES LIKE 'facts'");
         $factsTableExists = $stmt->fetch() !== false;
         
+        // Migration: if facts table exists but doesn't have content column, drop and recreate
+        if ($factsTableExists) {
+            try {
+                $this->pdo->query("SELECT content FROM facts LIMIT 1");
+            } catch (\PDOException $e) {
+                // content column doesn't exist - drop old table
+                $this->pdo->exec("DROP TABLE facts");
+                $factsTableExists = false;
+            }
+        }
+        
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS facts (
                 id INT AUTO_INCREMENT PRIMARY KEY,
