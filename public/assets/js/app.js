@@ -298,7 +298,7 @@
     function renderFactInto(el) {
         var fact = nextFact();
         if (!fact) { el.innerHTML = ''; return; }
-        el.innerHTML = '<strong>Did you know?</strong> ' + fact.content;
+        el.innerHTML = '<h2>Did you know?</h2><p>' + fact.content + '</p>';
     }
 
     function startFactRotation(el) {
