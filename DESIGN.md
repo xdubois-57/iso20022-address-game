@@ -63,9 +63,26 @@ Each chip must match its specific semantic slot:
 - Other components can be grouped into two `<AdrLine>` slots (max 70 chars each)
 
 ### Session Management
-- 30s inactivity timer triggers a 10s countdown overlay
+- 30s inactivity timer triggers a 10s countdown overlay (during active game)
 - Global "Stop" button always available for immediate reset
 - Custom overlay modals replace native `alert()` / `confirm()` to maintain fullscreen mode
+
+### Kiosk Mode (Optional)
+- **Toggle**: Admin dashboard includes session-based kiosk mode switch
+- **Fullscreen**: Auto-enters fullscreen when enabled; re-enters if user exits
+- **Screen Saver**: After 60s of inactivity (no click/touch/key):
+  - Displays full-screen overlay with same background as game
+  - Shows countdown to ISO 20022 deadline
+  - Displays pulsing CTA: "Touch to play" or "Click to play" (auto-detected)
+  - Rotates fun facts every 20 seconds
+  - Dismisses on any touch/click interaction
+- **Reset**: Kiosk mode is session-only and resets on page reload
+
+### Fun Facts
+- **Database**: 10 default facts about ISO 20022 created on fresh install
+- **Admin Management**: Add, edit, delete facts (max 100 chars, HTML links supported)
+- **Display**: Rotates on welcome screen and screen saver (20s interval)
+- **API**: Public `GET /api/game/facts` endpoint returns all facts
 
 ### Responsive Design
 - Hamburger menu on mobile (≤768px) collapses header navigation
@@ -92,6 +109,7 @@ Each chip must match its specific semantic slot:
 scenarios: id, json_data, created_at
 leaderboard: id, encrypted_name, score, time_seconds, created_at
 settings: setting_key, setting_value, updated_at
+facts: id, content, created_at
 ```
 
 ## 5. Security & GDPR

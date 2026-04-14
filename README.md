@@ -26,6 +26,9 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
 - **Hall of Fame** — Encrypted leaderboard with GDPR-compliant 30-day retention
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
+- **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity)
+- **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
+- **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
 - **Responsive** — Mobile hamburger menu, touch-first design for tablets
 - **Cache Busting** — Automatic browser refresh when CSS/JS files change
@@ -79,6 +82,26 @@ Configure your web server's document root to the `public/` directory.
 
 1. Access the Admin panel (default PIN: `1234`)
 2. Upload a `Scenarios.xlsx` file with the required columns (see DESIGN.md)
+
+### 5. Kiosk Mode (Optional)
+
+Enable **Kiosk Mode** for unattended public displays:
+
+1. Go to Admin panel
+2. Toggle "Kiosk Mode" at the top of the dashboard
+3. The app will:
+   - Enter fullscreen automatically
+   - Re-enter fullscreen if user exits
+   - Show screen saver after 60 seconds of inactivity
+   - Display countdown, fun facts, and "Touch to play" CTA
+
+**Screen Saver Features:**
+- Auto-detects touchscreen (shows "Touch" or "Click" accordingly)
+- Displays ISO 20022 deadline countdown
+- Rotates fun facts every 20 seconds
+- Dismisses on any touch/click interaction
+
+**Note:** Kiosk mode is session-only and resets on page reload.
 
 ## Excel File Format
 
