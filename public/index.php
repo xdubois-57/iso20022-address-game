@@ -87,7 +87,7 @@ if ($method === 'POST') {
         exit;
     }
     // Init schema once per session to avoid repeated DDL (bump version when schema changes)
-    $schemaVersion = 2;
+    $schemaVersion = 3;
     if (isset($_SESSION['schema_ready']) && !isset($_SESSION['schema_version'])) {
         unset($_SESSION['schema_ready']);
     }

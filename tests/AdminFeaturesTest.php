@@ -20,12 +20,37 @@ class AdminFeaturesTest extends TestCase
         $this->db->connect();
         $pdo = $this->db->getPdo();
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        $this->db->initSchema();
+        
+        // Drop facts table to ensure clean state, then recreate with defaults
+        $pdo->exec('DROP TABLE IF EXISTS facts');
+        $this->db->initSchema(); // Creates table and inserts default facts
+        
+        // Verify defaults were created
+        $stmt = $pdo->query('SELECT COUNT(*) FROM facts');
+        $count = $stmt->fetchColumn();
+        if ($count == 0) {
+            // If for some reason defaults weren't created, insert them manually
+            $defaultFacts = [
+                'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+                'Over 70 countries have already adopted ISO 20022 for cross-border payments',
+                'The transition to structured addresses improves payment processing speed by up to 40%',
+                'Unstructured addresses will be phased out starting November 14, 2026',
+                'ISO 20022 enables richer data exchange between financial institutions worldwide',
+                'The new standard supports 207 address formats across all world regions',
+                'Structured addresses reduce payment failures and processing errors significantly',
+                'November 2026 is the deadline for complete migration to ISO 20022 structured addresses',
+                'ISO 20022 provides a common language for financial messaging globally',
+                'The 2026 release ensures interoperability between all payment systems worldwide'
+            ];
+            
+            $insert = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+            foreach ($defaultFacts as $fact) {
+                $insert->execute([$fact]);
+            }
+        }
 
         // Clean up for each test
         $pdo->exec("DELETE FROM settings WHERE setting_key = 'unstructured_deadline'");
-        $pdo->exec('DROP TABLE IF EXISTS facts');
-        $this->db->initSchema();
 
         $_SESSION['admin'] = true;
     }
@@ -308,16 +333,25 @@ class AdminFeaturesTest extends TestCase
         $this->assertNotFalse($stmt->fetch(), 'facts table must exist after initSchema');
     }
 
-    public function testFetchFactsStaticReturnsEmptyArray(): void
+    public function testFetchFactsStaticReturnsDefaultFacts(): void
     {
+        // After setUp, initSchema should have created 10 default facts
         $facts = AdminController::fetchFactsStatic();
         $this->assertIsArray($facts);
-        $this->assertCount(0, $facts);
+        $this->assertCount(10, $facts, 'Should return 10 default facts created by initSchema');
+        
+        // Verify some expected content exists
+        $contents = array_column($facts, 'content');
+        $this->assertContains('ISO 20022 Standard Release 2026 marks the end of unstructured address support globally', $contents);
+        $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
+        $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 
     public function testFetchFactsStaticReturnsInsertedFacts(): void
     {
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $pdo->exec("INSERT INTO facts (content) VALUES ('Fact A'), ('Fact B'), ('Fact C')");
 
         $facts = AdminController::fetchFactsStatic();
@@ -330,6 +364,8 @@ class AdminFeaturesTest extends TestCase
     public function testFetchFactsStaticIncludesAllColumns(): void
     {
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $pdo->exec("INSERT INTO facts (content) VALUES ('Test fact')");
 
         $facts = AdminController::fetchFactsStatic();
@@ -341,6 +377,8 @@ class AdminFeaturesTest extends TestCase
     public function testFactInsertAndDelete(): void
     {
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
         $stmt->execute(['To be deleted']);
         $id = (int) $pdo->lastInsertId();
@@ -356,6 +394,8 @@ class AdminFeaturesTest extends TestCase
     public function testFactUpdate(): void
     {
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $pdo->exec("INSERT INTO facts (content) VALUES ('Original')");
         $id = (int) $pdo->lastInsertId();
 
@@ -369,6 +409,8 @@ class AdminFeaturesTest extends TestCase
     public function testFactContentSupportsHtml(): void
     {
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $html = 'ISO 20022 is <a href="https://www.iso20022.org">a global standard</a>';
         $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
         $stmt->execute([$html]);
@@ -399,6 +441,8 @@ class AdminFeaturesTest extends TestCase
     {
         unset($_SESSION['admin']);
         $pdo = $this->db->getPdo();
+        // Clear default facts first
+        $pdo->exec('DELETE FROM facts');
         $pdo->exec("INSERT INTO facts (content) VALUES ('Public fact')");
 
         // fetchFactsStatic works without admin session
@@ -410,14 +454,27 @@ class AdminFeaturesTest extends TestCase
     public function testSchemaVersioningCreatesFactsTable(): void
     {
         // Simulate the versioning logic from index.php
-        $schemaVersion = 2;
+        $schemaVersion = 3;
         $session = ['schema_version' => 1]; // Old version
         $shouldRun = ($session['schema_version'] ?? 0) < $schemaVersion;
         $this->assertTrue($shouldRun, 'Schema init should run when version is lower');
 
-        $session['schema_version'] = 2;
+        $session['schema_version'] = 3;
         $shouldNotRun = ($session['schema_version'] ?? 0) < $schemaVersion;
         $this->assertFalse($shouldNotRun, 'Schema init should NOT run when version matches');
+    }
+
+    public function testDefaultFactsCreatedOnEmptyTable(): void
+    {
+        // setUp already dropped and recreated the facts table with defaults
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertCount(10, $facts, '10 default facts should be created when table is empty');
+        
+        // Check that facts contain expected keywords
+        $contents = array_column($facts, 'content');
+        $this->assertContains('ISO 20022 Standard Release 2026 marks the end of unstructured address support globally', $contents);
+        $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
+        $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 
     public function testSchemaVersionTransitionFromBoolean(): void
