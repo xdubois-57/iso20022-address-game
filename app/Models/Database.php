@@ -174,6 +174,10 @@ class Database
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
+        // Check if facts table exists before creating
+        $stmt = $this->pdo->query("SHOW TABLES LIKE 'facts'");
+        $factsTableExists = $stmt->fetch() !== false;
+        
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS facts (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -182,10 +186,8 @@ class Database
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
-        // Insert default facts if table is empty
-        $stmt = $this->pdo->query('SELECT COUNT(*) FROM facts');
-        $count = $stmt->fetchColumn();
-        if ($count == 0) {
+        // Insert default facts only if table was just created (didn't exist before)
+        if (!$factsTableExists) {
             $defaultFacts = [
                 'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
                 'Over 70 countries have already adopted ISO 20022 for cross-border payments',
