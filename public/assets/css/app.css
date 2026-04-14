@@ -819,15 +819,16 @@ html, body {
 
 /* ===== Did You Know Facts — Welcome Screen ===== */
 .fact-display-card {
+    background: var(--swift-white);
+    border-radius: 16px;
+    padding: 2.5rem 3rem;
     max-width: 500px;
     width: 100%;
-    background: #f0f4ff;
-    border-left: 4px solid var(--swift-primary);
-    border-radius: 8px;
-    padding: 0.9rem 1.3rem;
-    text-align: left;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    margin-top: 1rem;
     font-size: 0.95rem;
-    color: #333;
+    color: var(--swift-grey-green);
     line-height: 1.6;
     transition: opacity 0.4s ease;
     min-height: 2.5rem;
@@ -836,7 +837,7 @@ html, body {
     display: none;
 }
 .fact-display-card strong {
-    color: var(--swift-primary);
+    color: var(--swift-dark-green);
 }
 .fact-display-card a {
     color: var(--swift-primary);
