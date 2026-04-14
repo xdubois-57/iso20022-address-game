@@ -54,6 +54,11 @@
     var factRotationInterval = null;
     var currentFactIndex = -1;
     const FACT_ROTATION_INTERVAL = 20000;
+    var kioskMode = false;
+    var screenSaverTimer = null;
+    var screenSaverActive = false;
+    var screenSaverFactInterval = null;
+    const SCREENSAVER_TIMEOUT = 60000;
 
     /* =======================================================
        DOM References
@@ -108,8 +113,7 @@
        ======================================================= */
     function showScreen(name) {
         currentScreen = name;
-        // Enter fullscreen on any navigation (kiosk mode)
-        enterFullscreen();
+        dismissScreenSaver();
         // Update nav active state
         document.querySelectorAll('.nav-btn[data-screen]').forEach(function (btn) {
             btn.classList.toggle('active', btn.dataset.screen === name);
@@ -214,6 +218,7 @@
         playerName = '';
         lastSubmittedEntry = null;
         showScreen('game');
+        resetScreenSaverTimer();
     }
 
     // Track user activity
@@ -397,7 +402,6 @@
         roundScores = [];
         playedScenarioIds = [];
         gameActive = true;
-        enterFullscreen();
         startGameTimer();
         loadNextRound();
     }
@@ -1083,6 +1087,16 @@
         var html = '<section class="admin-screen"><div class="admin-dashboard">';
         html += '<h2>Admin Dashboard</h2>';
 
+        // Kiosk Mode
+        html += '<div class="admin-section kiosk-section"><h3>Kiosk Mode</h3>';
+        html += '<p>Enable fullscreen kiosk mode with screen saver for this session.</p>';
+        html += '<label class="kiosk-toggle">';
+        html += '<input type="checkbox" id="kioskToggle"' + (kioskMode ? ' checked' : '') + '>';
+        html += '<span class="kiosk-slider"></span>';
+        html += '<span class="kiosk-label">' + (kioskMode ? 'Enabled' : 'Disabled') + '</span>';
+        html += '</label>';
+        html += '</div>';
+
         // Upload section
         html += '<div class="admin-section"><h3>Upload Scenarios</h3>';
         html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
@@ -1273,6 +1287,17 @@
     }
 
     function initAdminActions() {
+        document.getElementById('kioskToggle').addEventListener('change', function () {
+            var label = this.parentElement.querySelector('.kiosk-label');
+            if (this.checked) {
+                enableKioskMode();
+                if (label) label.textContent = 'Enabled';
+            } else {
+                disableKioskMode();
+                if (label) label.textContent = 'Disabled';
+            }
+        });
+
         document.getElementById('changePinBtn').addEventListener('click', async function () {
             var newPin = document.getElementById('newPinInput').value;
             if (!/^\d{4,8}$/.test(newPin)) {
@@ -1557,6 +1582,138 @@
             });
         });
     }
+
+    /* =======================================================
+       Kiosk Mode
+       ======================================================= */
+    function exitFullscreen() {
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(function(){});
+        } else if (document.webkitFullscreenElement) {
+            document.webkitExitFullscreen();
+        }
+    }
+
+    function enableKioskMode() {
+        kioskMode = true;
+        enterFullscreen();
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+        resetScreenSaverTimer();
+    }
+
+    function disableKioskMode() {
+        kioskMode = false;
+        document.removeEventListener('fullscreenchange', onFullscreenChange);
+        document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+        exitFullscreen();
+        stopScreenSaver();
+    }
+
+    function onFullscreenChange() {
+        if (kioskMode && !document.fullscreenElement && !document.webkitFullscreenElement) {
+            setTimeout(function () {
+                if (kioskMode) enterFullscreen();
+            }, 300);
+        }
+    }
+
+    /* =======================================================
+       Screen Saver (Kiosk mode only)
+       ======================================================= */
+    var hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    function resetScreenSaverTimer() {
+        clearTimeout(screenSaverTimer);
+        if (kioskMode && !gameActive) {
+            screenSaverTimer = setTimeout(showScreenSaver, SCREENSAVER_TIMEOUT);
+        }
+    }
+
+    function stopScreenSaver() {
+        clearTimeout(screenSaverTimer);
+        screenSaverTimer = null;
+        dismissScreenSaver();
+    }
+
+    function showScreenSaver() {
+        if (!kioskMode || screenSaverActive) return;
+        screenSaverActive = true;
+
+        var overlay = document.getElementById('screenSaverOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'screenSaverOverlay';
+            overlay.className = 'screen-saver-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        var actionWord = hasTouchScreen ? 'Touch' : 'Click';
+
+        overlay.innerHTML = '<div class="screen-saver-inner">'
+            + '<div id="ssCountdown" class="ss-countdown"></div>'
+            + '<h1 class="ss-cta">' + actionWord + ' to play the<br>ISO 20022 Address Game</h1>'
+            + '<div id="ssFactDisplay" class="ss-fact"></div>'
+            + '</div>';
+        overlay.classList.add('visible');
+
+        // Start countdown in screen saver
+        (async function () {
+            var data = await api('game/deadline', {});
+            if (data && data.deadline) {
+                var banner = document.getElementById('ssCountdown');
+                if (!banner) return;
+                var target = new Date(data.deadline);
+                updateCountdown(target, banner);
+                overlay._ssCountdownInterval = setInterval(function () {
+                    updateCountdown(target, banner);
+                }, 1000);
+            }
+        })();
+
+        // Start fact rotation in screen saver
+        var factEl = document.getElementById('ssFactDisplay');
+        if (factEl && factsCache.length > 0) {
+            renderFactInto(factEl);
+            screenSaverFactInterval = setInterval(function () {
+                factEl.style.opacity = '0';
+                setTimeout(function () {
+                    renderFactInto(factEl);
+                    factEl.style.opacity = '1';
+                }, 400);
+            }, FACT_ROTATION_INTERVAL);
+        }
+
+        overlay.addEventListener('click', dismissScreenSaver, { once: true });
+        overlay.addEventListener('touchstart', dismissScreenSaver, { once: true });
+    }
+
+    function dismissScreenSaver() {
+        if (!screenSaverActive) return;
+        screenSaverActive = false;
+        var overlay = document.getElementById('screenSaverOverlay');
+        if (overlay) {
+            if (overlay._ssCountdownInterval) {
+                clearInterval(overlay._ssCountdownInterval);
+                overlay._ssCountdownInterval = null;
+            }
+            if (screenSaverFactInterval) {
+                clearInterval(screenSaverFactInterval);
+                screenSaverFactInterval = null;
+            }
+            overlay.classList.remove('visible');
+        }
+        resetScreenSaverTimer();
+    }
+
+    // Reset screen saver timer on any user activity
+    ['touchstart', 'mousedown', 'keydown'].forEach(function (evt) {
+        document.addEventListener(evt, function () {
+            if (kioskMode && !screenSaverActive) {
+                resetScreenSaverTimer();
+            }
+        }, { passive: true });
+    });
 
     /* =======================================================
        Init
