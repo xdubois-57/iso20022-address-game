@@ -102,6 +102,14 @@ class GameController
     }
 
     /**
+     * POST /api/game/facts — Get all "Did You Know" facts (public, no auth).
+     */
+    public function getFacts(): void
+    {
+        $this->jsonResponse(['facts' => AdminController::fetchFactsStatic()]);
+    }
+
+    /**
      * POST /api/game/check-name — Validate player name for profanity.
      */
     public function checkName(): void

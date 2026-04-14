@@ -351,6 +351,100 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/get-facts — Get all "Did You Know" facts.
+     */
+    public function getFacts(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+        $this->jsonResponse(['facts' => self::fetchFactsStatic()]);
+    }
+
+    /**
+     * POST /api/admin/add-fact — Add a new fact.
+     */
+    public function addFact(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+        $input = $this->getJsonInput();
+        $content = trim($input['content'] ?? '');
+        if ($content === '' || mb_strlen($content) > 500) {
+            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+            return;
+        }
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute([$content]);
+        $this->jsonResponse(['success' => true, 'id' => (int) $pdo->lastInsertId()]);
+    }
+
+    /**
+     * POST /api/admin/update-fact — Update an existing fact.
+     */
+    public function updateFact(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+        $input = $this->getJsonInput();
+        $id = (int) ($input['id'] ?? 0);
+        $content = trim($input['content'] ?? '');
+        if ($id <= 0) {
+            $this->jsonResponse(['error' => 'Invalid fact ID'], 400);
+            return;
+        }
+        if ($content === '' || mb_strlen($content) > 500) {
+            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+            return;
+        }
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('UPDATE facts SET content = ? WHERE id = ?');
+        $stmt->execute([$content, $id]);
+        $this->jsonResponse(['success' => $stmt->rowCount() > 0]);
+    }
+
+    /**
+     * POST /api/admin/delete-fact — Delete a fact.
+     */
+    public function deleteFact(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+        $input = $this->getJsonInput();
+        $id = (int) ($input['id'] ?? 0);
+        if ($id <= 0) {
+            $this->jsonResponse(['error' => 'Invalid fact ID'], 400);
+            return;
+        }
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('DELETE FROM facts WHERE id = ?');
+        $stmt->execute([$id]);
+        $this->jsonResponse(['success' => $stmt->rowCount() > 0]);
+    }
+
+    /**
+     * Fetch all facts from the database (public helper).
+     */
+    public static function fetchFactsStatic(): array
+    {
+        $db = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->query('SELECT id, content, created_at FROM facts ORDER BY id DESC');
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
      * GET /api/admin/export — Export all scenarios as Excel file.
      */
     public function exportScenarios(): void

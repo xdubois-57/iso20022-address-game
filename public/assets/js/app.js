@@ -50,6 +50,9 @@
     let selectedGoalType = 'Structured';
     let touchDragChip = null;
     let touchDragClone = null;
+    var factsCache = [];
+    var factRotationInterval = null;
+    const FACT_ROTATION_INTERVAL = 20000;
 
     /* =======================================================
        DOM References
@@ -277,11 +280,40 @@
             + '</div>';
     }
 
+    function stopFactRotation() {
+        if (factRotationInterval) { clearInterval(factRotationInterval); factRotationInterval = null; }
+    }
+
+    function getRandomFact() {
+        if (factsCache.length === 0) return null;
+        return factsCache[Math.floor(Math.random() * factsCache.length)];
+    }
+
+    function renderFactInto(el) {
+        var fact = getRandomFact();
+        if (!fact) { el.innerHTML = ''; return; }
+        // fact.content may contain HTML links — render as-is (admin-controlled)
+        el.innerHTML = '<span class="fact-icon">\uD83D\uDCA1</span> <span>Did you know? ' + fact.content + '</span>';
+    }
+
+    function startFactRotation(el) {
+        stopFactRotation();
+        renderFactInto(el);
+        factRotationInterval = setInterval(function () {
+            el.style.opacity = '0';
+            setTimeout(function () {
+                renderFactInto(el);
+                el.style.opacity = '1';
+            }, 400);
+        }, FACT_ROTATION_INTERVAL);
+    }
+
     function renderGameScreen() {
         gameActive = false;
         stopInactivityTimer();
         stopGameTimer();
         stopDeadlineCountdown();
+        stopFactRotation();
 
         var html = '<section class="game-welcome">';
         html += '<div id="countdownBanner"></div>';
@@ -292,7 +324,9 @@
         if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
-        html += '</div></section>';
+        html += '</div>';
+        html += '<div id="welcomeFactDisplay" class="fact-display"></div>';
+        html += '</section>';
         appContainer.innerHTML = html;
 
         // Fetch deadline and start countdown
@@ -307,6 +341,18 @@
                 deadlineCountdownInterval = setInterval(function () {
                     updateCountdown(target, banner);
                 }, 1000);
+            }
+        })();
+
+        // Fetch facts and start rotation
+        (async function () {
+            var data = await api('game/facts', {});
+            if (data && data.facts) {
+                factsCache = data.facts;
+                var factEl = document.getElementById('welcomeFactDisplay');
+                if (factEl && factsCache.length > 0) {
+                    startFactRotation(factEl);
+                }
             }
         })();
 
@@ -331,6 +377,7 @@
                 return;
             }
             stopDeadlineCountdown();
+            stopFactRotation();
             startGame();
         });
         nameInput.addEventListener('keydown', function (e) {
@@ -1058,6 +1105,16 @@
         html += '<p id="deadlineStatus" class="deadline-status hidden"></p>';
         html += '</div>';
 
+        // Did You Know Facts
+        html += '<div class="admin-section"><h3>\uD83D\uDCA1 Did You Know — Quick Facts</h3>';
+        html += '<p>Add fun facts displayed on the welcome screen. HTML links are supported.</p>';
+        html += '<div class="fact-add-form">';
+        html += '<textarea id="factContentInput" placeholder="Enter a fun fact (max 500 chars)" maxlength="500" rows="2" class="fact-textarea"></textarea>';
+        html += '<button class="btn-primary" id="addFactBtn">Add Fact</button>';
+        html += '</div>';
+        html += '<div id="adminFactsList"><p>Loading facts...</p></div>';
+        html += '</div>';
+
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
         html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
@@ -1072,6 +1129,7 @@
         initDropzone();
         loadAdminLeaderboard();
         loadAdminDeadline();
+        loadAdminFacts();
     }
 
     async function loadAdminLeaderboard() {
@@ -1136,6 +1194,78 @@
         }
     }
 
+    async function loadAdminFacts() {
+        var container = document.getElementById('adminFactsList');
+        if (!container) return;
+
+        var data = await api('admin/get-facts');
+        if (!data || !data.facts) {
+            container.innerHTML = '<p>Could not load facts.</p>';
+            return;
+        }
+
+        if (data.facts.length === 0) {
+            container.innerHTML = '<p class="empty-state">No facts yet. Add one above!</p>';
+            return;
+        }
+
+        var html = '<ul class="facts-list">';
+        data.facts.forEach(function (fact) {
+            html += '<li class="fact-item" data-fact-id="' + fact.id + '">';
+            html += '<div class="fact-content-display" id="factDisplay' + fact.id + '">' + fact.content + '</div>';
+            html += '<div class="fact-actions">';
+            html += '<button class="btn-edit-fact" data-id="' + fact.id + '" title="Edit">&#9998;</button>';
+            html += '<button class="btn-delete-fact" data-id="' + fact.id + '" title="Delete">&times;</button>';
+            html += '</div>';
+            html += '</li>';
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-delete-fact').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                var id = parseInt(this.dataset.id);
+                var confirmed = await showConfirm('Delete this fact?');
+                if (!confirmed) return;
+                var resp = await api('admin/delete-fact', { id: id });
+                if (resp && resp.success) {
+                    loadAdminFacts();
+                } else {
+                    await showModal(resp ? resp.error : 'Error deleting fact');
+                }
+            });
+        });
+
+        container.querySelectorAll('.btn-edit-fact').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = parseInt(this.dataset.id);
+                var display = document.getElementById('factDisplay' + id);
+                if (!display) return;
+                var currentContent = display.textContent;
+                var li = display.closest('.fact-item');
+                li.innerHTML = '<div class="fact-edit-form">'
+                    + '<textarea class="fact-textarea" id="factEditInput' + id + '" rows="2" maxlength="500">' + escapeHtml(currentContent) + '</textarea>'
+                    + '<div class="fact-edit-actions">'
+                    + '<button class="btn-primary btn-save-fact" data-id="' + id + '">Save</button>'
+                    + '<button class="btn-secondary btn-cancel-edit">Cancel</button>'
+                    + '</div></div>';
+                li.querySelector('.btn-save-fact').addEventListener('click', async function () {
+                    var newContent = document.getElementById('factEditInput' + id).value.trim();
+                    if (!newContent || newContent.length > 500) { await showModal('Fact must be 1-500 characters'); return; }
+                    var resp = await api('admin/update-fact', { id: id, content: newContent });
+                    if (resp && resp.success) {
+                        loadAdminFacts();
+                    } else {
+                        await showModal(resp ? resp.error : 'Error updating fact');
+                    }
+                });
+                li.querySelector('.btn-cancel-edit').addEventListener('click', function () {
+                    loadAdminFacts();
+                });
+            });
+        });
+    }
+
     function initAdminActions() {
         document.getElementById('changePinBtn').addEventListener('click', async function () {
             var newPin = document.getElementById('newPinInput').value;
@@ -1184,6 +1314,22 @@
             if (data && data.success) {
                 await showModal('Leaderboard purged');
                 loadAdminLeaderboard();
+            }
+        });
+
+        document.getElementById('addFactBtn').addEventListener('click', async function () {
+            var input = document.getElementById('factContentInput');
+            var content = input.value.trim();
+            if (!content || content.length > 500) {
+                await showModal('Fact must be 1-500 characters');
+                return;
+            }
+            var data = await api('admin/add-fact', { content: content });
+            if (data && data.success) {
+                input.value = '';
+                loadAdminFacts();
+            } else {
+                await showModal(data ? data.error : 'Error adding fact');
             }
         });
 

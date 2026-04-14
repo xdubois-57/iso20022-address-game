@@ -86,16 +86,21 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'Database unavailable', 'setup_required' => true]);
         exit;
     }
-    // Init schema once per session to avoid repeated DDL
-    if (empty($_SESSION['schema_ready'])) {
+    // Init schema once per session to avoid repeated DDL (bump version when schema changes)
+    $schemaVersion = 2;
+    if (isset($_SESSION['schema_ready']) && !isset($_SESSION['schema_version'])) {
+        unset($_SESSION['schema_ready']);
+    }
+    if (($_SESSION['schema_version'] ?? 0) < $schemaVersion) {
         $db->initSchema();
-        $_SESSION['schema_ready'] = true;
+        $_SESSION['schema_version'] = $schemaVersion;
     }
 
     match ($action) {
         // Game
         'game/check-name' => (new GameController())->checkName(),
         'game/deadline' => (new GameController())->getDeadline(),
+        'game/facts' => (new GameController())->getFacts(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
 
@@ -113,6 +118,10 @@ if ($method === 'POST') {
         'admin/purge-leaderboard' => (new AdminController())->purgeLeaderboard(),
         'admin/set-deadline' => (new AdminController())->setDeadline(),
         'admin/get-deadline' => (new AdminController())->getDeadline(),
+        'admin/get-facts' => (new AdminController())->getFacts(),
+        'admin/add-fact' => (new AdminController())->addFact(),
+        'admin/update-fact' => (new AdminController())->updateFact(),
+        'admin/delete-fact' => (new AdminController())->deleteFact(),
 
         default => jsonError('Unknown action', 404),
     };

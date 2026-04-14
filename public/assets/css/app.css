@@ -745,6 +745,107 @@ html, body {
     font-size: 1.2rem;
 }
 
+/* ===== Did You Know Facts — Admin ===== */
+.fact-add-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+.fact-textarea {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 2.5rem;
+}
+.fact-textarea:focus {
+    border-color: var(--swift-primary);
+    outline: none;
+}
+.facts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.fact-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #eee;
+}
+.fact-item:last-child {
+    border-bottom: none;
+}
+.fact-content-display {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    word-break: break-word;
+}
+.fact-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+.btn-edit-fact,
+.btn-delete-fact {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.btn-edit-fact:hover {
+    background: #e8f0fe;
+    border-color: var(--swift-primary);
+}
+.btn-delete-fact:hover {
+    background: #fde8e8;
+    border-color: var(--swift-danger);
+    color: var(--swift-danger);
+}
+.fact-edit-form {
+    width: 100%;
+}
+.fact-edit-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* ===== Did You Know Facts — Welcome Screen ===== */
+.fact-display {
+    max-width: 500px;
+    width: 100%;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #555;
+    line-height: 1.6;
+    transition: opacity 0.4s ease;
+    min-height: 3rem;
+}
+.fact-display .fact-icon {
+    font-size: 1.1rem;
+    margin-right: 0.25rem;
+}
+.fact-display a {
+    color: var(--swift-primary);
+    text-decoration: underline;
+}
+
 .upload-status {
     margin-top: 0.75rem;
     padding: 0.5rem 0.75rem;

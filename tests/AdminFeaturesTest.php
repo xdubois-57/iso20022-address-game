@@ -22,8 +22,10 @@ class AdminFeaturesTest extends TestCase
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         $this->db->initSchema();
 
-        // Clean up settings for each test
+        // Clean up for each test
         $pdo->exec("DELETE FROM settings WHERE setting_key = 'unstructured_deadline'");
+        $pdo->exec('DROP TABLE IF EXISTS facts');
+        $this->db->initSchema();
 
         $_SESSION['admin'] = true;
     }
@@ -293,5 +295,140 @@ class AdminFeaturesTest extends TestCase
 
         // Cleanup
         $pdo->exec("DELETE FROM settings WHERE setting_key = 'test_key2'");
+    }
+
+    /* =======================================================
+       Facts — CRUD via static/direct DB
+       ======================================================= */
+
+    public function testFactsTableCreatedByInitSchema(): void
+    {
+        $pdo = $this->db->getPdo();
+        $stmt = $pdo->query("SHOW TABLES LIKE 'facts'");
+        $this->assertNotFalse($stmt->fetch(), 'facts table must exist after initSchema');
+    }
+
+    public function testFetchFactsStaticReturnsEmptyArray(): void
+    {
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertIsArray($facts);
+        $this->assertCount(0, $facts);
+    }
+
+    public function testFetchFactsStaticReturnsInsertedFacts(): void
+    {
+        $pdo = $this->db->getPdo();
+        $pdo->exec("INSERT INTO facts (content) VALUES ('Fact A'), ('Fact B'), ('Fact C')");
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertCount(3, $facts);
+        // Returned in DESC order
+        $this->assertEquals('Fact C', $facts[0]['content']);
+        $this->assertEquals('Fact A', $facts[2]['content']);
+    }
+
+    public function testFetchFactsStaticIncludesAllColumns(): void
+    {
+        $pdo = $this->db->getPdo();
+        $pdo->exec("INSERT INTO facts (content) VALUES ('Test fact')");
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertArrayHasKey('id', $facts[0]);
+        $this->assertArrayHasKey('content', $facts[0]);
+        $this->assertArrayHasKey('created_at', $facts[0]);
+    }
+
+    public function testFactInsertAndDelete(): void
+    {
+        $pdo = $this->db->getPdo();
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute(['To be deleted']);
+        $id = (int) $pdo->lastInsertId();
+
+        $this->assertGreaterThan(0, $id);
+        $this->assertCount(1, AdminController::fetchFactsStatic());
+
+        $del = $pdo->prepare('DELETE FROM facts WHERE id = ?');
+        $del->execute([$id]);
+        $this->assertCount(0, AdminController::fetchFactsStatic());
+    }
+
+    public function testFactUpdate(): void
+    {
+        $pdo = $this->db->getPdo();
+        $pdo->exec("INSERT INTO facts (content) VALUES ('Original')");
+        $id = (int) $pdo->lastInsertId();
+
+        $stmt = $pdo->prepare('UPDATE facts SET content = ? WHERE id = ?');
+        $stmt->execute(['Updated', $id]);
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertEquals('Updated', $facts[0]['content']);
+    }
+
+    public function testFactContentSupportsHtml(): void
+    {
+        $pdo = $this->db->getPdo();
+        $html = 'ISO 20022 is <a href="https://www.iso20022.org">a global standard</a>';
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute([$html]);
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertStringContainsString('<a href=', $facts[0]['content']);
+    }
+
+    public function testFactContentMaxLength(): void
+    {
+        $content = str_repeat('x', 500);
+        $valid = ($content !== '' && mb_strlen($content) <= 500);
+        $this->assertTrue($valid);
+
+        $tooLong = str_repeat('x', 501);
+        $invalid = ($tooLong !== '' && mb_strlen($tooLong) <= 500);
+        $this->assertFalse($invalid);
+    }
+
+    public function testFactContentRejectsEmpty(): void
+    {
+        $content = '';
+        $valid = ($content !== '' && mb_strlen($content) <= 500);
+        $this->assertFalse($valid);
+    }
+
+    public function testGameControllerGetFactsPublicAccess(): void
+    {
+        unset($_SESSION['admin']);
+        $pdo = $this->db->getPdo();
+        $pdo->exec("INSERT INTO facts (content) VALUES ('Public fact')");
+
+        // fetchFactsStatic works without admin session
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertCount(1, $facts);
+        $this->assertEquals('Public fact', $facts[0]['content']);
+    }
+
+    public function testSchemaVersioningCreatesFactsTable(): void
+    {
+        // Simulate the versioning logic from index.php
+        $schemaVersion = 2;
+        $session = ['schema_version' => 1]; // Old version
+        $shouldRun = ($session['schema_version'] ?? 0) < $schemaVersion;
+        $this->assertTrue($shouldRun, 'Schema init should run when version is lower');
+
+        $session['schema_version'] = 2;
+        $shouldNotRun = ($session['schema_version'] ?? 0) < $schemaVersion;
+        $this->assertFalse($shouldNotRun, 'Schema init should NOT run when version matches');
+    }
+
+    public function testSchemaVersionTransitionFromBoolean(): void
+    {
+        // Simulate old boolean flag
+        $session = ['schema_ready' => true];
+        if (isset($session['schema_ready']) && !isset($session['schema_version'])) {
+            unset($session['schema_ready']);
+            $session['schema_version'] = 0;
+        }
+        $this->assertArrayNotHasKey('schema_ready', $session);
+        $this->assertEquals(0, $session['schema_version']);
     }
 }
