@@ -115,9 +115,12 @@ class AdminController
         if (file_exists($credFile)) {
             $content = file_get_contents($credFile);
             $escaped = preg_quote($pin, '/');
-            $updated = preg_replace(
+            // Use preg_replace_callback to avoid $ in hash being treated as backreferences
+            $updated = preg_replace_callback(
                 "/'pin'\s*=>\s*'" . $escaped . "'/",
-                "'pin' => '" . addcslashes($hash, "'") . "'",
+                function () use ($hash) {
+                    return "'pin' => '" . addcslashes($hash, "'") . "'";
+                },
                 $content
             );
             if ($updated !== $content) {
