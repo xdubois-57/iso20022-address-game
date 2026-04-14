@@ -373,8 +373,8 @@ class AdminController
         }
         $input = $this->getJsonInput();
         $content = trim($input['content'] ?? '');
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        if ($content === '' || mb_strlen($content) > 100) {
+            $this->jsonResponse(['error' => 'Fact must be 1-100 characters'], 400);
             return;
         }
         $db = Database::getInstance();
@@ -400,8 +400,8 @@ class AdminController
             $this->jsonResponse(['error' => 'Invalid fact ID'], 400);
             return;
         }
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        if ($content === '' || mb_strlen($content) > 100) {
+            $this->jsonResponse(['error' => 'Fact must be 1-100 characters'], 400);
             return;
         }
         $db = Database::getInstance();

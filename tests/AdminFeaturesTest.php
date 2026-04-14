@@ -379,19 +379,19 @@ class AdminFeaturesTest extends TestCase
 
     public function testFactContentMaxLength(): void
     {
-        $content = str_repeat('x', 500);
-        $valid = ($content !== '' && mb_strlen($content) <= 500);
+        $content = str_repeat('x', 100);
+        $valid = ($content !== '' && mb_strlen($content) <= 100);
         $this->assertTrue($valid);
 
-        $tooLong = str_repeat('x', 501);
-        $invalid = ($tooLong !== '' && mb_strlen($tooLong) <= 500);
+        $tooLong = str_repeat('x', 101);
+        $invalid = ($tooLong !== '' && mb_strlen($tooLong) <= 100);
         $this->assertFalse($invalid);
     }
 
     public function testFactContentRejectsEmpty(): void
     {
         $content = '';
-        $valid = ($content !== '' && mb_strlen($content) <= 500);
+        $valid = ($content !== '' && mb_strlen($content) <= 100);
         $this->assertFalse($valid);
     }
 

@@ -52,6 +52,7 @@
     let touchDragClone = null;
     var factsCache = [];
     var factRotationInterval = null;
+    var currentFactIndex = -1;
     const FACT_ROTATION_INTERVAL = 20000;
 
     /* =======================================================
@@ -284,20 +285,25 @@
         if (factRotationInterval) { clearInterval(factRotationInterval); factRotationInterval = null; }
     }
 
-    function getRandomFact() {
+    function nextFact() {
         if (factsCache.length === 0) return null;
-        return factsCache[Math.floor(Math.random() * factsCache.length)];
+        if (currentFactIndex < 0) {
+            currentFactIndex = Math.floor(Math.random() * factsCache.length);
+        } else {
+            currentFactIndex = (currentFactIndex + 1) % factsCache.length;
+        }
+        return factsCache[currentFactIndex];
     }
 
     function renderFactInto(el) {
-        var fact = getRandomFact();
+        var fact = nextFact();
         if (!fact) { el.innerHTML = ''; return; }
-        // fact.content may contain HTML links — render as-is (admin-controlled)
-        el.innerHTML = '<span class="fact-icon">\uD83D\uDCA1</span> <span>Did you know? ' + fact.content + '</span>';
+        el.innerHTML = '<strong>Did you know?</strong> ' + fact.content;
     }
 
     function startFactRotation(el) {
         stopFactRotation();
+        currentFactIndex = -1;
         renderFactInto(el);
         factRotationInterval = setInterval(function () {
             el.style.opacity = '0';
@@ -325,7 +331,7 @@
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
         html += '</div>';
-        html += '<div id="welcomeFactDisplay" class="fact-display"></div>';
+        html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
         html += '</section>';
         appContainer.innerHTML = html;
 
@@ -1107,9 +1113,9 @@
 
         // Did You Know Facts
         html += '<div class="admin-section"><h3>\uD83D\uDCA1 Did You Know — Quick Facts</h3>';
-        html += '<p>Add fun facts displayed on the welcome screen. HTML links are supported.</p>';
+        html += '<p>Add fun facts displayed on the welcome screen (max 100 chars). HTML links are supported.</p>';
         html += '<div class="fact-add-form">';
-        html += '<textarea id="factContentInput" placeholder="Enter a fun fact (max 500 chars)" maxlength="500" rows="2" class="fact-textarea"></textarea>';
+        html += '<input type="text" id="factContentInput" placeholder="Enter a fun fact (max 100 chars)" maxlength="100" class="fact-input">';
         html += '<button class="btn-primary" id="addFactBtn">Add Fact</button>';
         html += '</div>';
         html += '<div id="adminFactsList"><p>Loading facts...</p></div>';
@@ -1214,8 +1220,8 @@
             html += '<li class="fact-item" data-fact-id="' + fact.id + '">';
             html += '<div class="fact-content-display" id="factDisplay' + fact.id + '">' + fact.content + '</div>';
             html += '<div class="fact-actions">';
-            html += '<button class="btn-edit-fact" data-id="' + fact.id + '" title="Edit">&#9998;</button>';
-            html += '<button class="btn-delete-fact" data-id="' + fact.id + '" title="Delete">&times;</button>';
+            html += '<button class="btn-edit-fact" data-id="' + fact.id + '" title="Edit">Edit</button>';
+            html += '<button class="btn-delete-fact" data-id="' + fact.id + '" title="Delete">Del</button>';
             html += '</div>';
             html += '</li>';
         });
@@ -1241,17 +1247,17 @@
                 var id = parseInt(this.dataset.id);
                 var display = document.getElementById('factDisplay' + id);
                 if (!display) return;
-                var currentContent = display.textContent;
+                var currentContent = display.innerHTML;
                 var li = display.closest('.fact-item');
                 li.innerHTML = '<div class="fact-edit-form">'
-                    + '<textarea class="fact-textarea" id="factEditInput' + id + '" rows="2" maxlength="500">' + escapeHtml(currentContent) + '</textarea>'
+                    + '<input type="text" class="fact-input" id="factEditInput' + id + '" maxlength="100" value="' + escapeHtml(currentContent) + '">'
                     + '<div class="fact-edit-actions">'
                     + '<button class="btn-primary btn-save-fact" data-id="' + id + '">Save</button>'
                     + '<button class="btn-secondary btn-cancel-edit">Cancel</button>'
                     + '</div></div>';
                 li.querySelector('.btn-save-fact').addEventListener('click', async function () {
                     var newContent = document.getElementById('factEditInput' + id).value.trim();
-                    if (!newContent || newContent.length > 500) { await showModal('Fact must be 1-500 characters'); return; }
+                    if (!newContent || newContent.length > 100) { await showModal('Fact must be 1-100 characters'); return; }
                     var resp = await api('admin/update-fact', { id: id, content: newContent });
                     if (resp && resp.success) {
                         loadAdminFacts();
@@ -1320,8 +1326,8 @@
         document.getElementById('addFactBtn').addEventListener('click', async function () {
             var input = document.getElementById('factContentInput');
             var content = input.value.trim();
-            if (!content || content.length > 500) {
-                await showModal('Fact must be 1-500 characters');
+            if (!content || content.length > 100) {
+                await showModal('Fact must be 1-100 characters');
                 return;
             }
             var data = await api('admin/add-fact', { content: content });
