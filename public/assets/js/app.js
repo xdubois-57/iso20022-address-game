@@ -92,7 +92,8 @@
         const resp = await fetch(API_URL, opts);
         const data = await resp.json();
         if (data.setup_required) {
-            window.location.reload();
+            // Database connection failed, redirect to setup page
+            window.location.href = 'index.php';
             return null;
         }
         return data;

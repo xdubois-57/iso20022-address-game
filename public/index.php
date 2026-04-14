@@ -55,11 +55,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'POST') {
     $action = $_SERVER['HTTP_X_ACTION'] ?? '';
 
-    // Setup routes work without a DB connection — locked once configured
+    // Setup routes work without a DB connection - allowed if DB is down
     if (str_starts_with($action, 'setup/')) {
-        $credFile = __DIR__ . '/../config/credentials.php';
-        if (file_exists($credFile)) {
-            jsonError('Setup is disabled — application is already configured', 403);
+        // Check if we can connect to DB - if not, allow setup
+        $db = Database::getInstance();
+        if ($db->connect()) {
+            jsonError('Setup is disabled - database is already connected', 403);
             exit;
         }
         $controller = new SetupController();
