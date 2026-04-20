@@ -108,9 +108,9 @@ class ShareController
                 $cx = mt_rand($w - 120, $w - 30);
                 $cy = mt_rand(50, $h - 50);
             } elseif ($i % 4 === 2) {
-                // Top margin (left and right sides)
-                $cx = mt_rand(150, $w - 150);
-                $cy = mt_rand(30, 80);
+                // Top corners only (avoid title text in center)
+                $cx = ($i < 6) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
+                $cy = mt_rand(30, 120);
             } else {
                 // Bottom margin (left and right sides)
                 $cx = mt_rand(150, $w - 150);
