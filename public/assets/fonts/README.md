@@ -15,6 +15,8 @@ This directory contains bundled fonts used for share image generation.
 
 These fonts are bundled with the project to ensure consistent rendering of share images across all environments (local, test, production). Without bundled fonts, the application would rely on system fonts which vary between servers and can cause rendering inconsistencies.
 
+The fonts are stored in `public/assets/fonts/` because this location is always accessible via `$_SERVER['DOCUMENT_ROOT']`, making it reliable across different server configurations.
+
 ## License Information
 
 Liberation Fonts are released under the SIL Open Font License 1.1. This is a free, libre, and open source license that allows:

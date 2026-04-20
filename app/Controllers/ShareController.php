@@ -234,35 +234,31 @@ class ShareController
     {
         $fontFile = $bold ? 'LiberationSans-Bold.ttf' : 'LiberationSans-Regular.ttf';
         
-        // Try multiple strategies to find bundled fonts
+        // Bundled fonts in public/assets/fonts (always accessible via DOCUMENT_ROOT)
         $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-        $candidates = [
-            // Strategy 1: inside public/assets/fonts (always relative to DOCUMENT_ROOT)
-            $docRoot . '/assets/fonts/' . $fontFile,
-            // Strategy 2: relative to this file (app/Controllers/ -> project root)
-            __DIR__ . '/../../fonts/' . $fontFile,
-            // Strategy 3: relative to document root (public/ -> project root)
-            $docRoot . '/../fonts/' . $fontFile,
-            // Strategy 4: relative to working directory
-            getcwd() . '/../fonts/' . $fontFile,
-            getcwd() . '/fonts/' . $fontFile,
-        ];
+        $bundledFont = $docRoot . '/assets/fonts/' . $fontFile;
         
-        // Also add system font fallbacks
-        if ($bold) {
-            $candidates[] = '/System/Library/Fonts/Supplemental/Arial Bold.ttf';
-            $candidates[] = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf';
-            $candidates[] = '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf';
-            $candidates[] = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
-        } else {
-            $candidates[] = '/System/Library/Fonts/Supplemental/Arial.ttf';
-            $candidates[] = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf';
-            $candidates[] = '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf';
-            $candidates[] = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+        if ($bundledFont && is_file($bundledFont) && is_readable($bundledFont)) {
+            return realpath($bundledFont) ?: $bundledFont;
         }
         
-        foreach ($candidates as $path) {
-            if ($path && is_file($path) && is_readable($path)) {
+        // Fallback to system fonts if bundled fonts not found
+        $systemFonts = $bold
+            ? [
+                '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+                '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            ]
+            : [
+                '/System/Library/Fonts/Supplemental/Arial.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            ];
+        
+        foreach ($systemFonts as $path) {
+            if (is_file($path) && is_readable($path)) {
                 return realpath($path) ?: $path;
             }
         }
