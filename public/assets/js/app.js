@@ -1632,7 +1632,7 @@
 
     function decodeHtml(str) {
         var ta = document.createElement('textarea');
-        ta.textContent = str || '';
+        ta.innerHTML = str || '';
         return ta.value;
     }
 
