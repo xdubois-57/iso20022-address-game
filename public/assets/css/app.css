@@ -788,17 +788,14 @@ html, body {
 }
 
 /* ===== Did You Know Facts — Admin ===== */
-.fact-add-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-    margin-bottom: 1rem;
+.fact-editor-modal {
+    max-width: 500px;
+    width: 90%;
 }
 .fact-toolbar {
     display: flex;
     gap: 0.25rem;
-    flex-basis: 100%;
+    margin-bottom: 0.5rem;
 }
 .fact-fmt-btn {
     background: var(--swift-white);
@@ -806,8 +803,8 @@ html, body {
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.85rem;
-    padding: 0.25rem 0.5rem;
-    min-width: 30px;
+    padding: 0.3rem 0.6rem;
+    min-width: 32px;
     text-align: center;
     transition: background 0.2s, border-color 0.2s;
 }
@@ -815,13 +812,29 @@ html, body {
     background: #e8f0fe;
     border-color: var(--swift-emerald);
 }
-.fact-input {
-    flex: 1;
-    padding: 0.6rem;
+.fact-fmt-btn.active {
+    background: var(--swift-emerald);
+    color: white;
+    border-color: var(--swift-emerald);
+}
+.fact-editor {
+    min-height: 80px;
+    padding: 0.75rem;
     border: 2px solid #dde2e8;
     border-radius: 8px;
     font-family: inherit;
     font-size: 1rem;
+    line-height: 1.5;
+    outline: none;
+    overflow-y: auto;
+    max-height: 200px;
+}
+.fact-editor:focus {
+    border-color: var(--swift-emerald);
+}
+.fact-editor a {
+    color: var(--swift-emerald);
+    text-decoration: underline;
 }
 .facts-list {
     list-style: none;
