@@ -194,10 +194,26 @@ class ShareController
             $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $darkGreen);
         }
 
+        // Render PNG to buffer
+        ob_start();
+        imagepng($img, null, 6);
+        $pngData = ob_get_clean();
+        imagedestroy($img);
+
         header('Content-Type: image/png');
         header('Cache-Control: public, max-age=3600');
-        imagepng($img, null, 6);
-        imagedestroy($img);
+
+        // Facebook crawler only accepts gzip/deflate — serve gzip if client supports it
+        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+        if (strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
+            $compressed = gzencode($pngData, 6);
+            header('Content-Encoding: gzip');
+            header('Content-Length: ' . strlen($compressed));
+            echo $compressed;
+        } else {
+            header('Content-Length: ' . strlen($pngData));
+            echo $pngData;
+        }
     }
 
     /* --- Helpers --- */
