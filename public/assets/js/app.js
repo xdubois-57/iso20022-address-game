@@ -728,13 +728,6 @@
                 });
             });
 
-            // Make placed chips re-draggable (touch)
-            contentEl.querySelectorAll('.slot-chip[draggable]').forEach(function (sc) {
-                sc.addEventListener('touchstart', function (e) {
-                    startTouchDrag(sc, sc.dataset.chipId, e);
-                }, { passive: true });
-            });
-
             contentEl.querySelectorAll('.slot-remove').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     var cid = this.dataset.removeChip;
