@@ -906,9 +906,7 @@
         html += '</div>';
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
-        if (navigator.share) {
-            html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
-        }
+        html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
         html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -947,84 +945,28 @@
         var shareBtn = document.getElementById('shareScoreBtn');
         if (shareBtn) {
             shareBtn.addEventListener('click', function () {
-                generateShareImage(playerName, finalGameScore, finalPct, timeStr, perfectCount, roundScores.length).then(function (file) {
-                    var shareUrl = window.location.origin + window.location.pathname;
+                var shareUrl = window.location.origin + '/share?' +
+                    's=' + finalGameScore +
+                    '&p=' + finalPct +
+                    '&t=' + encodeURIComponent(timeStr) +
+                    '&n=' + encodeURIComponent(playerName) +
+                    '&w=' + perfectCount +
+                    '&r=' + roundScores.length;
+                if (navigator.share) {
                     navigator.share({
-                        title: 'ISO 20022 Address Game',
-                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Game! Think you can beat me? \uD83D\uDE0F\n\n' + shareUrl,
-                        files: [file]
+                        title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
+                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83D\uDE0F',
+                        url: shareUrl
                     }).catch(function () { /* user cancelled */ });
-                });
+                } else {
+                    // Fallback: copy link to clipboard
+                    navigator.clipboard.writeText(shareUrl).then(function () {
+                        shareBtn.textContent = '\u2705 Link copied!';
+                        setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
+                    });
+                }
             });
         }
-    }
-
-    function generateShareImage(name, score, pct, timeStr, perfectCount, totalRounds) {
-        return new Promise(function (resolve) {
-            var w = 600, h = 400;
-            var canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            var ctx = canvas.getContext('2d');
-
-            // Background: Swift peppermint gradient
-            var grad = ctx.createLinearGradient(0, 0, w, h);
-            grad.addColorStop(0, '#cffbf2');  // light peppermint
-            grad.addColorStop(0.5, '#acf9e9'); // peppermint
-            grad.addColorStop(1, '#cffbf2');  // light peppermint
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, w, h);
-
-            // Decorative confetti dots using Swift palette
-            var confettiColors = ['#01a990', '#698287', '#333d3e', '#acf9e9'];
-            for (var i = 0; i < 40; i++) {
-                ctx.beginPath();
-                ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 6 + 2, 0, Math.PI * 2);
-                ctx.fillStyle = confettiColors[i % confettiColors.length];
-                ctx.globalAlpha = 0.2 + Math.random() * 0.3;
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-
-            // Trophy + Title
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#01a990'; // Swift emerald
-            ctx.font = 'bold 40px system-ui, -apple-system, sans-serif';
-            ctx.fillText('\uD83C\uDFC6 ISO 20022 Challenge', w / 2, 60);
-
-            // Player name
-            ctx.fillStyle = '#698287'; // Swift grey-green
-            ctx.font = '20px system-ui, -apple-system, sans-serif';
-            ctx.fillText(name, w / 2, 100);
-
-            // Big score
-            ctx.fillStyle = '#333d3e'; // Swift dark green
-            ctx.font = 'bold 80px system-ui, -apple-system, sans-serif';
-            ctx.fillText(score, w / 2, 200);
-            ctx.fillStyle = '#01a990'; // Swift emerald
-            ctx.font = '22px system-ui, -apple-system, sans-serif';
-            ctx.fillText('points', w / 2, 230);
-
-            // Stats line
-            ctx.fillStyle = '#698287'; // Swift grey-green
-            ctx.font = '18px system-ui, -apple-system, sans-serif';
-            ctx.fillText(pct + '% accuracy  \u00B7  ' + timeStr + '  \u00B7  ' + perfectCount + '/' + totalRounds + ' perfect', w / 2, 280);
-
-            // Challenge text
-            ctx.fillStyle = '#01a990'; // Swift emerald
-            ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
-            ctx.fillText('Can you beat my score?', w / 2, 330);
-
-            // Footer
-            ctx.fillStyle = 'rgba(51, 61, 62, 0.5)'; // Swift dark green with transparency
-            ctx.font = '14px system-ui, -apple-system, sans-serif';
-            ctx.fillText('Play now \u2192 ' + window.location.host, w / 2, 375);
-
-            canvas.toBlob(function (blob) {
-                var file = new File([blob], 'iso20022-score.png', { type: 'image/png' });
-                resolve(file);
-            }, 'image/png');
-        });
     }
 
     /* =======================================================
