@@ -232,6 +232,17 @@ class ShareController
 
     private function findFont(bool $bold): ?string
     {
+        // Project-bundled fonts (always available, consistent rendering)
+        $projectRoot = __DIR__ . '/../..';
+        $bundledFont = $bold 
+            ? $projectRoot . '/fonts/LiberationSans-Bold.ttf'
+            : $projectRoot . '/fonts/LiberationSans-Regular.ttf';
+        
+        if (file_exists($bundledFont)) {
+            return $bundledFont;
+        }
+        
+        // Fallback to system fonts
         $candidates = $bold
             ? [
                 '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
@@ -245,11 +256,13 @@ class ShareController
                 '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',
                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             ];
+        
         foreach ($candidates as $path) {
             if (file_exists($path)) {
                 return $path;
             }
         }
+        
         return null;
     }
 
