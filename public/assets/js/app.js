@@ -1222,19 +1222,22 @@
             return;
         }
 
+        // Compute game score and sort (same as Hall of Fame)
+        entries.forEach(function (entry) {
+            var pct = parseInt(entry.score) || 0;
+            var ts = parseInt(entry.time_seconds) || 0;
+            entry.gameScore = computeGameScore(pct, ts);
+        });
+        entries.sort(function (a, b) { return b.gameScore - a.gameScore; });
+
         var html = '<table class="leaderboard-table admin-leaderboard-table"><thead><tr>';
-        html += '<th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Date</th><th></th>';
+        html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th><th></th>';
         html += '</tr></thead><tbody>';
         entries.forEach(function (entry, i) {
-            var ts = parseInt(entry.time_seconds) || 0;
-            var tm = Math.floor(ts / 60);
-            var tss = ts % 60;
-            var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
             html += '<tr data-entry-id="' + entry.id + '">';
             html += '<td>' + (i + 1) + '</td>';
             html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-            html += '<td>' + entry.score + '%</td>';
-            html += '<td>' + timeDisplay + '</td>';
+            html += '<td>' + entry.gameScore + '</td>';
             html += '<td>' + formatDate(entry.created_at) + '</td>';
             html += '<td><button class="btn-delete-entry" data-id="' + entry.id + '" title="Delete">&times;</button></td>';
             html += '</tr>';
