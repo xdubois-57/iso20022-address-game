@@ -86,30 +86,36 @@ class ShareController
 
         // Party balloons - colorful circles with strings
         // Place balloons ONLY in margins/corners to avoid text overlap
-        mt_srand(crc32($name . $score)); // Deterministic
+        // RANDOM positions (not seeded) - changes on each load
         $balloonColors = [
             [1, 169, 144],     // emerald
-            [51, 61, 62],      // dark green
             [207, 251, 242],   // light peppermint
             [255, 193, 7],     // gold
             [255, 107, 107],   // coral
+            [69, 183, 209],    // sky blue
         ];
         
-        for ($i = 0; $i < 12; $i++) {
+        $balloons = []; // Track placed balloons to prevent overlap
+        $attempts = 0;
+        $maxAttempts = 100;
+        
+        for ($i = 0; $i < 12 && $attempts < $maxAttempts; $i++) {
+            $attempts++;
             $r = mt_rand(25, 45);
             
             // Constrain balloons to edges/corners only (not center text area)
-            if ($i % 4 === 0) {
+            $zone = $i % 4;
+            if ($zone === 0) {
                 // Left margin
                 $cx = mt_rand(30, 120);
                 $cy = mt_rand(50, $h - 50);
-            } elseif ($i % 4 === 1) {
+            } elseif ($zone === 1) {
                 // Right margin
                 $cx = mt_rand($w - 120, $w - 30);
                 $cy = mt_rand(50, $h - 50);
-            } elseif ($i % 4 === 2) {
+            } elseif ($zone === 2) {
                 // Top corners only (avoid title text in center)
-                $cx = ($i < 6) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
+                $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
                 $cy = mt_rand(30, 120);
             } else {
                 // Bottom margin (left and right sides)
@@ -117,15 +123,30 @@ class ShareController
                 $cy = mt_rand($h - 120, $h - 30);
             }
             
-            $col = $balloonColors[$i % count($balloonColors)];
-            $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
+            // Check for overlap with existing balloons
+            $overlap = false;
+            foreach ($balloons as $b) {
+                $dist = sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2));
+                if ($dist < ($r + $b['r'] + 20)) { // 20px minimum spacing
+                    $overlap = true;
+                    $i--; // Retry this balloon
+                    break;
+                }
+            }
             
-            // Balloon circle
-            imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
-            
-            // String
-            $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
-            imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
+            if (!$overlap) {
+                $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
+                
+                $col = $balloonColors[array_rand($balloonColors)];
+                $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
+                
+                // Balloon circle
+                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
+                
+                // String
+                $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
+                imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
+            }
         }
 
         // Top emerald accent bar
