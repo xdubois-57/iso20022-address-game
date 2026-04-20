@@ -71,64 +71,91 @@ class ShareController
         $w = 1200;
         $h = 630;
         $img = imagecreatetruecolor($w, $h);
+        imagealphablending($img, true);
+        imagesavealpha($img, true);
 
-        // Swift palette - high contrast for readability
-        $white       = imagecolorallocate($img, 255, 255, 255);
+        // Swift palette
         $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
+        $lightPepper = imagecolorallocate($img, 207, 251, 242); // #cffbf2 lighter
         $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
         $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
-        $greyGreen   = imagecolorallocate($img, 105, 130, 135); // #698287
+        $white       = imagecolorallocate($img, 255, 255, 255);
 
-        // White background for maximum contrast
-        imagefill($img, 0, 0, $white);
+        // Peppermint background
+        imagefill($img, 0, 0, $peppermint);
+
+        // Party balloons - colorful circles with strings
+        mt_srand(crc32($name . $score)); // Deterministic
+        $balloonColors = [
+            [1, 169, 144],     // emerald
+            [51, 61, 62],      // dark green
+            [207, 251, 242],   // light peppermint
+            [255, 193, 7],     // gold
+            [255, 107, 107],   // coral
+        ];
+        
+        for ($i = 0; $i < 12; $i++) {
+            $cx = mt_rand(50, $w - 50);
+            $cy = mt_rand(50, $h - 100);
+            $r = mt_rand(25, 45);
+            $col = $balloonColors[$i % count($balloonColors)];
+            $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
+            
+            // Balloon circle
+            imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
+            
+            // String
+            $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
+            imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
+        }
+
+        // Semi-transparent white overlay for text readability
+        $textBg = imagecolorallocatealpha($img, 255, 255, 255, 50);
+        imagefilledrectangle($img, 80, 50, $w - 80, 620, $textBg);
 
         // Top emerald accent bar
         imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
-
-        // Peppermint side accents
-        imagefilledrectangle($img, 0, 0, 20, $h, $peppermint);
-        imagefilledrectangle($img, $w - 20, 0, $w, $h, $peppermint);
 
         // Resolve fonts
         $fontBold = $this->findFont(true);
         $fontRegular = $this->findFont(false);
 
         if ($fontBold && $fontRegular) {
-            // Title - larger and bolder
+            // Title - dark green for contrast
             $this->ttfCentered($img, 48, $fontBold, 'ISO 20022 Address Challenge', $w, 100, $darkGreen);
 
-            // Player name - larger
-            $this->ttfCentered($img, 28, $fontRegular, $name, $w, 165, $greyGreen);
+            // Player name
+            $this->ttfCentered($img, 28, $fontRegular, $name, $w, 165, $darkGreen);
 
             // Separator line
             $lineY = 205;
             imageline($img, 300, $lineY, $w - 300, $lineY, $emerald);
             imageline($img, 300, $lineY + 1, $w - 300, $lineY + 1, $emerald);
 
-            // HUGE score - much larger for visibility
+            // HUGE score in dark green
             $this->ttfCentered($img, 150, $fontBold, (string) $score, $w, 385, $darkGreen);
             
-            // "POINTS" label - larger
+            // "POINTS" label in emerald
             $this->ttfCentered($img, 32, $fontBold, 'POINTS', $w, 435, $emerald);
 
             // Separator line
             imageline($img, 300, 480, $w - 300, 480, $emerald);
             imageline($img, 300, 481, $w - 300, 481, $emerald);
 
-            // Challenge CTA - much larger and bolder
+            // Challenge CTA in emerald
             $this->ttfCentered($img, 36, $fontBold, 'Can you beat this score?', $w, 545, $emerald);
 
-            // Footer - larger
-            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 600, $greyGreen);
+            // Footer in dark green
+            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 600, $darkGreen);
         } else {
             // GD built-in fonts fallback
             $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 70, $darkGreen);
-            $this->gdCentered($img, 4, $name, $w, 130, $greyGreen);
+            $this->gdCentered($img, 4, $name, $w, 130, $darkGreen);
             imageline($img, 300, 165, $w - 300, 165, $emerald);
             $this->gdCentered($img, 5, $score . ' POINTS', $w, 300, $darkGreen);
             imageline($img, 300, 400, $w - 300, 400, $emerald);
             $this->gdCentered($img, 4, 'Can you beat this score?', $w, 460, $emerald);
-            $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $greyGreen);
+            $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $darkGreen);
         }
 
         header('Content-Type: image/png');
