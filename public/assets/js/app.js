@@ -949,11 +949,7 @@
                 shareBtn.textContent = '\u23F3 Preparing...';
                 var tokenData = await api('share/token', {
                     score: finalGameScore,
-                    pct: finalPct,
-                    time: timeStr,
-                    name: playerName,
-                    perfect: perfectCount,
-                    rounds: roundScores.length
+                    name: playerName
                 });
                 if (!tokenData || !tokenData.token) {
                     shareBtn.disabled = false;

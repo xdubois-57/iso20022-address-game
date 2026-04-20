@@ -18,13 +18,10 @@ class ShareController
     public function generateToken(): void
     {
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        // Minimal payload: only score and name for shorter URLs
         $payload = json_encode([
             's' => max(0, min(10000, (int) ($input['score'] ?? 0))),
-            'p' => max(0, min(100, (int) ($input['pct'] ?? 0))),
-            't' => $this->sanitizeTime($input['time'] ?? '0:00'),
             'n' => $this->sanitizeName($input['name'] ?? ''),
-            'w' => max(0, min(99, (int) ($input['perfect'] ?? 0))),
-            'r' => max(0, min(99, (int) ($input['rounds'] ?? 0))),
         ]);
 
         $enc = new Encryption();
@@ -51,8 +48,8 @@ class ShareController
         $rawToken = $_GET['d'];
         $ogImageUrl = $baseUrl . '/share/image?d=' . urlencode($rawToken);
 
-        $ogTitle = $data['n'] . ' scored ' . $data['s'] . ' pts on the ISO 20022 Challenge!';
-        $ogDescription = $data['p'] . '% accuracy · ' . $data['t'] . ' · ' . $data['w'] . '/' . $data['r'] . ' perfect rounds. Can you beat this score? Play now!';
+        $ogTitle = $data['n'] . ' scored ' . $data['s'] . ' points on the ISO 20022 Challenge!';
+        $ogDescription = 'Think you can beat ' . $data['s'] . ' points? Play the ISO 20022 Address Challenge now!';
 
         require __DIR__ . '/../Views/share.php';
     }
@@ -69,129 +66,62 @@ class ShareController
         }
 
         $score = $data['s'];
-        $pct = $data['p'];
-        $time = $data['t'];
         $name = $data['n'];
-        $perfect = $data['w'];
-        $rounds = $data['r'];
 
         $w = 1200;
         $h = 630;
         $img = imagecreatetruecolor($w, $h);
-        imagesavealpha($img, true);
-        imagealphablending($img, true);
 
-        // Swift palette
-        $peppermint     = imagecolorallocate($img, 172, 249, 233); // #acf9e9
-        $lightPepper    = imagecolorallocate($img, 207, 251, 242); // #cffbf2
-        $emerald        = imagecolorallocate($img, 1, 169, 144);   // #01a990
-        $darkGreen      = imagecolorallocate($img, 51, 61, 62);    // #333d3e
-        $greyGreen      = imagecolorallocate($img, 105, 130, 135); // #698287
-        $white          = imagecolorallocate($img, 255, 255, 255);
-        $gold           = imagecolorallocate($img, 255, 193, 7);   // party gold
+        // Swift palette only - clean and minimal
+        $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
+        $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
+        $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
+        $greyGreen   = imagecolorallocate($img, 105, 130, 135); // #698287
 
-        // --- Background: gradient from light peppermint to peppermint ---
-        for ($y = 0; $y < $h; $y++) {
-            $ratio = $y / $h;
-            $r = (int)(207 + ($ratio * (172 - 207)));
-            $g = (int)(251 + ($ratio * (249 - 251)));
-            $b = (int)(242 + ($ratio * (233 - 242)));
-            $color = imagecolorallocate($img, $r, $g, $b);
-            imageline($img, 0, $y, $w, $y, $color);
-        }
+        // Solid peppermint background
+        imagefill($img, 0, 0, $peppermint);
 
-        // --- Scattered confetti for party feel ---
-        $confettiPalette = [
-            [255, 193, 7],   // gold
-            [1, 169, 144],   // emerald
-            [51, 61, 62],    // dark green
-            [105, 130, 135], // grey green
-            [255, 107, 107], // coral
-            [69, 183, 209],  // sky blue
-            [187, 143, 206], // lavender
-            [255, 160, 122], // light salmon
-        ];
-        mt_srand(crc32($name . $score)); // Deterministic for caching
-        for ($i = 0; $i < 60; $i++) {
-            $c = $confettiPalette[$i % count($confettiPalette)];
-            $alpha = imagecolorallocatealpha($img, $c[0], $c[1], $c[2], mt_rand(75, 100));
-            $cx = mt_rand(0, $w);
-            $cy = mt_rand(0, $h);
-            if ($i % 3 === 0) {
-                // Circle
-                $r = mt_rand(8, 25);
-                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2, $alpha);
-            } elseif ($i % 3 === 1) {
-                // Small rotated rectangle (diamond shape)
-                $sz = mt_rand(6, 16);
-                imagefilledpolygon($img, [
-                    $cx, $cy - $sz,
-                    $cx + $sz, $cy,
-                    $cx, $cy + $sz,
-                    $cx - $sz, $cy,
-                ], $alpha);
-            } else {
-                // Star-like burst
-                $sz = mt_rand(5, 12);
-                $diag = (int)($sz / 1.4);
-                imageline($img, $cx - $sz, $cy, $cx + $sz, $cy, $alpha);
-                imageline($img, $cx, $cy - $sz, $cx, $cy + $sz, $alpha);
-                imageline($img, $cx - $diag, $cy - $diag, $cx + $diag, $cy + $diag, $alpha);
-                imageline($img, $cx - $diag, $cy + $diag, $cx + $diag, $cy - $diag, $alpha);
-            }
-        }
+        // Top emerald accent bar
+        imagefilledrectangle($img, 0, 0, $w, 12, $emerald);
 
-        // --- Large decorative circles in corners ---
-        $cornerCircle = imagecolorallocatealpha($img, 1, 169, 144, 100); // emerald
-        imagefilledellipse($img, -50, -50, 200, 200, $cornerCircle);
-        imagefilledellipse($img, $w + 50, -50, 200, 200, $cornerCircle);
-        imagefilledellipse($img, -50, $h + 50, 200, 200, $cornerCircle);
-        imagefilledellipse($img, $w + 50, $h + 50, 200, 200, $cornerCircle);
-
-        // --- Gold accent circles ---
-        $goldCircle = imagecolorallocatealpha($img, 255, 193, 7, 90);
-        imagefilledellipse($img, 150, 100, 80, 80, $goldCircle);
-        imagefilledellipse($img, $w - 150, 100, 80, 80, $goldCircle);
-
-        // --- Resolve font ---
+        // Resolve fonts
         $fontBold = $this->findFont(true);
         $fontRegular = $this->findFont(false);
 
-        // --- Semi-transparent overlay for text readability ---
-        $textBg = imagecolorallocatealpha($img, 255, 255, 255, 80); // white with transparency
-        imagefilledrectangle($img, 100, 180, $w - 100, 450, $textBg);
-
         if ($fontBold && $fontRegular) {
             // Title
-            $this->ttfCentered($img, 42, $fontBold, 'ISO 20022 Address Challenge', $w, 80, $darkGreen);
+            $this->ttfCentered($img, 36, $fontBold, 'ISO 20022 Address Challenge', $w, 95, $darkGreen);
 
             // Player name
-            $this->ttfCentered($img, 24, $fontRegular, $name, $w, 140, $greyGreen);
+            $this->ttfCentered($img, 22, $fontRegular, $name, $w, 155, $greyGreen);
 
-            // Trophy emoji (as text)
-            $this->ttfCentered($img, 50, $fontBold, '🏆', $w, 230, $gold);
+            // Separator line
+            $lineY = 190;
+            imageline($img, 350, $lineY, $w - 350, $lineY, $greyGreen);
 
-            // Big score
-            $this->ttfCentered($img, 110, $fontBold, (string) $score, $w, 340, $darkGreen);
-            $this->ttfCentered($img, 26, $fontBold, 'POINTS', $w, 378, $emerald);
+            // Giant score
+            $this->ttfCentered($img, 130, $fontBold, (string) $score, $w, 360, $darkGreen);
+            
+            // "POINTS" label
+            $this->ttfCentered($img, 26, $fontBold, 'POINTS', $w, 405, $emerald);
 
-            // Stats
-            $stats = $pct . '% accuracy  ·  ' . $time . '  ·  ' . $perfect . '/' . $rounds . ' perfect';
-            $this->ttfCentered($img, 20, $fontRegular, $stats, $w, 430, $greyGreen);
+            // Separator line
+            imageline($img, 350, 450, $w - 350, 450, $greyGreen);
 
             // Challenge CTA
-            $this->ttfCentered($img, 30, $fontBold, 'Can you beat this score?', $w, 510, $emerald);
+            $this->ttfCentered($img, 30, $fontBold, 'Can you beat this score?', $w, 515, $emerald);
 
             // Footer
-            $this->ttfCentered($img, 16, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 580, $greyGreen);
+            $this->ttfCentered($img, 16, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 590, $greyGreen);
         } else {
-            // GD built-in font fallback
-            $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 60, $darkGreen);
-            $this->gdCentered($img, 4, $name, $w, 120, $greyGreen);
-            $this->gdCentered($img, 5, $score . ' POINTS', $w, 280, $darkGreen);
-            $this->gdCentered($img, 3, $pct . '% accuracy | ' . $time . ' | ' . $perfect . '/' . $rounds . ' perfect', $w, 360, $greyGreen);
-            $this->gdCentered($img, 4, 'Can you beat this score?', $w, 440, $emerald);
-            $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 560, $greyGreen);
+            // GD built-in fonts fallback
+            $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 70, $darkGreen);
+            $this->gdCentered($img, 4, $name, $w, 130, $greyGreen);
+            imageline($img, 350, 165, $w - 350, 165, $greyGreen);
+            $this->gdCentered($img, 5, $score . ' POINTS', $w, 300, $darkGreen);
+            imageline($img, 350, 400, $w - 350, 400, $greyGreen);
+            $this->gdCentered($img, 4, 'Can you beat this score?', $w, 460, $emerald);
+            $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $greyGreen);
         }
 
         header('Content-Type: image/png');
@@ -224,13 +154,9 @@ class ShareController
             return null;
         }
 
-        // Clamp
-        $data['s'] = max(0, min(10000, (int) $data['s']));
-        $data['p'] = max(0, min(100, (int) ($data['p'] ?? 0)));
-        $data['t'] = $this->sanitizeTime($data['t'] ?? '0:00');
+        // Clamp and validate
+        $data['s'] = max(0, min(10000, (int) ($data['s'] ?? 0)));
         $data['n'] = $this->sanitizeName($data['n'] ?? '');
-        $data['w'] = max(0, min(99, (int) ($data['w'] ?? 0)));
-        $data['r'] = max(0, min(99, (int) ($data['r'] ?? 0)));
         return $data;
     }
 
