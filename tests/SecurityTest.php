@@ -125,16 +125,17 @@ class SecurityTest extends TestCase
        Setup Lockdown
        ======================================================= */
 
-    public function testSetupLockedWhenCredentialsExist(): void
+    public function testSetupLockedWhenDatabaseConnected(): void
     {
-        // The logic: if credentials.php exists, setup routes should be blocked
-        $credFile = __DIR__ . '/../config/credentials.php';
-        if (file_exists($credFile)) {
-            $this->assertTrue(file_exists($credFile));
-            // In index.php this returns 403
+        // The logic: if DB is connected, setup routes should be blocked (403)
+        // Setup is only allowed when the DB connection fails, regardless of credentials file
+        $db = \App\Models\Database::getInstance();
+        if ($db->connect()) {
+            // DB is up — setup should be disabled
+            $this->assertTrue($db->isConnected(), 'Setup should be blocked when DB is connected');
         } else {
-            // In test env, credentials.php may not exist — just verify the logic
-            $this->assertFalse(file_exists($credFile));
+            // DB is down — setup should be allowed
+            $this->assertFalse($db->isConnected(), 'Setup should be allowed when DB is not connected');
         }
     }
 

@@ -421,20 +421,53 @@ class AdminFeaturesTest extends TestCase
 
     public function testFactContentMaxLength(): void
     {
-        $content = str_repeat('x', 100);
-        $valid = ($content !== '' && mb_strlen($content) <= 100);
+        $content = str_repeat('x', 500);
+        $valid = ($content !== '' && mb_strlen($content) <= 500);
         $this->assertTrue($valid);
 
-        $tooLong = str_repeat('x', 101);
-        $invalid = ($tooLong !== '' && mb_strlen($tooLong) <= 100);
+        $tooLong = str_repeat('x', 501);
+        $invalid = ($tooLong !== '' && mb_strlen($tooLong) <= 500);
         $this->assertFalse($invalid);
     }
 
     public function testFactContentRejectsEmpty(): void
     {
         $content = '';
-        $valid = ($content !== '' && mb_strlen($content) <= 100);
+        $valid = ($content !== '' && mb_strlen($content) <= 500);
         $this->assertFalse($valid);
+    }
+
+    public function testFactContentSupportsBoldAndItalic(): void
+    {
+        $pdo = $this->db->getPdo();
+        $pdo->exec('DELETE FROM facts');
+        $html = 'ISO 20022 is <b>very important</b> and <i>urgent</i>';
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute([$html]);
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertStringContainsString('<b>', $facts[0]['content']);
+        $this->assertStringContainsString('<i>', $facts[0]['content']);
+    }
+
+    public function testFactContentSupportsMixedFormatting(): void
+    {
+        $pdo = $this->db->getPdo();
+        $pdo->exec('DELETE FROM facts');
+        $html = '<b>Bold</b> and <i>italic</i> with <a href="https://example.com">a link</a>';
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute([$html]);
+
+        $facts = AdminController::fetchFactsStatic();
+        $this->assertEquals($html, $facts[0]['content']);
+    }
+
+    public function testFactContentWithFormattingFitsInLimit(): void
+    {
+        // HTML tags take up characters but the 500 limit should accommodate them
+        $html = '<b>' . str_repeat('x', 100) . '</b> <i>' . str_repeat('y', 100) . '</i>';
+        $valid = ($html !== '' && mb_strlen($html) <= 500);
+        $this->assertTrue($valid, 'Formatted fact with 200 chars of text should fit in 500 char limit');
     }
 
     public function testGameControllerGetFactsPublicAccess(): void
