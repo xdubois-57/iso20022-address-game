@@ -85,6 +85,7 @@ class ShareController
         imagefill($img, 0, 0, $peppermint);
 
         // Party balloons - colorful circles with strings
+        // Place balloons ONLY in margins/corners to avoid text overlap
         mt_srand(crc32($name . $score)); // Deterministic
         $balloonColors = [
             [1, 169, 144],     // emerald
@@ -95,9 +96,27 @@ class ShareController
         ];
         
         for ($i = 0; $i < 12; $i++) {
-            $cx = mt_rand(50, $w - 50);
-            $cy = mt_rand(50, $h - 100);
             $r = mt_rand(25, 45);
+            
+            // Constrain balloons to edges/corners only (not center text area)
+            if ($i % 4 === 0) {
+                // Left margin
+                $cx = mt_rand(30, 120);
+                $cy = mt_rand(50, $h - 50);
+            } elseif ($i % 4 === 1) {
+                // Right margin
+                $cx = mt_rand($w - 120, $w - 30);
+                $cy = mt_rand(50, $h - 50);
+            } elseif ($i % 4 === 2) {
+                // Top margin (left and right sides)
+                $cx = mt_rand(150, $w - 150);
+                $cy = mt_rand(30, 80);
+            } else {
+                // Bottom margin (left and right sides)
+                $cx = mt_rand(150, $w - 150);
+                $cy = mt_rand($h - 120, $h - 30);
+            }
+            
             $col = $balloonColors[$i % count($balloonColors)];
             $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
             
