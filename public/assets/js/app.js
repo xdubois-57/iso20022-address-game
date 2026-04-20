@@ -1151,9 +1151,10 @@
 
         // Did You Know Facts
         html += '<div class="admin-section"><h3>\uD83D\uDCA1 Did You Know — Quick Facts</h3>';
-        html += '<p>Add fun facts displayed on the welcome screen (max 100 chars). HTML links are supported.</p>';
+        html += '<p>Add fun facts displayed on the welcome screen. Use the buttons to format text.</p>';
         html += '<div class="fact-add-form">';
-        html += '<input type="text" id="factContentInput" placeholder="Enter a fun fact (max 100 chars)" maxlength="100" class="fact-input">';
+        html += factToolbarHtml('factContentInput');
+        html += '<input type="text" id="factContentInput" placeholder="Enter a fun fact..." maxlength="500" class="fact-input">';
         html += '<button class="btn-primary" id="addFactBtn">Add Fact</button>';
         html += '</div>';
         html += '<div id="adminFactsList"><p>Loading facts...</p></div>';
@@ -1228,6 +1229,44 @@
         });
     }
 
+    function factToolbarHtml(inputId) {
+        return '<div class="fact-toolbar">'
+            + '<button type="button" class="fact-fmt-btn" data-fmt="bold" data-input="' + inputId + '" title="Bold"><b>B</b></button>'
+            + '<button type="button" class="fact-fmt-btn" data-fmt="italic" data-input="' + inputId + '" title="Italic"><i>I</i></button>'
+            + '<button type="button" class="fact-fmt-btn" data-fmt="link" data-input="' + inputId + '" title="Link">\uD83D\uDD17</button>'
+            + '</div>';
+    }
+
+    function initFactToolbar(container) {
+        container.querySelectorAll('.fact-fmt-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var inputId = this.dataset.input;
+                var fmt = this.dataset.fmt;
+                var input = document.getElementById(inputId);
+                if (!input) return;
+                var start = input.selectionStart;
+                var end = input.selectionEnd;
+                var text = input.value;
+                var selected = text.substring(start, end);
+                var replacement = '';
+                if (fmt === 'bold') {
+                    replacement = '<b>' + selected + '</b>';
+                } else if (fmt === 'italic') {
+                    replacement = '<i>' + selected + '</i>';
+                } else if (fmt === 'link') {
+                    var url = prompt('Enter URL:', 'https://');
+                    if (!url) return;
+                    replacement = '<a href="' + url + '">' + (selected || url) + '</a>';
+                }
+                input.value = text.substring(0, start) + replacement + text.substring(end);
+                input.focus();
+                var cursorPos = start + replacement.length;
+                input.setSelectionRange(cursorPos, cursorPos);
+            });
+        });
+    }
+
     async function loadAdminDeadline() {
         var data = await api('admin/get-deadline');
         if (data && data.deadline) {
@@ -1288,14 +1327,16 @@
                 var currentContent = display.innerHTML;
                 var li = display.closest('.fact-item');
                 li.innerHTML = '<div class="fact-edit-form">'
-                    + '<input type="text" class="fact-input" id="factEditInput' + id + '" maxlength="100" value="' + escapeHtml(currentContent) + '">'
+                    + factToolbarHtml('factEditInput' + id)
+                    + '<input type="text" class="fact-input" id="factEditInput' + id + '" maxlength="500" value="' + escapeHtml(currentContent) + '">'
                     + '<div class="fact-edit-actions">'
                     + '<button class="btn-primary btn-save-fact" data-id="' + id + '">Save</button>'
                     + '<button class="btn-secondary btn-cancel-edit">Cancel</button>'
                     + '</div></div>';
+                initFactToolbar(li);
                 li.querySelector('.btn-save-fact').addEventListener('click', async function () {
                     var newContent = document.getElementById('factEditInput' + id).value.trim();
-                    if (!newContent || newContent.length > 100) { await showModal('Fact must be 1-100 characters'); return; }
+                    if (!newContent || newContent.length > 500) { await showModal('Fact must be 1-500 characters'); return; }
                     var resp = await api('admin/update-fact', { id: id, content: newContent });
                     if (resp && resp.success) {
                         loadAdminFacts();
@@ -1372,11 +1413,14 @@
             }
         });
 
+        // Init formatting toolbar for add-fact input
+        initFactToolbar(document.querySelector('.fact-add-form'));
+
         document.getElementById('addFactBtn').addEventListener('click', async function () {
             var input = document.getElementById('factContentInput');
             var content = input.value.trim();
-            if (!content || content.length > 100) {
-                await showModal('Fact must be 1-100 characters');
+            if (!content || content.length > 500) {
+                await showModal('Fact must be 1-500 characters');
                 return;
             }
             var data = await api('admin/add-fact', { content: content });

@@ -790,9 +790,30 @@ html, body {
 /* ===== Did You Know Facts — Admin ===== */
 .fact-add-form {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
     margin-bottom: 1rem;
+}
+.fact-toolbar {
+    display: flex;
+    gap: 0.25rem;
+    flex-basis: 100%;
+}
+.fact-fmt-btn {
+    background: var(--swift-white);
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    min-width: 30px;
+    text-align: center;
+    transition: background 0.2s, border-color 0.2s;
+}
+.fact-fmt-btn:hover {
+    background: #e8f0fe;
+    border-color: var(--swift-emerald);
 }
 .fact-input {
     flex: 1;
