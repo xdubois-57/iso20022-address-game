@@ -967,56 +967,56 @@
             canvas.height = h;
             var ctx = canvas.getContext('2d');
 
-            // Background gradient
+            // Background: Swift peppermint gradient
             var grad = ctx.createLinearGradient(0, 0, w, h);
-            grad.addColorStop(0, '#0a3d2e');
-            grad.addColorStop(0.5, '#145a3e');
-            grad.addColorStop(1, '#0a3d2e');
+            grad.addColorStop(0, '#cffbf2');  // light peppermint
+            grad.addColorStop(0.5, '#acf9e9'); // peppermint
+            grad.addColorStop(1, '#cffbf2');  // light peppermint
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, w, h);
 
-            // Decorative confetti dots
-            var confettiColors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'];
+            // Decorative confetti dots using Swift palette
+            var confettiColors = ['#01a990', '#698287', '#333d3e', '#acf9e9'];
             for (var i = 0; i < 40; i++) {
                 ctx.beginPath();
                 ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 6 + 2, 0, Math.PI * 2);
                 ctx.fillStyle = confettiColors[i % confettiColors.length];
-                ctx.globalAlpha = 0.3 + Math.random() * 0.4;
+                ctx.globalAlpha = 0.2 + Math.random() * 0.3;
                 ctx.fill();
             }
             ctx.globalAlpha = 1;
 
             // Trophy + Title
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#FFD700';
+            ctx.fillStyle = '#01a990'; // Swift emerald
             ctx.font = 'bold 40px system-ui, -apple-system, sans-serif';
             ctx.fillText('\uD83C\uDFC6 ISO 20022 Challenge', w / 2, 60);
 
             // Player name
-            ctx.fillStyle = '#98D8C8';
+            ctx.fillStyle = '#698287'; // Swift grey-green
             ctx.font = '20px system-ui, -apple-system, sans-serif';
             ctx.fillText(name, w / 2, 100);
 
             // Big score
-            ctx.fillStyle = '#FFFFFF';
+            ctx.fillStyle = '#333d3e'; // Swift dark green
             ctx.font = 'bold 80px system-ui, -apple-system, sans-serif';
             ctx.fillText(score, w / 2, 200);
-            ctx.fillStyle = '#98D8C8';
+            ctx.fillStyle = '#01a990'; // Swift emerald
             ctx.font = '22px system-ui, -apple-system, sans-serif';
             ctx.fillText('points', w / 2, 230);
 
             // Stats line
-            ctx.fillStyle = '#E0E0E0';
+            ctx.fillStyle = '#698287'; // Swift grey-green
             ctx.font = '18px system-ui, -apple-system, sans-serif';
             ctx.fillText(pct + '% accuracy  \u00B7  ' + timeStr + '  \u00B7  ' + perfectCount + '/' + totalRounds + ' perfect', w / 2, 280);
 
             // Challenge text
-            ctx.fillStyle = '#FFD700';
+            ctx.fillStyle = '#01a990'; // Swift emerald
             ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
             ctx.fillText('Can you beat my score?', w / 2, 330);
 
             // Footer
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillStyle = 'rgba(51, 61, 62, 0.5)'; // Swift dark green with transparency
             ctx.font = '14px system-ui, -apple-system, sans-serif';
             ctx.fillText('Play now \u2192 ' + window.location.host, w / 2, 375);
 
