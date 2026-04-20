@@ -11,10 +11,6 @@ $shareUrl = $baseUrl . $_SERVER['REQUEST_URI'];
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($ogTitle, ENT_QUOTES, 'UTF-8') ?></title>
-
     <!-- OpenGraph -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="<?= htmlspecialchars($ogTitle, ENT_QUOTES, 'UTF-8') ?>">
@@ -32,6 +28,10 @@ $shareUrl = $baseUrl . $_SERVER['REQUEST_URI'];
     <meta name="twitter:title" content="<?= htmlspecialchars($ogTitle, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($ogDescription, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="twitter:image" content="<?= htmlspecialchars($ogImageUrl, ENT_QUOTES, 'UTF-8') ?>">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= htmlspecialchars($ogTitle, ENT_QUOTES, 'UTF-8') ?></title>
 
     <!-- Redirect real visitors to home page -->
     <meta http-equiv="refresh" content="0;url=<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">
