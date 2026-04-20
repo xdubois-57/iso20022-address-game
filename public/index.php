@@ -110,6 +110,9 @@ if ($method === 'POST') {
         'leaderboard/top' => (new LeaderboardController())->getTop(),
         'leaderboard/submit' => (new LeaderboardController())->submit(),
 
+        // Share
+        'share/token' => (new ShareController())->generateToken(),
+
         // Admin
         'admin/login' => (new AdminController())->login(),
         'admin/logout' => (new AdminController())->logout(),

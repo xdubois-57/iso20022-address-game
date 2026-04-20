@@ -944,14 +944,23 @@
 
         var shareBtn = document.getElementById('shareScoreBtn');
         if (shareBtn) {
-            shareBtn.addEventListener('click', function () {
-                var shareUrl = window.location.origin + '/share?' +
-                    's=' + finalGameScore +
-                    '&p=' + finalPct +
-                    '&t=' + encodeURIComponent(timeStr) +
-                    '&n=' + encodeURIComponent(playerName) +
-                    '&w=' + perfectCount +
-                    '&r=' + roundScores.length;
+            shareBtn.addEventListener('click', async function () {
+                shareBtn.disabled = true;
+                shareBtn.textContent = '\u23F3 Preparing...';
+                var tokenData = await api('share/token', {
+                    score: finalGameScore,
+                    pct: finalPct,
+                    time: timeStr,
+                    name: playerName,
+                    perfect: perfectCount,
+                    rounds: roundScores.length
+                });
+                if (!tokenData || !tokenData.token) {
+                    shareBtn.disabled = false;
+                    shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
+                    return;
+                }
+                var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
                 if (navigator.share) {
                     navigator.share({
                         title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
@@ -959,12 +968,13 @@
                         url: shareUrl
                     }).catch(function () { /* user cancelled */ });
                 } else {
-                    // Fallback: copy link to clipboard
                     navigator.clipboard.writeText(shareUrl).then(function () {
                         shareBtn.textContent = '\u2705 Link copied!';
                         setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
                     });
                 }
+                shareBtn.disabled = false;
+                shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
             });
         }
     }
