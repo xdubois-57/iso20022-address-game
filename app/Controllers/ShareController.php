@@ -238,11 +238,17 @@ class ShareController
         $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
         $bundledFont = $docRoot . '/assets/fonts/' . $fontFile;
         
+        // Debug: log if font not found (only in production to help troubleshoot)
+        if (!is_file($bundledFont)) {
+            error_log("ShareController: Font not found at: $bundledFont (DOCUMENT_ROOT: $docRoot)");
+        }
+        
         if ($bundledFont && is_file($bundledFont) && is_readable($bundledFont)) {
             return realpath($bundledFont) ?: $bundledFont;
         }
         
         // Fallback to system fonts if bundled fonts not found
+        error_log("ShareController: Using fallback system fonts (bundled font not found)");
         $systemFonts = $bold
             ? [
                 '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
