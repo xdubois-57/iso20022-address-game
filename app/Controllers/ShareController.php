@@ -232,34 +232,38 @@ class ShareController
 
     private function findFont(bool $bold): ?string
     {
-        // Project-bundled fonts (always available, consistent rendering)
-        $projectRoot = __DIR__ . '/../..';
-        $bundledFont = $bold 
-            ? $projectRoot . '/fonts/LiberationSans-Bold.ttf'
-            : $projectRoot . '/fonts/LiberationSans-Regular.ttf';
+        $fontFile = $bold ? 'LiberationSans-Bold.ttf' : 'LiberationSans-Regular.ttf';
         
-        if (file_exists($bundledFont)) {
-            return $bundledFont;
+        // Try multiple strategies to find bundled fonts
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        $candidates = [
+            // Strategy 1: inside public/assets/fonts (always relative to DOCUMENT_ROOT)
+            $docRoot . '/assets/fonts/' . $fontFile,
+            // Strategy 2: relative to this file (app/Controllers/ -> project root)
+            __DIR__ . '/../../fonts/' . $fontFile,
+            // Strategy 3: relative to document root (public/ -> project root)
+            $docRoot . '/../fonts/' . $fontFile,
+            // Strategy 4: relative to working directory
+            getcwd() . '/../fonts/' . $fontFile,
+            getcwd() . '/fonts/' . $fontFile,
+        ];
+        
+        // Also add system font fallbacks
+        if ($bold) {
+            $candidates[] = '/System/Library/Fonts/Supplemental/Arial Bold.ttf';
+            $candidates[] = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf';
+            $candidates[] = '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf';
+            $candidates[] = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+        } else {
+            $candidates[] = '/System/Library/Fonts/Supplemental/Arial.ttf';
+            $candidates[] = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf';
+            $candidates[] = '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf';
+            $candidates[] = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
         }
         
-        // Fallback to system fonts
-        $candidates = $bold
-            ? [
-                '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-                '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf',
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-            ]
-            : [
-                '/System/Library/Fonts/Supplemental/Arial.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-                '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            ];
-        
         foreach ($candidates as $path) {
-            if (file_exists($path)) {
-                return $path;
+            if ($path && is_file($path) && is_readable($path)) {
+                return realpath($path) ?: $path;
             }
         }
         
