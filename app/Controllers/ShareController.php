@@ -109,10 +109,6 @@ class ShareController
             imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
         }
 
-        // Semi-transparent white overlay for text readability
-        $textBg = imagecolorallocatealpha($img, 255, 255, 255, 50);
-        imagefilledrectangle($img, 80, 50, $w - 80, 620, $textBg);
-
         // Top emerald accent bar
         imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
 
