@@ -806,11 +806,13 @@ html, body {
     padding: 0.3rem 0.6rem;
     min-width: 32px;
     text-align: center;
-    transition: background 0.2s, border-color 0.2s;
+    color: var(--swift-dark-green);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 .fact-fmt-btn:hover {
     background: #e8f0fe;
     border-color: var(--swift-emerald);
+    color: var(--swift-dark-green);
 }
 .fact-fmt-btn.active {
     background: var(--swift-emerald);
