@@ -906,6 +906,9 @@
         html += '</div>';
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
+        if (navigator.share) {
+            html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
+        }
         html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -939,6 +942,88 @@
 
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {
             showScreen('game');
+        });
+
+        var shareBtn = document.getElementById('shareScoreBtn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', function () {
+                generateShareImage(playerName, finalGameScore, finalPct, timeStr, perfectCount, roundScores.length).then(function (file) {
+                    var shareUrl = window.location.origin + window.location.pathname;
+                    navigator.share({
+                        title: 'ISO 20022 Address Game',
+                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Game! Think you can beat me? \uD83D\uDE0F\n\n' + shareUrl,
+                        files: [file]
+                    }).catch(function () { /* user cancelled */ });
+                });
+            });
+        }
+    }
+
+    function generateShareImage(name, score, pct, timeStr, perfectCount, totalRounds) {
+        return new Promise(function (resolve) {
+            var w = 600, h = 400;
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+
+            // Background gradient
+            var grad = ctx.createLinearGradient(0, 0, w, h);
+            grad.addColorStop(0, '#0a3d2e');
+            grad.addColorStop(0.5, '#145a3e');
+            grad.addColorStop(1, '#0a3d2e');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Decorative confetti dots
+            var confettiColors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'];
+            for (var i = 0; i < 40; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * w, Math.random() * h, Math.random() * 6 + 2, 0, Math.PI * 2);
+                ctx.fillStyle = confettiColors[i % confettiColors.length];
+                ctx.globalAlpha = 0.3 + Math.random() * 0.4;
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // Trophy + Title
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 40px system-ui, -apple-system, sans-serif';
+            ctx.fillText('\uD83C\uDFC6 ISO 20022 Challenge', w / 2, 60);
+
+            // Player name
+            ctx.fillStyle = '#98D8C8';
+            ctx.font = '20px system-ui, -apple-system, sans-serif';
+            ctx.fillText(name, w / 2, 100);
+
+            // Big score
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 80px system-ui, -apple-system, sans-serif';
+            ctx.fillText(score, w / 2, 200);
+            ctx.fillStyle = '#98D8C8';
+            ctx.font = '22px system-ui, -apple-system, sans-serif';
+            ctx.fillText('points', w / 2, 230);
+
+            // Stats line
+            ctx.fillStyle = '#E0E0E0';
+            ctx.font = '18px system-ui, -apple-system, sans-serif';
+            ctx.fillText(pct + '% accuracy  \u00B7  ' + timeStr + '  \u00B7  ' + perfectCount + '/' + totalRounds + ' perfect', w / 2, 280);
+
+            // Challenge text
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+            ctx.fillText('Can you beat my score?', w / 2, 330);
+
+            // Footer
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = '14px system-ui, -apple-system, sans-serif';
+            ctx.fillText('Play now \u2192 ' + window.location.host, w / 2, 375);
+
+            canvas.toBlob(function (blob) {
+                var file = new File([blob], 'iso20022-score.png', { type: 'image/png' });
+                resolve(file);
+            }, 'image/png');
         });
     }
 
@@ -979,7 +1064,7 @@
             html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th>';
             html += '</tr></thead><tbody>';
             
-            // Display top 50 entries sorted by game score
+            // Display top entries sorted by game score
             entries.forEach(function (entry, i) {
                 var isMe = lastSubmittedEntry &&
                     entry.player_name === lastSubmittedEntry.name &&
@@ -992,7 +1077,7 @@
                 html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
             });
 
-            // Display 5 most recent entries not in top 50 (below separator)
+            // Display 5 most recent entries not in top entries (below separator)
             if (recentEntries.length > 0) {
                 html += '<tr class="leaderboard-separator"><td colspan="4">Recent Entries</td></tr>';
                 recentEntries.forEach(function (entry) {
