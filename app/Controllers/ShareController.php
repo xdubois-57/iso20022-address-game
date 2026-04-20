@@ -234,21 +234,30 @@ class ShareController
     {
         $fontFile = $bold ? 'LiberationSans-Bold.ttf' : 'LiberationSans-Regular.ttf';
         
-        // Bundled fonts in public/assets/fonts (always accessible via DOCUMENT_ROOT)
+        // Try multiple paths to find bundled fonts
         $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-        $bundledFont = $docRoot . '/assets/fonts/' . $fontFile;
+        $scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? '';
         
-        // Debug: log if font not found (only in production to help troubleshoot)
-        if (!is_file($bundledFont)) {
-            error_log("ShareController: Font not found at: $bundledFont (DOCUMENT_ROOT: $docRoot)");
+        $candidates = [
+            // Path 1: DOCUMENT_ROOT/assets/fonts
+            $docRoot . '/assets/fonts/' . $fontFile,
+            // Path 2: Same directory as index.php (SCRIPT_FILENAME)
+            dirname($scriptFilename) . '/assets/fonts/' . $fontFile,
+            // Path 3: Relative to this controller file
+            __DIR__ . '/../../public/assets/fonts/' . $fontFile,
+        ];
+        
+        foreach ($candidates as $path) {
+            if ($path && is_file($path) && is_readable($path)) {
+                return realpath($path) ?: $path;
+            }
         }
         
-        if ($bundledFont && is_file($bundledFont) && is_readable($bundledFont)) {
-            return realpath($bundledFont) ?: $bundledFont;
-        }
+        // Debug: log all attempted paths
+        error_log("ShareController: Font '$fontFile' not found. Tried paths: " . implode(', ', $candidates));
+        error_log("ShareController: DOCUMENT_ROOT=$docRoot, SCRIPT_FILENAME=$scriptFilename");
         
-        // Fallback to system fonts if bundled fonts not found
-        error_log("ShareController: Using fallback system fonts (bundled font not found)");
+        // Fallback to system fonts
         $systemFonts = $bold
             ? [
                 '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
