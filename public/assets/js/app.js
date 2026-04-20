@@ -61,6 +61,31 @@
     const SCREENSAVER_TIMEOUT = 60000;
 
     /* =======================================================
+       Score Computation
+       ======================================================= */
+    function computeGameScore(pct, seconds) {
+        var timeBonus = 1 + Math.max(0, 300 - seconds) / 300;
+        return Math.round(pct * timeBonus * 50);
+    }
+
+    function animateScore(el, target, duration, onComplete) {
+        var start = null;
+        function step(timestamp) {
+            if (!start) start = timestamp;
+            var progress = Math.min((timestamp - start) / duration, 1);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.round(eased * target);
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = target;
+                if (onComplete) onComplete();
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    /* =======================================================
        DOM References
        ======================================================= */
     const appContainer = document.getElementById('appContainer');
@@ -864,16 +889,16 @@
             if (r.perfect) perfectCount++;
         });
         var finalPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+        var finalGameScore = computeGameScore(finalPct, gameElapsedSeconds);
         var mins = Math.floor(gameElapsedSeconds / 60);
         var secs = gameElapsedSeconds % 60;
         var timeStr = mins + ':' + (secs < 10 ? '0' : '') + secs;
 
         var html = '<section class="final-score-screen"><div class="final-score-card">';
         html += '<h1>\uD83C\uDF89 Game Over!</h1>';
-        html += '<div class="final-score-value">' + finalPct + '%</div>';
-        html += '<p class="final-score-detail">' + totalScore + ' / ' + totalMax + ' points</p>';
+        html += '<div class="final-score-value" id="animatedScore">0</div>';
+        html += '<p class="final-score-detail">' + finalPct + '% accuracy &middot; ' + timeStr + '</p>';
         html += '<p class="final-score-detail">' + perfectCount + ' / ' + roundScores.length + ' perfect rounds</p>';
-        html += '<p class="final-score-detail">Time: ' + timeStr + '</p>';
         html += '<div class="final-score-rounds">';
         roundScores.forEach(function (r) {
             html += '<span class="round-badge ' + (r.perfect ? 'perfect' : 'partial') + '">' + r.percentage + '%</span>';
@@ -885,17 +910,20 @@
         html += '</div></div></section>';
         appContainer.innerHTML = html;
 
-        // Party confetti bursts
-        if (typeof confetti === 'function') {
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-            setTimeout(function () {
-                confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
-                confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
-            }, 300);
-            setTimeout(function () {
-                confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 } });
-            }, 600);
-        }
+        // Animate score counter, then launch confetti
+        var scoreEl = document.getElementById('animatedScore');
+        animateScore(scoreEl, finalGameScore, 2000, function () {
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                setTimeout(function () {
+                    confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
+                    confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
+                }, 300);
+                setTimeout(function () {
+                    confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 } });
+                }, 600);
+            }
+        });
 
         document.getElementById('submitFinalScoreBtn').addEventListener('click', async function () {
             var data = await api('leaderboard/submit', {
@@ -904,7 +932,7 @@
                 time_seconds: gameElapsedSeconds,
             });
             if (data && data.success) {
-                lastSubmittedEntry = { name: playerName, score: finalPct, time: gameElapsedSeconds };
+                lastSubmittedEntry = { name: playerName, score: finalPct, time: gameElapsedSeconds, gameScore: finalGameScore };
                 showScreen('leaderboard');
             }
         });
@@ -926,6 +954,20 @@
 
         var entries = data.entries || [];
         var recentEntries = data.recent || [];
+
+        // Compute game score for all entries and sort by it
+        function addGameScore(arr) {
+            return arr.map(function (entry) {
+                var pct = parseInt(entry.score) || 0;
+                var ts = parseInt(entry.time_seconds) || 0;
+                entry.gameScore = computeGameScore(pct, ts);
+                return entry;
+            });
+        }
+        entries = addGameScore(entries);
+        recentEntries = addGameScore(recentEntries);
+        entries.sort(function (a, b) { return b.gameScore - a.gameScore; });
+
         var highlightIdx = -1;
         var html = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>';
         html += '<div class="leaderboard-table-wrap">';
@@ -934,46 +976,34 @@
             html += '<p class="empty-state">No entries yet. Be the first to play!</p>';
         } else {
             html += '<table class="leaderboard-table"><thead><tr>';
-            html += '<th>Rank</th><th>Player</th><th>Score</th><th>Time</th><th>Date</th>';
+            html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th>';
             html += '</tr></thead><tbody>';
             
-            // Display top 50 entries
+            // Display top 50 entries sorted by game score
             entries.forEach(function (entry, i) {
-                var ts = parseInt(entry.time_seconds) || 0;
-                var tm = Math.floor(ts / 60);
-                var tss = ts % 60;
-                var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
                 var isMe = lastSubmittedEntry &&
                     entry.player_name === lastSubmittedEntry.name &&
-                    parseInt(entry.score) === lastSubmittedEntry.score &&
-                    parseInt(entry.time_seconds) === lastSubmittedEntry.time &&
+                    entry.gameScore === lastSubmittedEntry.gameScore &&
                     highlightIdx === -1;
                 if (isMe) highlightIdx = i;
                 html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>' + (i + 1) + '</td>';
                 html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-                html += '<td>' + entry.score + '%</td>';
-                html += '<td>' + timeDisplay + '</td>';
+                html += '<td>' + entry.gameScore + '</td>';
                 html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
             });
 
             // Display 5 most recent entries not in top 50 (below separator)
             if (recentEntries.length > 0) {
-                html += '<tr class="leaderboard-separator"><td colspan="5">Recent Entries</td></tr>';
+                html += '<tr class="leaderboard-separator"><td colspan="4">Recent Entries</td></tr>';
                 recentEntries.forEach(function (entry) {
-                    var ts = parseInt(entry.time_seconds) || 0;
-                    var tm = Math.floor(ts / 60);
-                    var tss = ts % 60;
-                    var timeDisplay = tm + ':' + (tss < 10 ? '0' : '') + tss;
                     var isMe = lastSubmittedEntry &&
                         entry.player_name === lastSubmittedEntry.name &&
-                        parseInt(entry.score) === lastSubmittedEntry.score &&
-                        parseInt(entry.time_seconds) === lastSubmittedEntry.time &&
+                        entry.gameScore === lastSubmittedEntry.gameScore &&
                         highlightIdx === -1;
                     if (isMe) highlightIdx = entries.length + recentEntries.indexOf(entry);
                     html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>-</td>';
                     html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-                    html += '<td>' + entry.score + '%</td>';
-                    html += '<td>' + timeDisplay + '</td>';
+                    html += '<td>' + entry.gameScore + '</td>';
                     html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
                 });
             }
