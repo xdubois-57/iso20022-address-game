@@ -72,54 +72,61 @@ class ShareController
         $h = 630;
         $img = imagecreatetruecolor($w, $h);
 
-        // Swift palette only - clean and minimal
+        // Swift palette - high contrast for readability
+        $white       = imagecolorallocate($img, 255, 255, 255);
         $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
         $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
         $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
         $greyGreen   = imagecolorallocate($img, 105, 130, 135); // #698287
 
-        // Solid peppermint background
-        imagefill($img, 0, 0, $peppermint);
+        // White background for maximum contrast
+        imagefill($img, 0, 0, $white);
 
         // Top emerald accent bar
-        imagefilledrectangle($img, 0, 0, $w, 12, $emerald);
+        imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
+
+        // Peppermint side accents
+        imagefilledrectangle($img, 0, 0, 20, $h, $peppermint);
+        imagefilledrectangle($img, $w - 20, 0, $w, $h, $peppermint);
 
         // Resolve fonts
         $fontBold = $this->findFont(true);
         $fontRegular = $this->findFont(false);
 
         if ($fontBold && $fontRegular) {
-            // Title
-            $this->ttfCentered($img, 36, $fontBold, 'ISO 20022 Address Challenge', $w, 95, $darkGreen);
+            // Title - larger and bolder
+            $this->ttfCentered($img, 48, $fontBold, 'ISO 20022 Address Challenge', $w, 100, $darkGreen);
 
-            // Player name
-            $this->ttfCentered($img, 22, $fontRegular, $name, $w, 155, $greyGreen);
+            // Player name - larger
+            $this->ttfCentered($img, 28, $fontRegular, $name, $w, 165, $greyGreen);
 
             // Separator line
-            $lineY = 190;
-            imageline($img, 350, $lineY, $w - 350, $lineY, $greyGreen);
+            $lineY = 205;
+            imageline($img, 300, $lineY, $w - 300, $lineY, $emerald);
+            imageline($img, 300, $lineY + 1, $w - 300, $lineY + 1, $emerald);
 
-            // Giant score
-            $this->ttfCentered($img, 130, $fontBold, (string) $score, $w, 360, $darkGreen);
+            // HUGE score - much larger for visibility
+            $this->ttfCentered($img, 150, $fontBold, (string) $score, $w, 385, $darkGreen);
             
-            // "POINTS" label
-            $this->ttfCentered($img, 26, $fontBold, 'POINTS', $w, 405, $emerald);
+            // "POINTS" label - larger
+            $this->ttfCentered($img, 32, $fontBold, 'POINTS', $w, 435, $emerald);
 
             // Separator line
-            imageline($img, 350, 450, $w - 350, 450, $greyGreen);
+            imageline($img, 300, 480, $w - 300, 480, $emerald);
+            imageline($img, 300, 481, $w - 300, 481, $emerald);
 
-            // Challenge CTA
-            $this->ttfCentered($img, 30, $fontBold, 'Can you beat this score?', $w, 515, $emerald);
+            // Challenge CTA - much larger and bolder
+            $this->ttfCentered($img, 36, $fontBold, 'Can you beat this score?', $w, 545, $emerald);
 
-            // Footer
-            $this->ttfCentered($img, 16, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 590, $greyGreen);
+            // Footer - larger
+            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 600, $greyGreen);
         } else {
             // GD built-in fonts fallback
             $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 70, $darkGreen);
             $this->gdCentered($img, 4, $name, $w, 130, $greyGreen);
-            imageline($img, 350, 165, $w - 350, 165, $greyGreen);
+            imageline($img, 300, 165, $w - 300, 165, $emerald);
             $this->gdCentered($img, 5, $score . ' POINTS', $w, 300, $darkGreen);
-            imageline($img, 350, 400, $w - 350, 400, $greyGreen);
+            imageline($img, 300, 400, $w - 300, 400, $emerald);
             $this->gdCentered($img, 4, 'Can you beat this score?', $w, 460, $emerald);
             $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $greyGreen);
         }

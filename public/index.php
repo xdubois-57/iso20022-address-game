@@ -27,6 +27,17 @@ use App\Controllers\LeaderboardController;
 use App\Controllers\SetupController;
 use App\Controllers\ShareController;
 
+// GET share routes MUST run BEFORE session/CSRF to allow social media crawlers
+$requestUri = strtok($_SERVER['REQUEST_URI'], '?');
+if ($requestUri === '/share/image') {
+    (new ShareController())->shareImage();
+    exit;
+}
+if ($requestUri === '/share') {
+    (new ShareController())->sharePage();
+    exit;
+}
+
 // Secure session
 ini_set('session.use_strict_mode', '1');
 ini_set('session.use_only_cookies', '1');
@@ -156,17 +167,6 @@ if ($lastCleanup === false || (time() - (int)$lastCleanup) > 86400) {
     @file_put_contents($cleanupStamp, (string)time());
     $leaderboard = new \App\Models\LeaderboardModel($db->getPdo());
     $leaderboard->purgeExpired(30);
-}
-
-// GET share routes (no DB required — work even without connection)
-$requestUri = strtok($_SERVER['REQUEST_URI'], '?');
-if ($requestUri === '/share/image') {
-    (new ShareController())->shareImage();
-    exit;
-}
-if ($requestUri === '/share') {
-    (new ShareController())->sharePage();
-    exit;
 }
 
 // GET export route (requires admin session)
