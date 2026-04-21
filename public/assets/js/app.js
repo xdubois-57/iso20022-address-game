@@ -1570,23 +1570,25 @@
         html += '<p><em>Last updated: April 2026</em></p>';
 
         html += '<h3>1. Data Controller</h3>';
-        html += '<p>The data controller for this application is the event organiser who deploys and operates this instance of the ISO 20022 Address Structuring Game. ';
-        html += 'For questions regarding data processing, contact the event organiser directly at the venue or via the contact details provided at the event.</p>';
+        html += '<p>The data controller for this application is <strong>Xavier Dubois</strong>, the developer and maintainer of the ISO 20022 Address Structuring Game. ';
+        html += 'For questions regarding data processing, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a>.</p>';
 
         html += '<h3>2. Legal Basis for Processing (Art. 6 GDPR)</h3>';
         html += '<p>Personal data is processed on the following legal basis:</p>';
         html += '<ul>';
-        html += '<li><strong>Consent (Art. 6(1)(a))</strong> &mdash; By voluntarily entering your name and submitting your score to the Hall of Fame, you explicitly consent to the processing of your name for leaderboard display purposes. You may withdraw consent at any time by contacting the event organiser.</li>';
-        html += '<li><strong>Legitimate interest (Art. 6(1)(f))</strong> &mdash; A minimal server-side session identifier is used solely to authenticate the administrator. No session data is stored for regular players.</li>';
+        html += '<li><strong>Consent (Art. 6(1)(a))</strong> &mdash; By voluntarily entering your name and submitting your score to the Hall of Fame, you explicitly consent to the processing of your name for leaderboard display purposes. You may withdraw consent at any time by raising an issue on GitHub.</li>';
+        html += '<li><strong>Legitimate interest (Art. 6(1)(f))</strong> &mdash; A minimal server-side session identifier is used solely to authenticate the administrator and prevent CSRF attacks. No session data is stored for regular players.</li>';
         html += '</ul>';
 
         html += '<h3>3. Categories of Personal Data Collected</h3>';
-        html += '<table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
-        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Encrypted at rest (AES-256-GCM)</td><td>30 days, then automatically deleted</td></tr>';
+        html += '<div class="overflow-auto"><table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
+        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Database, encrypted at rest (AES-256-GCM)</td><td>30 days, then automatically deleted</td></tr>';
         html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>30 days</td></tr>';
+        html += '<tr><td>Share token (name + score)</td><td>Social sharing URL generation</td><td>Client-side only, encrypted in URL parameter</td><td>Not stored server-side; expires when URL is no longer shared</td></tr>';
         html += '<tr><td>Session cookie (PHPSESSID)</td><td>CSRF protection &amp; admin authentication</td><td>Server-side; cookie contains only a random session ID</td><td>Browser session (deleted on close)</td></tr>';
-        html += '</tbody></table>';
-        html += '<p>No other personal data (e-mail, IP address, device fingerprint, location, etc.) is collected, stored, or processed. The session cookie is a strictly necessary technical cookie and does not require consent under GDPR (Recital 30, ePrivacy Directive Art. 5(3) exemption).</p>';
+        html += '<tr><td>IP address (logs only)</td><td>Security event logging (CSRF failures, admin login attempts)</td><td>Server error logs (not database)</td><td>Depends on server log rotation policy</td></tr>';
+        html += '</tbody></table></div>';
+        html += '<p>No other personal data (e-mail, device fingerprint, precise location, etc.) is collected, stored, or processed. The session cookie is a strictly necessary technical cookie and does not require consent under GDPR (Recital 30, ePrivacy Directive Art. 5(3) exemption). IP addresses are logged only for security purposes and are not linked to player names or stored in the application database. Share tokens are encrypted and exist only in URLs generated on-demand; they are never stored server-side.</p>';
 
         html += '<h3>4. Data Minimisation (Art. 5(1)(c))</h3>';
         html += '<p>This application strictly follows the principle of data minimisation. Only the player name is collected &mdash; and only when the player voluntarily submits it. ';
@@ -1632,7 +1634,7 @@
         html += '<li><strong>Right to withdraw consent (Art. 7(3))</strong> &mdash; You may withdraw your consent at any time without affecting the lawfulness of processing prior to withdrawal.</li>';
         html += '<li><strong>Right to lodge a complaint (Art. 77)</strong> &mdash; You have the right to lodge a complaint with a supervisory authority (e.g. your national Data Protection Authority).</li>';
         html += '</ul>';
-        html += '<p>To exercise any of these rights, please contact the event organiser who operates this application instance.</p>';
+        html += '<p>To exercise any of these rights, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a> with details of your request. The data controller will respond within one month.</p>';
 
         html += '<h3>9. International Data Transfers</h3>';
         html += '<p>This application does not transfer personal data outside the jurisdiction where it is hosted. ';
@@ -1644,7 +1646,7 @@
 
         html += '<h3>11. Children\u2019s Data</h3>';
         html += '<p>This application is designed for professional educational events and is not directed at children under 16. ';
-        html += 'If a child\u2019s data has been inadvertently collected, the event organiser will delete it promptly upon request.</p>';
+        html += 'If a child\u2019s data has been inadvertently collected, it will be deleted promptly upon request via GitHub issues.</p>';
 
         html += '<h3>12. Data Breach Notification (Art. 33\u201334)</h3>';
         html += '<p>In the event of a personal data breach, the data controller will notify the competent supervisory authority within 72 hours of becoming aware of the breach, ';
