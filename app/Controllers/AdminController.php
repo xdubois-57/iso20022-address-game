@@ -90,6 +90,7 @@ class AdminController
             if ($attempts + 1 >= self::MAX_LOGIN_ATTEMPTS) {
                 $_SESSION['login_lock_until'] = time() + self::LOCKOUT_SECONDS;
             }
+            error_log('SECURITY: Failed admin login attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' (attempt ' . ($attempts + 1) . ')');
             $this->jsonResponse(['error' => 'Invalid PIN'], 401);
         }
     }
@@ -491,7 +492,7 @@ class AdminController
         $filename = 'scenarios_export_' . date('Y-m-d_His') . '.xlsx';
 
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename) . '"');
         header('Cache-Control: max-age=0');
 
         $writer->save('php://output');

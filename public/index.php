@@ -57,6 +57,8 @@ if (empty($_SESSION['csrf_token'])) {
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self';");
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
 
 // All API communication is via POST with an X-Action header.
 // GET requests serve the SPA shell or the setup page.
@@ -87,6 +89,7 @@ if ($method === 'POST') {
     // CSRF verification for all non-setup POST requests
     $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfToken)) {
+        error_log('SECURITY: CSRF token mismatch from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' action=' . $action);
         jsonError('Invalid CSRF token', 403);
         exit;
     }

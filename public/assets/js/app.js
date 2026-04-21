@@ -1234,12 +1234,13 @@
         html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th><th></th>';
         html += '</tr></thead><tbody>';
         entries.forEach(function (entry, i) {
-            html += '<tr data-entry-id="' + entry.id + '">';
+            var safeId = parseInt(entry.id) || 0;
+            html += '<tr data-entry-id="' + safeId + '">';
             html += '<td>' + (i + 1) + '</td>';
             html += '<td>' + escapeHtml(entry.player_name) + '</td>';
             html += '<td>' + entry.gameScore + '</td>';
             html += '<td>' + formatDate(entry.created_at) + '</td>';
-            html += '<td><button class="btn-delete-entry" data-id="' + entry.id + '" title="Delete">&times;</button></td>';
+            html += '<td><button class="btn-delete-entry" data-id="' + safeId + '" title="Delete">&times;</button></td>';
             html += '</tr>';
         });
         html += '</tbody></table>';

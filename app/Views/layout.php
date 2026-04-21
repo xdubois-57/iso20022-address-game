@@ -32,8 +32,8 @@ if (!function_exists('assetUrl')) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ISO 20022 Address Game</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" integrity="sha384-6MMLxyGBH62hE99JjJ7oJLCk3lA4L+WXBqk3YJBWlBwBPRptfwsxONyIJ3DTh6MA" crossorigin="anonymous">
     <link rel="stylesheet" href="<?= assetUrl('assets/css/app.css') ?>">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
@@ -75,8 +75,8 @@ if (!function_exists('assetUrl')) {
         </div>
     </div>
 
-    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js" integrity="sha384-j7DIiYhP7c3I7ITo+yHp/HrTE5PPaDVUHso8067ayeH0TxvXT4qnDumOB8WWSEPI" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" integrity="sha384-0esPaJH+F9evp2lsJYN36SW7XkRbaYviuyF+PpnbjDXBC9i1CWGiJyGrXCyiyGqZ" crossorigin="anonymous"></script>
     <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>

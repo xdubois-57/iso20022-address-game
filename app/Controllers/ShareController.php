@@ -182,16 +182,18 @@ class ShareController
             $this->ttfCentered($img, 36, $fontBold, 'Can you beat this score?', $w, 545, $emerald);
 
             // Footer in dark green
-            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 600, $darkGreen);
+            $safeHost = $this->getSafeHost();
+            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . $safeHost, $w, 600, $darkGreen);
         } else {
             // GD built-in fonts fallback
+            $safeHost = $this->getSafeHost();
             $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 70, $darkGreen);
             $this->gdCentered($img, 4, $name, $w, 130, $darkGreen);
             imageline($img, 300, 165, $w - 300, 165, $emerald);
             $this->gdCentered($img, 5, $score . ' POINTS', $w, 300, $darkGreen);
             imageline($img, 300, 400, $w - 300, 400, $emerald);
             $this->gdCentered($img, 4, 'Can you beat this score?', $w, 460, $emerald);
-            $this->gdCentered($img, 2, 'Play now at ' . ($_SERVER['HTTP_HOST'] ?? ''), $w, 550, $darkGreen);
+            $this->gdCentered($img, 2, 'Play now at ' . $safeHost, $w, 550, $darkGreen);
         }
 
         // Render PNG to buffer
@@ -269,9 +271,7 @@ class ShareController
             }
         }
         
-        // Debug: log all attempted paths
-        error_log("ShareController: Font '$fontFile' not found. Tried paths: " . implode(', ', $candidates));
-        error_log("ShareController: DOCUMENT_ROOT=$docRoot, SCRIPT_FILENAME=$scriptFilename");
+        // Font not found in bundled paths — fall through to system fonts
         
         // Fallback to system fonts
         $systemFonts = $bold
@@ -312,6 +312,15 @@ class ShareController
         imagestring($img, $font, $x, $y, $text, $color);
     }
 
+    private function getSafeHost(): string
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
+            return 'localhost';
+        }
+        return $host;
+    }
+
     private function sanitizeName(string $raw): string
     {
         $name = trim(strip_tags($raw));
@@ -332,6 +341,11 @@ class ShareController
     private function getBaseUrl(): string
     {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // Validate host header to prevent host injection attacks
+        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
+            $host = 'localhost';
+        }
+        return $scheme . '://' . $host;
     }
 }

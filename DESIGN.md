@@ -62,6 +62,20 @@ Each chip must match its specific semantic slot:
 - `TwnNm` and `Ctry` are mandatory slots
 - Other components can be grouped into two `<AdrLine>` slots (max 70 chars each)
 
+### Scoring
+- **Composite Game Score**: `Math.round(percentage × (1 + max(0, 300 - seconds) / 300) × 50)`
+- Accuracy (percentage correct) is the primary factor
+- Speed bonus: up to 2× multiplier for completing within 5 minutes
+- Hall of Fame and admin leaderboard both sort by this computed game score
+
+### Social Sharing (Mobile Only)
+- Players can share their score via an encrypted URL token (AES-256-GCM)
+- Share page serves OpenGraph meta tags for Facebook/Twitter previews
+- Dynamic 1200×630 PNG share card generated server-side with GD library
+- Share card features Swift-branded peppermint theme with decorative balloons
+- Gzip-encoded image responses for Facebook crawler compatibility
+- Share button hidden on desktop/tablet via CSS media query
+
 ### Session Management
 - 30s inactivity timer triggers a 10s countdown overlay (during active game)
 - Global "Stop" button always available for immediate reset
@@ -115,15 +129,20 @@ facts: id, content, created_at
 ## 5. Security & GDPR
 
 - **Session cookie**: A single strictly necessary PHPSESSID cookie is used for CSRF protection and admin authentication. No tracking cookies.
-- **CSRF protection**: All POST requests validated via `hash_equals()` token comparison
+- **CSRF protection**: All POST requests validated via `hash_equals()` token comparison; violations logged with IP
 - **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
-- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout)
+- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout); leaderboard submissions throttled (10 per 5 minutes per session)
+- **Input validation**: Server-side bounds on score (0–100), time_seconds (0–3600), player name (1–50 chars)
 - **Retention**: Auto-deletion of leaderboard entries after 30 days (cron + poor man's cron fallback)
-- **Input sanitisation**: All inputs validated and sanitised; XSS prevention via `escapeHtml()` on client and `htmlspecialchars()` on server
+- **XSS prevention**: `escapeHtml()` on client and `htmlspecialchars()` on server for all dynamic output
 - **Sessions**: Secure PHP sessions with `session_regenerate_id()`, HttpOnly, SameSite=Strict flags
-- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Subresource Integrity (SRI)**: All CDN resources (PicoCSS, Dropzone, canvas-confetti) loaded with `integrity` hashes
+- **Host header validation**: `HTTP_HOST` validated against `[a-zA-Z0-9.-]+(:\d+)?` pattern to prevent injection
 - **Credentials**: `config/credentials.php` excluded from version control, protected by `.htaccess`
 - **Admin PIN**: Stored as bcrypt hash; legacy plaintext PINs auto-upgraded on login
+- **Security logging**: Failed admin logins and CSRF violations logged with remote IP address
+- **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
 
 ## 6. Directory Structure
@@ -141,7 +160,7 @@ facts: id, content, created_at
 ├── public/
 │   ├── index.php       # Front Controller
 │   ├── .htaccess       # URL rewriting
-│   └── assets/         # CSS, JS
+│   └── assets/         # CSS, JS, Fonts
 ├── scripts/
 │   ├── cleanup.php     # GDPR retention cron job
 │   └── schema.sql      # Database schema

@@ -24,7 +24,8 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
-- **Hall of Fame** — Encrypted leaderboard with GDPR-compliant 30-day retention
+- **Hall of Fame** — Encrypted leaderboard with composite game score (accuracy × speed bonus), GDPR-compliant 30-day retention
+- **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards (mobile only)
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
 - **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity)
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
@@ -115,11 +116,16 @@ Enable **Kiosk Mode** for unattended public displays:
 
 - **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **CSRF protection**: Token-based validation on all POST requests
-- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout)
+- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout); leaderboard submissions throttled (10 per 5 minutes)
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
-- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
+- **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
 - **Admin PIN**: Stored as bcrypt hash; legacy plaintext auto-upgraded on login
 - **Prepared statements**: All database queries use parameterised PDO statements
+- **Input validation**: Server-side validation on all inputs (score 0–100, time 0–3600s, name 1–50 chars)
+- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output
+- **Security logging**: Failed login attempts and CSRF violations logged with IP address
 - **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
 
 ## Running Tests

@@ -57,11 +57,25 @@ class LeaderboardController
         ]);
     }
 
+    private const MAX_SUBMISSIONS = 10;
+    private const SUBMISSION_WINDOW = 300; // 5 minutes
+
     /**
      * POST /api/leaderboard/submit — Submit a new score.
      */
     public function submit(): void
     {
+        // Rate limiting: max 10 submissions per 5-minute window
+        $now = time();
+        $submissions = $_SESSION['submission_timestamps'] ?? [];
+        $submissions = array_filter($submissions, function ($ts) use ($now) {
+            return ($now - $ts) < self::SUBMISSION_WINDOW;
+        });
+        if (count($submissions) >= self::MAX_SUBMISSIONS) {
+            $this->jsonResponse(['error' => 'Too many submissions. Please wait a few minutes.'], 429);
+            return;
+        }
+
         $input = $this->getJsonInput();
         $name = trim($input['player_name'] ?? '');
         $score = (int) ($input['score'] ?? 0);
@@ -80,7 +94,7 @@ class LeaderboardController
             return;
         }
 
-        $timeSeconds = (int) ($input['time_seconds'] ?? 0);
+        $timeSeconds = max(0, min(3600, (int) ($input['time_seconds'] ?? 0)));
 
         if ($score < 0 || $score > 100) {
             $this->jsonResponse(['error' => 'Invalid score'], 400);
@@ -88,6 +102,11 @@ class LeaderboardController
         }
 
         $id = $this->leaderboardModel->addEntry($name, $score, $timeSeconds);
+
+        // Record submission timestamp for rate limiting
+        $submissions[] = $now;
+        $_SESSION['submission_timestamps'] = array_values($submissions);
+
         $this->jsonResponse([
             'success' => true,
             'entry_id' => $id,
