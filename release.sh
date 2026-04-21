@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+#
+# release.sh — Create a semver tag and GitHub release.
+#
+# Usage:
+#   ./release.sh          # patch bump (default)
+#   ./release.sh patch    # patch bump  e.g. 1.2.3 → 1.2.4
+#   ./release.sh minor    # minor bump  e.g. 1.2.3 → 1.3.0
+#   ./release.sh major    # major bump  e.g. 1.2.3 → 2.0.0
+#
+# Requirements: git, gh (GitHub CLI, authenticated)
+
+set -euo pipefail
+
+BUMP="${1:-patch}"
+
+if [[ "$BUMP" != "patch" && "$BUMP" != "minor" && "$BUMP" != "major" ]]; then
+    echo "Usage: $0 [patch|minor|major]"
+    exit 1
+fi
+
+# Ensure working directory is clean
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Error: Working directory is not clean. Commit or stash changes first."
+    exit 1
+fi
+
+# Ensure we are on main branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$BRANCH" != "main" ]]; then
+    echo "Error: Must be on 'main' branch (currently on '$BRANCH')."
+    exit 1
+fi
+
+# Pull latest
+git pull --rebase
+
+# Get the latest semver tag, default to v0.0.0 if none exist
+LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+if [[ -z "$LATEST_TAG" ]]; then
+    LATEST_TAG="v0.0.0"
+    echo "No existing tags found. Starting from $LATEST_TAG"
+fi
+
+# Parse major.minor.patch
+VERSION="${LATEST_TAG#v}"
+IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+# Bump
+case "$BUMP" in
+    major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+    minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+    patch) PATCH=$((PATCH + 1)) ;;
+esac
+
+NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+
+echo ""
+echo "  Current version : $LATEST_TAG"
+echo "  Bump type       : $BUMP"
+echo "  New version     : $NEW_VERSION"
+echo ""
+
+# Collect commits since last tag for release notes
+if [[ "$LATEST_TAG" == "v0.0.0" ]] && ! git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+    NOTES=$(git log --pretty=format:"- %s" --no-merges | head -30)
+else
+    NOTES=$(git log "${LATEST_TAG}..HEAD" --pretty=format:"- %s" --no-merges)
+fi
+
+if [[ -z "$NOTES" ]]; then
+    NOTES="- Maintenance release"
+fi
+
+# Confirm
+read -rp "Create tag $NEW_VERSION and publish GitHub release? [y/N] " CONFIRM
+if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+    echo "Aborted."
+    exit 0
+fi
+
+# Create annotated tag
+git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+git push origin "$NEW_VERSION"
+
+echo ""
+echo "Tag $NEW_VERSION pushed."
+
+# Create GitHub release
+gh release create "$NEW_VERSION" \
+    --title "$NEW_VERSION" \
+    --notes "$NOTES" \
+    --latest
+
+echo ""
+echo "GitHub release $NEW_VERSION published."
+echo "  https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases/tag/$NEW_VERSION"
