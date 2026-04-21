@@ -964,9 +964,11 @@
                         url: shareUrl
                     }).catch(function () { /* user cancelled */ });
                 } else {
-                    navigator.clipboard.writeText(shareUrl).then(function () {
-                        shareBtn.textContent = '\u2705 Link copied!';
-                        setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
+                    copyToClipboard(shareUrl).then(function (ok) {
+                        if (ok) {
+                            shareBtn.textContent = '\u2705 Link copied!';
+                            setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
+                        }
                     });
                 }
                 shareBtn.disabled = false;
@@ -1051,7 +1053,8 @@
         if (highlightIdx >= 0) {
             var myRow = document.querySelector('.my-entry');
             if (myRow) {
-                myRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                try { myRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                catch (e) { myRow.scrollIntoView(false); }
             }
             if (typeof confetti === 'function') {
                 setTimeout(function () {
@@ -1665,6 +1668,26 @@
         var div = document.createElement('div');
         div.textContent = str || '';
         return div.innerHTML;
+    }
+
+    function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
+        }
+        return Promise.resolve(fallbackCopy(text));
+    }
+
+    function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+        ta.remove();
+        return ok;
     }
 
     function decodeHtml(str) {

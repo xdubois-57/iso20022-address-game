@@ -49,12 +49,17 @@
 html, body {
     margin: 0;
     padding: 0;
-    background: url('../images/background.png') center center/cover no-repeat fixed;
+    background-image: url('../images/background.png');
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--swift-dark-green);
     font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
     overflow-x: hidden;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
     user-select: none;
     font-size: 15px;
     line-height: 1.5;
@@ -665,6 +670,7 @@ html, body {
     align-items: center;
     gap: 0.75rem;
     cursor: pointer;
+    -webkit-user-select: none;
     user-select: none;
 }
 .kiosk-toggle input {
@@ -1394,7 +1400,11 @@ html, body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: url('../images/background.png') center center/cover no-repeat fixed;
+    background-image: url('../images/background.png');
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     z-index: 300;
     display: none;
     flex-direction: column;
