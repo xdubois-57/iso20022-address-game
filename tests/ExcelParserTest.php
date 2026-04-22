@@ -53,11 +53,11 @@ class ExcelParserTest extends TestCase
         $sheet->setTitle('Scenarios');
         $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf'];
         foreach ($headers as $col => $header) {
-            $sheet->setCellValueByColumnAndRow($col + 1, 1, $header);
+            $sheet->setCellValue([$col + 1, 1], $header);
         }
         foreach ($scenarioRows as $rowIdx => $row) {
             foreach ($row as $col => $value) {
-                $sheet->setCellValueByColumnAndRow($col + 1, $rowIdx + 2, $value);
+                $sheet->setCellValue([$col + 1, $rowIdx + 2], $value);
             }
         }
 

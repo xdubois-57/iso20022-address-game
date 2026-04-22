@@ -465,11 +465,11 @@ class AdminController
         $sheet->setTitle('Scenarios');
         $headers = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf'];
         foreach ($headers as $col => $h) {
-            $sheet->setCellValueByColumnAndRow($col + 1, 1, $h);
+            $sheet->setCellValue([$col + 1, 1], $h);
         }
 
         foreach ($scenarios as $rowIdx => $scenario) {
-            $data = json_decode($scenario['json_data'], true);
+            $data = $scenario['json_data'];
             $row = [
                 $data['StrtNm'] ?? '',
                 $data['BldgNb'] ?? '',
@@ -479,7 +479,7 @@ class AdminController
                 $data['AdtlAdrInf'] ?? '',
             ];
             foreach ($row as $col => $value) {
-                $sheet->setCellValueByColumnAndRow($col + 1, $rowIdx + 2, $value);
+                $sheet->setCellValue([$col + 1, $rowIdx + 2], $value);
             }
         }
 

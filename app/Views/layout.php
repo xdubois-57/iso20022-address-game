@@ -25,6 +25,24 @@ if (!function_exists('assetUrl')) {
         return $path . '?v=' . $mtime;
     }
 }
+
+// Version info helper: reads from config/version.php or falls back to git
+if (!function_exists('getVersionInfo')) {
+    function getVersionInfo(): array {
+        $versionFile = __DIR__ . '/../../config/version.php';
+        if (file_exists($versionFile)) {
+            $info = include $versionFile;
+            if (is_array($info) && !empty($info['tag']) && !empty($info['commit'])) {
+                return $info;
+            }
+        }
+        // Fallback: read from git directly (dev environment)
+        $rootDir = __DIR__ . '/../../';
+        $tag = trim(shell_exec("cd " . escapeshellarg($rootDir) . " && git tag -l 'v*' --sort=-v:refname 2>/dev/null | head -1") ?? '');
+        $commit = trim(shell_exec("cd " . escapeshellarg($rootDir) . " && git rev-parse --short HEAD 2>/dev/null") ?? '');
+        return ['tag' => $tag ?: 'dev', 'commit' => $commit ?: 'unknown'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -58,11 +76,14 @@ if (!function_exists('assetUrl')) {
         <!-- Dynamic SPA content loaded here -->
     </main>
 
+    <?php $ver = getVersionInfo(); ?>
     <footer class="game-footer">
+        <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
+        <span class="footer-separator">&bull;</span>
         <span class="footer-text">For entertainment only</span>
-        <span class="footer-separator">•</span>
+        <span class="footer-separator">&bull;</span>
         <a href="#" data-screen="privacy" class="footer-link">Privacy</a>
-        <span class="footer-separator">•</span>
+        <span class="footer-separator">&bull;</span>
         <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener" class="footer-link">GitHub</a>
     </footer>
 
