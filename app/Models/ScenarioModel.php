@@ -122,7 +122,7 @@ class ScenarioModel
         $maxScore = 0;
 
         if ($goalType === 'Structured') {
-            $fields = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf'];
+            $fields = ['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry'];
             foreach ($fields as $field) {
                 $expected = trim($correct[$field] ?? '');
                 if ($expected === '') {

@@ -232,7 +232,6 @@ class GameControllerLogicTest extends TestCase
                 ['id' => 'PstCd', 'label' => 'Postal Code', 'tag' => '<PstCd>', 'mandatory' => false],
                 ['id' => 'TwnNm', 'label' => 'Town Name', 'tag' => '<TwnNm>', 'mandatory' => true],
                 ['id' => 'Ctry', 'label' => 'Country', 'tag' => '<Ctry>', 'mandatory' => true],
-                ['id' => 'AdtlAdrInf', 'label' => 'Additional Info', 'tag' => '<AdtlAdrInf>', 'mandatory' => false],
             ];
         }
         return [
@@ -243,10 +242,10 @@ class GameControllerLogicTest extends TestCase
         ];
     }
 
-    public function testStructuredModeHas6Slots(): void
+    public function testStructuredModeHas5Slots(): void
     {
         $slots = $this->getSlots('Structured');
-        $this->assertCount(6, $slots);
+        $this->assertCount(5, $slots);
     }
 
     public function testHybridModeHas4Slots(): void

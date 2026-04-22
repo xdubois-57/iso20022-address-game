@@ -182,7 +182,6 @@ class GameController
                 ['id' => 'PstCd', 'label' => 'Postal Code', 'tag' => '<PstCd>', 'mandatory' => false],
                 ['id' => 'TwnNm', 'label' => 'Town Name', 'tag' => '<TwnNm>', 'mandatory' => true],
                 ['id' => 'Ctry', 'label' => 'Country', 'tag' => '<Ctry>', 'mandatory' => true],
-                ['id' => 'AdtlAdrInf', 'label' => 'Additional Info', 'tag' => '<AdtlAdrInf>', 'mandatory' => false],
             ];
         }
 
