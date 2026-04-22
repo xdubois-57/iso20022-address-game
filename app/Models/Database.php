@@ -174,34 +174,34 @@ class Database
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
-        // Migration: Drop and recreate facts table to ensure correct schema
-        $this->pdo->exec("DROP TABLE IF EXISTS facts");
-        
         $this->pdo->exec("
-            CREATE TABLE facts (
+            CREATE TABLE IF NOT EXISTS facts (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 content TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
-        // Insert default facts
-        $defaultFacts = [
-            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
-            'Over 70 countries have already adopted ISO 20022 for cross-border payments',
-            'The transition to structured addresses improves payment processing speed by up to 40%',
-            'Unstructured addresses will be phased out starting November 14, 2026',
-            'ISO 20022 enables richer data exchange between financial institutions worldwide',
-            'The new standard supports 207 address formats across all world regions',
-            'Structured addresses reduce payment failures and processing errors significantly',
-            'November 2026 is the deadline for complete migration to ISO 20022 structured addresses',
-            'ISO 20022 provides a common language for financial messaging globally',
-            'The 2026 release ensures interoperability between all payment systems worldwide'
-        ];
-            
-        $insert = $this->pdo->prepare('INSERT INTO facts (content) VALUES (?)');
-        foreach ($defaultFacts as $fact) {
-            $insert->execute([$fact]);
+        // Seed default facts only if the table is empty (first-time setup)
+        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM facts')->fetchColumn();
+        if ($count === 0) {
+            $defaultFacts = [
+                'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+                'Over 70 countries have already adopted ISO 20022 for cross-border payments',
+                'The transition to structured addresses improves payment processing speed by up to 40%',
+                'Unstructured addresses will be phased out starting November 14, 2026',
+                'ISO 20022 enables richer data exchange between financial institutions worldwide',
+                'The new standard supports 207 address formats across all world regions',
+                'Structured addresses reduce payment failures and processing errors significantly',
+                'November 2026 is the deadline for complete migration to ISO 20022 structured addresses',
+                'ISO 20022 provides a common language for financial messaging globally',
+                'The 2026 release ensures interoperability between all payment systems worldwide'
+            ];
+
+            $insert = $this->pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+            foreach ($defaultFacts as $fact) {
+                $insert->execute([$fact]);
+            }
         }
     }
 
