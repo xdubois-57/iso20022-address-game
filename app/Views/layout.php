@@ -78,13 +78,13 @@ if (!function_exists('getVersionInfo')) {
 
     <?php $ver = getVersionInfo(); ?>
     <footer class="game-footer">
-        <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
-        <span class="footer-separator">&bull;</span>
         <span class="footer-text">For entertainment only</span>
         <span class="footer-separator">&bull;</span>
         <a href="#" data-screen="privacy" class="footer-link">Privacy</a>
         <span class="footer-separator">&bull;</span>
         <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener" class="footer-link">GitHub</a>
+        <span class="footer-separator">&bull;</span>
+        <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
     </footer>
 
     <!-- Inactivity overlay -->
