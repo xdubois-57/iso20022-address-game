@@ -37,7 +37,7 @@
     let countdownInterval = null;
     let countdownValue = COUNTDOWN_SECONDS;
     let adminPin = '';
-    let adminLoggedIn = false;
+
     // Multi-round game state
     let playerName = '';
     let currentRound = 0;
@@ -240,7 +240,6 @@
         scenario = null;
         slotMapping = {};
         adminPin = '';
-        adminLoggedIn = false;
         currentRound = 0;
         roundScores = [];
         playedScenarioIds = [];
@@ -1067,11 +1066,11 @@
        Admin Screen
        ======================================================= */
     function renderAdminScreen() {
-        if (adminLoggedIn) {
-            renderAdminDashboard();
-            return;
-        }
+        // Always require password - no session persistence
+        renderAdminLogin();
+    }
 
+    function renderAdminLogin() {
         adminPin = '';
         var html = '<section class="admin-screen"><div class="pin-panel">';
         html += '<h2>Admin Access</h2>';
@@ -1128,7 +1127,6 @@
     async function submitPin() {
         var data = await api('admin/login', { pin: adminPin });
         if (data && data.success) {
-            adminLoggedIn = true;
             renderAdminDashboard();
         } else {
             adminPin = '';
@@ -1511,7 +1509,6 @@
 
         document.getElementById('adminLogoutBtn').addEventListener('click', async function () {
             await api('admin/logout');
-            adminLoggedIn = false;
             showScreen('game');
         });
     }
