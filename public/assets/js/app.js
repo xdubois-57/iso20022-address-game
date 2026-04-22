@@ -829,14 +829,6 @@
     }
 
     function showRoundResult(data) {
-        // Party confetti on perfect round
-        if (data.perfect && typeof confetti === 'function') {
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-            setTimeout(function () {
-                confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
-                confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
-            }, 300);
-        }
 
         var overlay = document.createElement('div');
         overlay.className = 'overlay';
@@ -918,13 +910,13 @@
         var scoreEl = document.getElementById('animatedScore');
         animateScore(scoreEl, finalGameScore, 2000, function () {
             if (typeof confetti === 'function') {
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, useWorker: false });
                 setTimeout(function () {
-                    confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
-                    confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
+                    confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 }, useWorker: false });
+                    confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 }, useWorker: false });
                 }, 300);
                 setTimeout(function () {
-                    confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 } });
+                    confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 }, useWorker: false });
                 }, 600);
             }
         });
@@ -1061,11 +1053,11 @@
             }
             if (typeof confetti === 'function') {
                 setTimeout(function () {
-                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, useWorker: false });
                 }, 200);
                 setTimeout(function () {
-                    confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0 } });
-                    confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1 } });
+                    confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0 }, useWorker: false });
+                    confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1 }, useWorker: false });
                 }, 500);
             }
         }
