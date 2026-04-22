@@ -64,8 +64,11 @@
        Score Computation
        ======================================================= */
     function computeGameScore(pct, seconds) {
-        var timeBonus = 1 + Math.max(0, 300 - seconds) / 300;
-        return Math.round(pct * timeBonus * 50);
+        // Strong accuracy impact (quadratic) + inverse time bonus (faster = higher)
+        // No maximum cap but scaled to reasonable ranges
+        var accuracyScore = pct * pct; // 0-10000 for 0%-100%
+        var timeMultiplier = 1 + (500 / Math.max(1, seconds)); // Inverse: faster = higher
+        return Math.round(accuracyScore * timeMultiplier / 10);
     }
 
     function animateScore(el, target, duration, onComplete) {
