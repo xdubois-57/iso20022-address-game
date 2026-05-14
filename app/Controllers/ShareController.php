@@ -318,33 +318,29 @@ class ShareController
 
         if ($fontBold && $fontRegular) {
             // Main title
-            $this->ttfCentered($img, 64, $fontBold, 'ISO 20022 Address Game', $w, 140, $darkGreen);
-
-            // Subtitle
-            $this->ttfCentered($img, 36, $fontRegular, 'Test Your Address Skills', $w, 210, $darkGreen);
+            $this->ttfCentered($img, 64, $fontBold, 'ISO 20022 Address Game', $w, 180, $darkGreen);
 
             // Separator line
-            $lineY = 280;
+            $lineY = 250;
             imageline($img, 300, $lineY, $w - 300, $lineY, $emerald);
             imageline($img, 300, $lineY + 1, $w - 300, $lineY + 1, $emerald);
 
             // Simple features
-            $this->ttfCentered($img, 32, $fontRegular, 'Learn - Compete - Challenge', $w, 360, $darkGreen);
+            $this->ttfCentered($img, 32, $fontRegular, 'Learn - Compete - Challenge', $w, 330, $darkGreen);
 
             // Separator line
-            imageline($img, 300, 420, $w - 300, 420, $emerald);
-            imageline($img, 300, 421, $w - 300, 421, $emerald);
+            imageline($img, 300, 390, $w - 300, 390, $emerald);
+            imageline($img, 300, 391, $w - 300, 391, $emerald);
 
             // Call-to-action in emerald
-            $this->ttfCentered($img, 40, $fontBold, 'Play Now!', $w, 500, $emerald);
+            $this->ttfCentered($img, 40, $fontBold, 'Play Now!', $w, 470, $emerald);
         } else {
             // GD built-in fonts fallback
-            $this->gdCentered($img, 5, 'ISO 20022 Address Game', $w, 100, $darkGreen);
-            $this->gdCentered($img, 4, 'Test Your Address Skills', $w, 160, $darkGreen);
-            imageline($img, 300, 210, $w - 300, 210, $emerald);
-            $this->gdCentered($img, 4, 'Learn - Compete - Challenge', $w, 280, $darkGreen);
-            imageline($img, 300, 340, $w - 300, 340, $emerald);
-            $this->gdCentered($img, 5, 'Play Now!', $w, 420, $emerald);
+            $this->gdCentered($img, 5, 'ISO 20022 Address Game', $w, 120, $darkGreen);
+            imageline($img, 300, 180, $w - 300, 180, $emerald);
+            $this->gdCentered($img, 4, 'Learn - Compete - Challenge', $w, 250, $darkGreen);
+            imageline($img, 300, 310, $w - 300, 310, $emerald);
+            $this->gdCentered($img, 5, 'Play Now!', $w, 390, $emerald);
         }
 
         // Render PNG to buffer
