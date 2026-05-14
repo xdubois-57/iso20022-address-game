@@ -907,6 +907,9 @@
         html += '</div></div></section>';
         appContainer.innerHTML = html;
 
+        // Track game completion (regardless of Hall of Fame submission)
+        api('game/complete', {});
+
         // Animate score counter, then launch confetti
         var scoreEl = document.getElementById('animatedScore');
         animateScore(scoreEl, finalGameScore, 2000, function () {

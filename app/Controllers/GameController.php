@@ -21,6 +21,7 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\ScenarioModel;
+use App\Models\GameCounterModel;
 use App\Controllers\AdminController;
 use Snipe\BanBuilder\CensorWords;
 
@@ -135,6 +136,19 @@ class GameController
         }
 
         $this->jsonResponse(['allowed' => true]);
+    }
+
+    /**
+     * POST /api/game/complete — Track game completion (increment counter).
+     * Called when a game finishes, regardless of Hall of Fame submission.
+     */
+    public function complete(): void
+    {
+        $db = Database::getInstance();
+        $counter = new GameCounterModel($db->getPdo());
+        $counter->increment();
+
+        $this->jsonResponse(['success' => true]);
     }
 
     /**

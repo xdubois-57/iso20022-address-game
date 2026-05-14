@@ -21,7 +21,6 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\LeaderboardModel;
-use App\Models\GameCounterModel;
 use Snipe\BanBuilder\CensorWords;
 
 class LeaderboardController
@@ -105,10 +104,6 @@ class LeaderboardController
         }
 
         $id = $this->leaderboardModel->addEntry($name, $score, $timeSeconds);
-
-        // Increment game counter
-        $db = Database::getInstance();
-        (new GameCounterModel($db->getPdo()))->increment();
 
         // Record submission timestamp for rate limiting
         $submissions[] = $now;
