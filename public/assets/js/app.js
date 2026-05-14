@@ -1732,8 +1732,10 @@
         html += '<p>To exercise any of these rights, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a> with details of your request. The data controller will respond in a reasonable timeframe.</p>';
 
         html += '<h3>9. International Data Transfers</h3>';
-        html += '<p>This application does not transfer personal data outside the jurisdiction where it is hosted. ';
-        html += 'The data controller is responsible for ensuring the hosting environment complies with applicable data protection regulations.</p>';
+        html += '<p>This application is hosted by <strong>LWS (Ligne Web Services)</strong>, a French hosting provider located in France (EU). ';
+        html += 'All data is stored and processed exclusively within the European Union, and no personal data is transferred outside the EU/EEA.</p>';
+        html += '<p>LWS complies with the General Data Protection Regulation (GDPR). For details on their data processing practices, ';
+        html += 'please refer to the <a href="https://www.lws.fr/politique-de-confidentialite.php" target="_blank" rel="noopener">LWS Privacy Policy</a>.</p>';
 
         html += '<h3>10. Automated Decision-Making (Art. 22)</h3>';
         html += '<p>This application does not perform any automated decision-making or profiling that produces legal or similarly significant effects on individuals. ';
