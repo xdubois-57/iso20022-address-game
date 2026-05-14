@@ -1702,7 +1702,7 @@
         html += '<li><strong>Right to withdraw consent (Art. 7(3))</strong> &mdash; You may withdraw your consent at any time without affecting the lawfulness of processing prior to withdrawal.</li>';
         html += '<li><strong>Right to lodge a complaint (Art. 77)</strong> &mdash; You have the right to lodge a complaint with a supervisory authority (e.g. your national Data Protection Authority).</li>';
         html += '</ul>';
-        html += '<p>To exercise any of these rights, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a> with details of your request. The data controller will respond within one month.</p>';
+        html += '<p>To exercise any of these rights, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a> with details of your request. The data controller will respond in a reasonable timeframe.</p>';
 
         html += '<h3>9. International Data Transfers</h3>';
         html += '<p>This application does not transfer personal data outside the jurisdiction where it is hosted. ';
