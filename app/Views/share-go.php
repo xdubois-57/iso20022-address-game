@@ -30,7 +30,6 @@
         <div id="fallback" style="display:none;">
             <button class="btn" id="shareBtn">Share Result</button>
             <button class="btn btn-secondary" id="copyBtn">Copy Link</button>
-            <div class="link-display" id="linkDisplay"></div>
             <p class="status" id="copyStatus"></p>
         </div>
         <p style="margin-top:2rem;"><a href="/" style="color:#01a990;">Play the game</a></p>
@@ -43,7 +42,7 @@
         function showFallback() {
             document.getElementById('statusText').textContent = 'Share your result:';
             document.getElementById('fallback').style.display = 'block';
-            document.getElementById('linkDisplay').textContent = shareUrl;
+            // Don't show the URL - just the buttons
         }
 
         function tryShare() {
