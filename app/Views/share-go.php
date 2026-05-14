@@ -28,6 +28,7 @@
         <h1>Share Your Score!</h1>
         <p id="statusText">Opening share dialog...</p>
         <div id="fallback" style="display:none;">
+            <p>Challenge 5 friends on social media!</p>
             <button class="btn" id="shareBtn">Share Result</button>
             <button class="btn btn-secondary" id="copyBtn">Copy Link</button>
             <p class="status" id="copyStatus"></p>
