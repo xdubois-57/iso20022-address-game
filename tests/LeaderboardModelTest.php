@@ -203,4 +203,170 @@ class LeaderboardModelTest extends TestCase
         $recent = $this->model->getRecentEntries(5);
         $this->assertCount(0, $recent);
     }
+
+    /* =======================================================
+       Pagination: getTotalCount
+       ======================================================= */
+
+    public function testGetTotalCountReturnsZeroForEmptyTable(): void
+    {
+        $this->assertEquals(0, $this->model->getTotalCount());
+    }
+
+    public function testGetTotalCountReturnsCorrectCount(): void
+    {
+        $this->model->addEntry('Alice', 90);
+        $this->model->addEntry('Bob', 80);
+        $this->model->addEntry('Charlie', 70);
+        $this->assertEquals(3, $this->model->getTotalCount());
+    }
+
+    public function testGetTotalCountUpdatesAfterDelete(): void
+    {
+        $id = $this->model->addEntry('Alice', 90);
+        $this->model->addEntry('Bob', 80);
+        $this->assertEquals(2, $this->model->getTotalCount());
+
+        $this->model->deleteEntry($id);
+        $this->assertEquals(1, $this->model->getTotalCount());
+    }
+
+    /* =======================================================
+       Pagination: getPaginatedEntries
+       ======================================================= */
+
+    public function testGetPaginatedEntriesReturnsCorrectPage(): void
+    {
+        // Insert 5 entries with different game scores
+        $this->model->addEntry('Best', 100, 10);    // game_score = 100*100*(1+500/10)/10 = 51000
+        $this->model->addEntry('Second', 90, 20);   // game_score = 90*90*(1+500/20)/10 = 21060
+        $this->model->addEntry('Third', 80, 30);     // game_score = 80*80*(1+500/30)/10 = 17066
+        $this->model->addEntry('Fourth', 70, 40);
+        $this->model->addEntry('Fifth', 60, 50);
+
+        // Page 1, 3 per page
+        $page1 = $this->model->getPaginatedEntries(1, 3);
+        $this->assertCount(3, $page1);
+        $this->assertEquals('Best', $page1[0]['player_name']);
+        $this->assertEquals('Second', $page1[1]['player_name']);
+        $this->assertEquals('Third', $page1[2]['player_name']);
+
+        // Page 2, 3 per page
+        $page2 = $this->model->getPaginatedEntries(2, 3);
+        $this->assertCount(2, $page2);
+        $this->assertEquals('Fourth', $page2[0]['player_name']);
+        $this->assertEquals('Fifth', $page2[1]['player_name']);
+    }
+
+    public function testGetPaginatedEntriesIncludesGameScore(): void
+    {
+        $this->model->addEntry('Alice', 100, 10);
+        $entries = $this->model->getPaginatedEntries(1, 10);
+        $this->assertArrayHasKey('game_score', $entries[0]);
+        $this->assertGreaterThan(0, $entries[0]['game_score']);
+    }
+
+    public function testGetPaginatedEntriesSortsByGameScoreDesc(): void
+    {
+        // Same accuracy but different speeds => different game scores
+        $this->model->addEntry('Slow', 80, 300);
+        $this->model->addEntry('Fast', 80, 10);
+
+        $entries = $this->model->getPaginatedEntries(1, 10);
+        // Fast player should rank first (higher game_score)
+        $this->assertEquals('Fast', $entries[0]['player_name']);
+        $this->assertEquals('Slow', $entries[1]['player_name']);
+        $this->assertGreaterThan($entries[1]['game_score'], $entries[0]['game_score']);
+    }
+
+    public function testGetPaginatedEntriesSortsDifferentAccuracyCorrectly(): void
+    {
+        // Lower accuracy but very fast vs higher accuracy but slow
+        $this->model->addEntry('LowPctFast', 50, 5);  // game_score = 50*50*(1+500/5)/10 = 25250
+        $this->model->addEntry('HighPctSlow', 90, 500); // game_score = 90*90*(1+500/500)/10 = 1620
+
+        $entries = $this->model->getPaginatedEntries(1, 10);
+        $this->assertEquals('LowPctFast', $entries[0]['player_name']);
+    }
+
+    public function testGetPaginatedEntriesEmptyTable(): void
+    {
+        $entries = $this->model->getPaginatedEntries(1, 50);
+        $this->assertCount(0, $entries);
+    }
+
+    public function testGetPaginatedEntriesRemovesEncryptedName(): void
+    {
+        $this->model->addEntry('Alice', 50);
+        $entries = $this->model->getPaginatedEntries(1, 10);
+        $this->assertArrayNotHasKey('encrypted_name', $entries[0]);
+        $this->assertArrayHasKey('player_name', $entries[0]);
+    }
+
+    public function testGetPaginatedEntriesPageBeyondDataReturnsEmpty(): void
+    {
+        $this->model->addEntry('Alice', 50);
+        $entries = $this->model->getPaginatedEntries(100, 50);
+        $this->assertCount(0, $entries);
+    }
+
+    public function testGetPaginatedEntriesHandlesZeroTimeSeconds(): void
+    {
+        $this->model->addEntry('ZeroTime', 80, 0);
+        $entries = $this->model->getPaginatedEntries(1, 10);
+        // Should not error (CASE WHEN handles division by zero)
+        $this->assertCount(1, $entries);
+        $this->assertArrayHasKey('game_score', $entries[0]);
+    }
+
+    /* =======================================================
+       Pagination: getRankById
+       ======================================================= */
+
+    public function testGetRankByIdReturnsCorrectRank(): void
+    {
+        $id1 = $this->model->addEntry('Best', 100, 10);
+        $id2 = $this->model->addEntry('Middle', 80, 30);
+        $id3 = $this->model->addEntry('Worst', 50, 100);
+
+        $this->assertEquals(1, $this->model->getRankById($id1));
+        $this->assertEquals(2, $this->model->getRankById($id2));
+        $this->assertEquals(3, $this->model->getRankById($id3));
+    }
+
+    public function testGetRankByIdReturnsZeroForNonExistent(): void
+    {
+        $this->assertEquals(0, $this->model->getRankById(9999));
+    }
+
+    public function testGetRankByIdWithSameScoreDifferentTime(): void
+    {
+        $idFast = $this->model->addEntry('Fast', 90, 30);
+        $idSlow = $this->model->addEntry('Slow', 90, 300);
+
+        // Fast should rank higher (lower time = higher game_score)
+        $this->assertLessThan(
+            $this->model->getRankById($idSlow),
+            $this->model->getRankById($idFast)
+        );
+    }
+
+    public function testGetRankByIdPageCalculation(): void
+    {
+        // Insert 60 entries - rank 1 to 60
+        $ids = [];
+        for ($i = 60; $i >= 1; $i--) {
+            $ids[$i] = $this->model->addEntry("Player$i", $i, 100);
+        }
+
+        // Best player (score 60) should be rank 1, page 1
+        $rank = $this->model->getRankById($ids[60]);
+        $this->assertEquals(1, $rank);
+        $this->assertEquals(1, (int) ceil($rank / 50));
+
+        // 51st best player (score 10) should be on page 2
+        $rank = $this->model->getRankById($ids[10]);
+        $this->assertGreaterThan(50, $rank);
+        $this->assertEquals(2, (int) ceil($rank / 50));
+    }
 }

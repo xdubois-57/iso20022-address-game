@@ -46,7 +46,8 @@
     let gameTimerInterval = null;
     let gameElapsedSeconds = 0;
     let playedScenarioIds = [];
-    let lastSubmittedEntry = null;
+    let lastSubmittedEntryId = null;
+    let lastSubmittedPage = null;
     let selectedGoalType = 'Structured';
     let touchDragChip = null;
     let touchDragClone = null;
@@ -244,7 +245,8 @@
         roundScores = [];
         playedScenarioIds = [];
         playerName = '';
-        lastSubmittedEntry = null;
+        lastSubmittedEntryId = null;
+        lastSubmittedPage = null;
         showScreen('game');
         resetScreenSaverTimer();
     }
@@ -927,7 +929,8 @@
                 time_seconds: gameElapsedSeconds,
             });
             if (data && data.success) {
-                lastSubmittedEntry = { name: playerName, score: finalPct, time: gameElapsedSeconds, gameScore: finalGameScore };
+                lastSubmittedEntryId = data.entry_id;
+                lastSubmittedPage = data.page || 1;
                 showScreen('leaderboard');
             }
         });
@@ -974,77 +977,88 @@
     /* =======================================================
        Leaderboard Screen
        ======================================================= */
-    async function renderLeaderboardScreen() {
+    async function renderLeaderboardScreen(page) {
+        // Navigate to the submitted entry's page if available
+        if (!page && lastSubmittedPage) {
+            page = lastSubmittedPage;
+        }
+        page = page || 1;
+
         appContainer.innerHTML = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>' +
             '<p style="text-align:center;">Loading...</p></section>';
 
-        var data = await api('leaderboard/top');
+        var data = await api('leaderboard/top', { page: page });
         if (!data) return;
 
         var entries = data.entries || [];
-        var recentEntries = data.recent || [];
+        var currentPage = data.page || 1;
+        var totalPages = data.total_pages || 1;
+        var totalCount = data.total_count || 0;
+        var perPage = data.per_page || 20;
+        var startRank = (currentPage - 1) * perPage;
+        var highlightId = lastSubmittedEntryId;
 
-        // Compute game score for all entries and sort by it
-        function addGameScore(arr) {
-            return arr.map(function (entry) {
-                var pct = parseInt(entry.score) || 0;
-                var ts = parseInt(entry.time_seconds) || 0;
-                entry.gameScore = computeGameScore(pct, ts);
-                return entry;
-            });
-        }
-        entries = addGameScore(entries);
-        recentEntries = addGameScore(recentEntries);
-        entries.sort(function (a, b) { return b.gameScore - a.gameScore; });
-
-        var highlightIdx = -1;
+        var hasHighlight = false;
         var html = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>';
         html += '<div class="leaderboard-table-wrap">';
 
-        if (entries.length === 0 && recentEntries.length === 0) {
+        if (totalCount === 0) {
             html += '<p class="empty-state">No entries yet. Be the first to play!</p>';
         } else {
             html += '<table class="leaderboard-table"><thead><tr>';
             html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th>';
             html += '</tr></thead><tbody>';
-            
-            // Display top entries sorted by game score
+
             entries.forEach(function (entry, i) {
-                var isMe = lastSubmittedEntry &&
-                    entry.player_name === lastSubmittedEntry.name &&
-                    entry.gameScore === lastSubmittedEntry.gameScore &&
-                    highlightIdx === -1;
-                if (isMe) highlightIdx = i;
-                html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>' + (i + 1) + '</td>';
+                var isMe = highlightId && parseInt(entry.id) === parseInt(highlightId);
+                if (isMe) hasHighlight = true;
+                html += '<tr' + (isMe ? ' class="my-entry"' : '') + '>';
+                html += '<td>' + (startRank + i + 1) + '</td>';
                 html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-                html += '<td>' + entry.gameScore + '</td>';
+                html += '<td>' + (entry.game_score !== undefined ? entry.game_score : computeGameScore(parseInt(entry.score) || 0, parseInt(entry.time_seconds) || 0)) + '</td>';
                 html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
             });
 
-            // Display 5 most recent entries not in top entries (below separator)
-            if (recentEntries.length > 0) {
-                html += '<tr class="leaderboard-separator"><td colspan="4">Recent Entries</td></tr>';
-                recentEntries.forEach(function (entry) {
-                    var isMe = lastSubmittedEntry &&
-                        entry.player_name === lastSubmittedEntry.name &&
-                        entry.gameScore === lastSubmittedEntry.gameScore &&
-                        highlightIdx === -1;
-                    if (isMe) highlightIdx = entries.length + recentEntries.indexOf(entry);
-                    html += '<tr' + (isMe ? ' class="my-entry"' : '') + '><td>-</td>';
-                    html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-                    html += '<td>' + entry.gameScore + '</td>';
-                    html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
-                });
-            }
-
             html += '</tbody></table>';
+
+            // Pagination controls
+            if (totalPages > 1) {
+                html += '<div class="pagination">';
+                if (currentPage > 1) {
+                    html += '<button class="btn-page" data-page="1" title="First">&laquo;</button>';
+                    html += '<button class="btn-page" data-page="' + (currentPage - 1) + '" title="Previous">&lsaquo;</button>';
+                }
+                var startP = Math.max(1, currentPage - 2);
+                var endP = Math.min(totalPages, currentPage + 2);
+                for (var p = startP; p <= endP; p++) {
+                    html += '<button class="btn-page' + (p === currentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+                }
+                if (currentPage < totalPages) {
+                    html += '<button class="btn-page" data-page="' + (currentPage + 1) + '" title="Next">&rsaquo;</button>';
+                    html += '<button class="btn-page" data-page="' + totalPages + '" title="Last">&raquo;</button>';
+                }
+                html += '<span class="page-info">' + totalCount + ' entries</span>';
+                html += '</div>';
+            }
         }
 
         html += '</div></section>';
         appContainer.innerHTML = html;
 
+        // Bind pagination clicks
+        document.querySelectorAll('.btn-page').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var p = parseInt(this.getAttribute('data-page'));
+                if (p) {
+                    lastSubmittedEntryId = null;
+                    lastSubmittedPage = null;
+                    renderLeaderboardScreen(p);
+                }
+            });
+        });
+
         // Party effect on highlighted entry
-        if (highlightIdx >= 0) {
+        if (hasHighlight) {
             var myRow = document.querySelector('.my-entry');
             if (myRow) {
                 try { myRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
@@ -1562,7 +1576,7 @@
         html += '<p><em>Last updated: April 2026</em></p>';
 
         html += '<h3>1. Data Controller</h3>';
-        html += '<p>The data controller for this application is <strong>Xavier Dubois</strong>, the developer and maintainer of the ISO 20022 Address Structuring Game. ';
+        html += '<p>The data controllers for this application are <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>, the developers and maintainers of the ISO 20022 Address Structuring Game. ';
         html += 'For questions regarding data processing, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a>.</p>';
 
         html += '<h3>2. Legal Basis for Processing (Art. 6 GDPR)</h3>';

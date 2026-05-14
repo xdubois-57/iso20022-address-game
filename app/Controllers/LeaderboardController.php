@@ -34,26 +34,28 @@ class LeaderboardController
         $this->leaderboardModel = new LeaderboardModel($pdo);
     }
 
+    private const PER_PAGE = 20;
+
     /**
-     * POST /api/leaderboard/top — Get the Hall of Fame.
-     * Returns top 150 by score + 5 most recent entries (always visible).
+     * POST /api/leaderboard/top — Get paginated Hall of Fame.
      */
     public function getTop(): void
     {
-        $topEntries = $this->leaderboardModel->getTopEntries(150);
-        $recentEntries = $this->leaderboardModel->getRecentEntries(5);
-        
-        // Extract IDs from top 150 for deduplication
-        $topIds = array_column($topEntries, 'id');
-        
-        // Filter recent entries that are NOT in top 150
-        $additionalRecent = array_filter($recentEntries, function($entry) use ($topIds) {
-            return !in_array($entry['id'], $topIds, true);
-        });
-        
+        $input = $this->getJsonInput();
+        $page = max(1, (int) ($input['page'] ?? 1));
+
+        $totalCount = $this->leaderboardModel->getTotalCount();
+        $totalPages = max(1, (int) ceil($totalCount / self::PER_PAGE));
+        $page = min($page, $totalPages);
+
+        $entries = $this->leaderboardModel->getPaginatedEntries($page, self::PER_PAGE);
+
         $this->jsonResponse([
-            'entries' => $topEntries,
-            'recent' => array_values($additionalRecent)
+            'entries' => $entries,
+            'page' => $page,
+            'total_pages' => $totalPages,
+            'total_count' => $totalCount,
+            'per_page' => self::PER_PAGE,
         ]);
     }
 
@@ -107,9 +109,15 @@ class LeaderboardController
         $submissions[] = $now;
         $_SESSION['submission_timestamps'] = array_values($submissions);
 
+        // Compute rank and page for the new entry
+        $rank = $this->leaderboardModel->getRankById($id);
+        $page = (int) ceil($rank / self::PER_PAGE);
+
         $this->jsonResponse([
             'success' => true,
             'entry_id' => $id,
+            'rank' => $rank,
+            'page' => $page,
         ]);
     }
 

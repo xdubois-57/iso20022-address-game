@@ -93,6 +93,73 @@ class LeaderboardModel
     }
 
     /**
+     * SQL expression for computing game score (cross-platform MySQL/SQLite).
+     * Mirrors JS: Math.round(pct * pct * (1 + 500 / Math.max(1, seconds)) / 10)
+     */
+    private const GAME_SCORE_EXPR = 'ROUND(score * score * (1.0 + 500.0 / (CASE WHEN time_seconds < 1 THEN 1 ELSE time_seconds END)) / 10.0)';
+
+    /**
+     * Get paginated entries sorted by game_score, decrypting names for display.
+     */
+    public function getPaginatedEntries(int $page = 1, int $perPage = 50): array
+    {
+        $offset = ($page - 1) * $perPage;
+        $expr = self::GAME_SCORE_EXPR;
+        $stmt = $this->pdo->prepare(
+            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score FROM leaderboard ORDER BY game_score DESC, time_seconds ASC, created_at ASC LIMIT ? OFFSET ?"
+        );
+        $stmt->execute([$perPage, $offset]);
+        $rows = $stmt->fetchAll();
+
+        return array_map(function ($row) {
+            try {
+                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
+            } catch (\Throwable $e) {
+                $row['player_name'] = '[redacted]';
+            }
+            unset($row['encrypted_name']);
+            return $row;
+        }, $rows);
+    }
+
+    /**
+     * Get total number of leaderboard entries.
+     */
+    public function getTotalCount(): int
+    {
+        return (int) $this->pdo->query('SELECT COUNT(*) FROM leaderboard')->fetchColumn();
+    }
+
+    /**
+     * Get the 1-based rank of a specific entry by ID using game_score ordering.
+     * Returns 0 if not found.
+     */
+    public function getRankById(int $id): int
+    {
+        // Check the entry exists
+        $check = $this->pdo->prepare('SELECT id FROM leaderboard WHERE id = ?');
+        $check->execute([$id]);
+        if (!$check->fetch()) {
+            return 0;
+        }
+
+        // Build game_score expressions with table aliases
+        $lbExpr = 'ROUND(lb.score * lb.score * (1.0 + 500.0 / (CASE WHEN lb.time_seconds < 1 THEN 1 ELSE lb.time_seconds END)) / 10.0)';
+        $tExpr = 'ROUND(t.score * t.score * (1.0 + 500.0 / (CASE WHEN t.time_seconds < 1 THEN 1 ELSE t.time_seconds END)) / 10.0)';
+
+        $sql = "SELECT COUNT(*) FROM leaderboard lb, (SELECT score, time_seconds, created_at FROM leaderboard WHERE id = ?) t "
+            . "WHERE ($lbExpr > $tExpr) "
+            . "OR ($lbExpr = $tExpr AND lb.time_seconds < t.time_seconds) "
+            . "OR ($lbExpr = $tExpr AND lb.time_seconds = t.time_seconds AND lb.created_at < t.created_at)";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$id]);
+
+        return (int) $stmt->fetchColumn() + 1;
+    }
+
+    /**
      * Delete a single leaderboard entry by ID.
      */
     public function deleteEntry(int $id): bool

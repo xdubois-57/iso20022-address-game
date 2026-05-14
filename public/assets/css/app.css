@@ -1037,6 +1037,46 @@ html, body {
     padding: 2rem;
 }
 
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-page {
+    background: var(--swift-white);
+    color: var(--swift-dark-green);
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    min-width: 2.2rem;
+    text-align: center;
+}
+
+.btn-page:hover {
+    background: var(--swift-light-peppermint);
+    border-color: var(--swift-emerald);
+}
+
+.btn-page.active {
+    background: var(--swift-emerald);
+    color: var(--swift-white);
+    border-color: var(--swift-emerald);
+    font-weight: 700;
+}
+
+.page-info {
+    color: var(--swift-grey-green);
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+}
+
 /* =========================================================
    Privacy
    ========================================================= */
