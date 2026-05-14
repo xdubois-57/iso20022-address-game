@@ -233,6 +233,161 @@ class ShareController
         }
     }
 
+    /**
+     * GET /share/home-image — Generate a 1200×630 PNG share card for the home page.
+     */
+    public function homeShareImage(): void
+    {
+        $w = 1200;
+        $h = 630;
+        $img = imagecreatetruecolor($w, $h);
+        imagealphablending($img, true);
+        imagesavealpha($img, true);
+
+        // Swift palette
+        $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
+        $lightPepper = imagecolorallocate($img, 207, 251, 242); // #cffbf2 lighter
+        $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
+        $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
+        $white       = imagecolorallocate($img, 255, 255, 255);
+
+        // Peppermint background
+        imagefill($img, 0, 0, $peppermint);
+
+        // Party balloons - colorful circles with strings
+        $balloonColors = [
+            [1, 169, 144],     // emerald
+            [207, 251, 242],   // light peppermint
+            [255, 193, 7],     // gold
+            [255, 107, 107],   // coral
+            [69, 183, 209],    // sky blue
+        ];
+        
+        $balloons = [];
+        $attempts = 0;
+        $maxAttempts = 100;
+        
+        for ($i = 0; $i < 12 && $attempts < $maxAttempts; $i++) {
+            $attempts++;
+            $r = mt_rand(25, 45);
+            
+            $zone = $i % 4;
+            if ($zone === 0) {
+                $cx = mt_rand(30, 120);
+                $cy = mt_rand(50, $h - 50);
+            } elseif ($zone === 1) {
+                $cx = mt_rand($w - 120, $w - 30);
+                $cy = mt_rand(50, $h - 50);
+            } elseif ($zone === 2) {
+                $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
+                $cy = mt_rand(30, 120);
+            } else {
+                $cx = mt_rand(150, $w - 150);
+                $cy = mt_rand($h - 120, $h - 30);
+            }
+            
+            $overlap = false;
+            foreach ($balloons as $b) {
+                $dist = sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2));
+                if ($dist < ($r + $b['r'] + 20)) {
+                    $overlap = true;
+                    $i--;
+                    break;
+                }
+            }
+            
+            if (!$overlap) {
+                $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
+                
+                $col = $balloonColors[array_rand($balloonColors)];
+                $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
+                
+                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
+                
+                $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
+                imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
+            }
+        }
+
+        // Top emerald accent bar
+        imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
+
+        // Resolve fonts
+        $fontBold = $this->findFont(true);
+        $fontRegular = $this->findFont(false);
+
+        if ($fontBold && $fontRegular) {
+            // Main title
+            $this->ttfCentered($img, 56, $fontBold, 'ISO 20022 Address Challenge', $w, 120, $darkGreen);
+
+            // Subtitle
+            $this->ttfCentered($img, 32, $fontRegular, 'Master International Address Formatting', $w, 185, $darkGreen);
+
+            // Separator line
+            $lineY = 240;
+            imageline($img, 250, $lineY, $w - 250, $lineY, $emerald);
+            imageline($img, 250, $lineY + 1, $w - 250, $lineY + 1, $emerald);
+
+            // Game features
+            $this->ttfCentered($img, 28, $fontRegular, '🎮 Test Your Skills  •  🏆 Compete for High Scores', $w, 320, $darkGreen);
+            $this->ttfCentered($img, 28, $fontRegular, '📚 Learn ISO 20022 Standards  •  🌟 Challenge Friends', $w, 370, $darkGreen);
+
+            // Separator line
+            imageline($img, 250, 440, $w - 250, 440, $emerald);
+            imageline($img, 250, 441, $w - 250, 441, $emerald);
+
+            // Challenge CTA in emerald
+            $this->ttfCentered($img, 40, $fontBold, 'Ready to challenge your knowledge?', $w, 510, $emerald);
+
+            // Footer in dark green
+            $safeHost = $this->getSafeHost();
+            $this->ttfCentered($img, 22, $fontRegular, 'Play now at ' . $safeHost, $w, 580, $darkGreen);
+        } else {
+            // GD built-in fonts fallback
+            $safeHost = $this->getSafeHost();
+            $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 80, $darkGreen);
+            $this->gdCentered($img, 4, 'Master International Address Formatting', $w, 140, $darkGreen);
+            imageline($img, 250, 190, $w - 250, 190, $emerald);
+            $this->gdCentered($img, 4, 'Test Your Skills • Compete for High Scores', $w, 260, $darkGreen);
+            $this->gdCentered($img, 4, 'Learn ISO 20022 • Challenge Friends', $w, 300, $darkGreen);
+            imageline($img, 250, 360, $w - 250, 360, $emerald);
+            $this->gdCentered($img, 4, 'Ready to challenge your knowledge?', $w, 430, $emerald);
+            $this->gdCentered($img, 2, 'Play now at ' . $safeHost, $w, 520, $darkGreen);
+        }
+
+        // Render PNG to buffer
+        ob_start();
+        imagepng($img, null, 6);
+        $pngData = ob_get_clean();
+        imagedestroy($img);
+
+        header('Content-Type: image/png');
+        header('Cache-Control: public, max-age=86400, immutable');
+        header('Accept-Ranges: bytes');
+
+        // Detect social media crawlers - serve uncompressed for compatibility
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $crawlers = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
+        $isCrawler = false;
+        foreach ($crawlers as $crawler) {
+            if (stripos($userAgent, $crawler) !== false) {
+                $isCrawler = true;
+                break;
+            }
+        }
+
+        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+        if (!$isCrawler && strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
+            $compressed = gzencode($pngData, 6);
+            header('Content-Encoding: gzip');
+            header('Content-Length: ' . strlen($compressed));
+            echo $compressed;
+        } else {
+            header('Content-Length: ' . strlen($pngData));
+            echo $pngData;
+        }
+    }
+
     /* --- Helpers --- */
 
     private function decryptToken(string $urlToken): ?array

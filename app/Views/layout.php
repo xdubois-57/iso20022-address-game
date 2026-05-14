@@ -57,6 +57,21 @@ if (!function_exists('getVersionInfo')) {
     <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
     <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
     <meta name="author" content="ISO 20022 Address Game">
+    <!-- OpenGraph Meta Tags for Social Media Sharing -->
+    <meta property="og:title" content="ISO 20022 Address Challenge">
+    <meta property="og:description" content="Master international address formatting standards. Test your skills, compete for high scores, and challenge your friends!">
+    <meta property="og:image" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') ?>/share/home-image">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:url" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $_SERVER['REQUEST_URI'] ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ISO 20022 Address Challenge">
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ISO 20022 Address Challenge">
+    <meta name="twitter:description" content="Master international address formatting standards. Test your skills, compete for high scores!">
+    <meta name="twitter:image" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') ?>/share/home-image">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
