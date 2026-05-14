@@ -1,0 +1,37 @@
+User-agent: *
+Allow: /
+
+# Allow all search engines to index the site
+User-agent: Googlebot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: msnbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Allow indexing of all important pages
+Allow: /$
+Allow: /share
+Allow: /admin
+Allow: /privacy
+
+# Block access to sensitive system files and directories
+Disallow: /vendor/
+Disallow: /app/
+Disallow: /tests/
+Disallow: /config/
+Disallow: /credentials.php
+Disallow: /*.php$
+Disallow: /*.log$
+Disallow: /tmp/
+
+# Sitemap location (if you have one)
+# Sitemap: https://yourdomain.com/sitemap.xml
+
+# Crawl delay (optional - be nice to servers)
+Crawl-delay: 1

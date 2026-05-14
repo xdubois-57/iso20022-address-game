@@ -53,7 +53,10 @@ if (!function_exists('getVersionInfo')) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.2.2/css/pico.min.css" integrity="sha384-L2RaVCHS9h6hXcb75D7/007oHi3zJENE2zKMlMUn91AH3p8x1SPCeDZmRB7yS6cl" crossorigin="anonymous">
     <link rel="stylesheet" href="https://unpkg.com/dropzone@5.9.3/dist/min/dropzone.min.css" integrity="sha384-hKRH7ZmTc4+t+iae668SDRfEsjc7HT3VrEMKuSwiDUK4pNQXd/v9BPVpIa0OLlp7" crossorigin="anonymous">
     <link rel="stylesheet" href="<?= assetUrl('assets/css/app.css') ?>">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="index, follow">
+    <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
+    <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
+    <meta name="author" content="ISO 20022 Address Game">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
