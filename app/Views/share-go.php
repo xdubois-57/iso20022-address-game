@@ -41,7 +41,7 @@
         var shareText = <?= json_encode($shareText) ?>;
 
         function showFallback() {
-            document.getElementById('statusText').textContent = 'Share your result:';
+            document.getElementById('statusText').textContent = '';
             document.getElementById('fallback').style.display = 'block';
             // Don't show the URL - just the buttons
         }
