@@ -51,6 +51,10 @@ class ShareController
         $ogTitle = $data['n'] . ' scored ' . $data['s'] . ' points on the ISO 20022 Challenge!';
         $ogDescription = 'Think you can beat ' . $data['s'] . ' points? Play the ISO 20022 Address Challenge now!';
 
+        // Cache headers for social media crawlers
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+
         require __DIR__ . '/../Views/share.php';
     }
 
@@ -203,11 +207,22 @@ class ShareController
         imagedestroy($img);
 
         header('Content-Type: image/png');
-        header('Cache-Control: public, max-age=3600');
+        header('Cache-Control: public, max-age=86400, immutable');
+        header('Accept-Ranges: bytes');
 
-        // Facebook crawler only accepts gzip/deflate — serve gzip if client supports it
+        // Detect social media crawlers - serve uncompressed for compatibility
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $crawlers = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
+        $isCrawler = false;
+        foreach ($crawlers as $crawler) {
+            if (stripos($userAgent, $crawler) !== false) {
+                $isCrawler = true;
+                break;
+            }
+        }
+
         $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-        if (strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
+        if (!$isCrawler && strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
             $compressed = gzencode($pngData, 6);
             header('Content-Encoding: gzip');
             header('Content-Length: ' . strlen($compressed));
