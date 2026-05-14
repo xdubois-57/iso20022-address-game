@@ -943,6 +943,24 @@ html, body {
     font-size: 0.9rem;
 }
 
+.game-counter-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.game-counter-info p {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.game-chart-wrap {
+    margin-top: 1rem;
+    height: 220px;
+    position: relative;
+}
+
 .admin-leaderboard-table {
     font-size: 0.9rem;
 }

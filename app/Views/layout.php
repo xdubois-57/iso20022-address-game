@@ -98,6 +98,7 @@ if (!function_exists('getVersionInfo')) {
 
     <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js" integrity="sha384-j7DIiYhP7c3I7ITo+yHp/HrTE5PPaDVUHso8067ayeH0TxvXT4qnDumOB8WWSEPI" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" integrity="sha384-0esPaJH+F9evp2lsJYN36SW7XkRbaYviuyF+PpnbjDXBC9i1CWGiJyGrXCyiyGqZ" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>

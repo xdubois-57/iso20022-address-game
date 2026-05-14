@@ -22,6 +22,7 @@ namespace App\Controllers;
 use App\Models\Database;
 use App\Models\ScenarioModel;
 use App\Models\LeaderboardModel;
+use App\Models\GameCounterModel;
 use App\Models\ExcelParser;
 
 class AdminController
@@ -496,6 +497,45 @@ class AdminController
         header('Cache-Control: max-age=0');
 
         $writer->save('php://output');
+    }
+
+    /**
+     * POST /api/admin/game-stats — Get game counter stats.
+     */
+    public function getGameStats(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $db = Database::getInstance();
+        $counter = new GameCounterModel($db->getPdo());
+
+        $this->jsonResponse([
+            'total_games' => $counter->getTotalCount(),
+            'weekly_stats' => $counter->getWeeklyStats(52),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/reset-game-counter — Reset game counter from leaderboard history.
+     */
+    public function resetGameCounter(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $db = Database::getInstance();
+        $counter = new GameCounterModel($db->getPdo());
+        $newCount = $counter->resetFromLeaderboard();
+
+        $this->jsonResponse([
+            'success' => true,
+            'total_games' => $newCount,
+        ]);
     }
 
     /**

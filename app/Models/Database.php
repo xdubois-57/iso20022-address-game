@@ -182,6 +182,13 @@ class Database
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS game_counter (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+
         // Seed default facts only if the table is empty (first-time setup)
         $count = (int) $this->pdo->query('SELECT COUNT(*) FROM facts')->fetchColumn();
         if ($count === 0) {

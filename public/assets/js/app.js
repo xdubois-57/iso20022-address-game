@@ -957,7 +957,7 @@
                 if (navigator.share) {
                     navigator.share({
                         title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
-                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83D\uDE0F',
+                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83E\uDD14',
                         url: shareUrl
                     }).catch(function () { /* user cancelled */ });
                 } else {
@@ -1199,6 +1199,15 @@
         html += '<div id="adminFactsList"><p>Loading facts...</p></div>';
         html += '</div>';
 
+        // Game Counter section
+        html += '<div class="admin-section"><h3>\uD83C\uDFAE Game Counter</h3>';
+        html += '<div class="game-counter-info">';
+        html += '<p>Total games played: <strong id="totalGamesCount">...</strong></p>';
+        html += '<button class="btn-secondary" id="resetGameCounterBtn">Reset from Hall of Fame</button>';
+        html += '</div>';
+        html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
+        html += '</div>';
+
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
         html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
@@ -1211,9 +1220,52 @@
         appContainer.innerHTML = html;
         initAdminActions();
         initDropzone();
+        loadGameStats();
         loadAdminLeaderboard();
         loadAdminDeadline();
         loadAdminFacts();
+    }
+
+    var gamesChart = null;
+
+    async function loadGameStats() {
+        var data = await api('admin/game-stats');
+        if (!data) return;
+
+        var countEl = document.getElementById('totalGamesCount');
+        if (countEl) countEl.textContent = data.total_games;
+
+        // Render weekly chart
+        var canvas = document.getElementById('gamesWeeklyChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        var stats = data.weekly_stats || [];
+        var labels = stats.map(function (s) { return s.week; });
+        var counts = stats.map(function (s) { return s.count; });
+
+        if (gamesChart) gamesChart.destroy();
+        gamesChart = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Games per week',
+                    data: counts,
+                    backgroundColor: 'rgba(1, 169, 144, 0.6)',
+                    borderColor: '#01a990',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 } }
+                }
+            }
+        });
     }
 
     async function loadAdminLeaderboard() {
@@ -1493,6 +1545,16 @@
                 status.textContent = 'Deadline cleared';
                 status.classList.remove('hidden');
                 await showModal('Deadline cleared');
+            }
+        });
+
+        document.getElementById('resetGameCounterBtn').addEventListener('click', async function () {
+            var confirmed = await showConfirm('Reset game counter based on Hall of Fame entries?');
+            if (!confirmed) return;
+            var data = await api('admin/reset-game-counter');
+            if (data && data.success) {
+                await showModal('Game counter reset. Total: ' + data.total_games);
+                loadGameStats();
             }
         });
 

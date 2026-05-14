@@ -103,7 +103,7 @@ if ($method === 'POST') {
         exit;
     }
     // Init schema once per session to avoid repeated DDL (bump version when schema changes)
-    $schemaVersion = 4;
+    $schemaVersion = 5;
     if (isset($_SESSION['schema_ready']) && !isset($_SESSION['schema_version'])) {
         unset($_SESSION['schema_ready']);
     }
@@ -141,6 +141,8 @@ if ($method === 'POST') {
         'admin/add-fact' => (new AdminController())->addFact(),
         'admin/update-fact' => (new AdminController())->updateFact(),
         'admin/delete-fact' => (new AdminController())->deleteFact(),
+        'admin/game-stats' => (new AdminController())->getGameStats(),
+        'admin/reset-game-counter' => (new AdminController())->resetGameCounter(),
 
         default => jsonError('Unknown action', 404),
     };
