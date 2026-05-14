@@ -318,41 +318,33 @@ class ShareController
 
         if ($fontBold && $fontRegular) {
             // Main title
-            $this->ttfCentered($img, 56, $fontBold, 'ISO 20022 Address Challenge', $w, 120, $darkGreen);
+            $this->ttfCentered($img, 64, $fontBold, 'ISO 20022 Address Game', $w, 140, $darkGreen);
 
             // Subtitle
-            $this->ttfCentered($img, 32, $fontRegular, 'Master International Address Formatting', $w, 185, $darkGreen);
+            $this->ttfCentered($img, 36, $fontRegular, 'Test Your Address Skills', $w, 210, $darkGreen);
 
             // Separator line
-            $lineY = 240;
-            imageline($img, 250, $lineY, $w - 250, $lineY, $emerald);
-            imageline($img, 250, $lineY + 1, $w - 250, $lineY + 1, $emerald);
+            $lineY = 280;
+            imageline($img, 300, $lineY, $w - 300, $lineY, $emerald);
+            imageline($img, 300, $lineY + 1, $w - 300, $lineY + 1, $emerald);
 
-            // Game features
-            $this->ttfCentered($img, 28, $fontRegular, '🎮 Test Your Skills  •  🏆 Compete for High Scores', $w, 320, $darkGreen);
-            $this->ttfCentered($img, 28, $fontRegular, '📚 Learn ISO 20022 Standards  •  🌟 Challenge Friends', $w, 370, $darkGreen);
+            // Simple features
+            $this->ttfCentered($img, 32, $fontRegular, 'Learn - Compete - Challenge', $w, 360, $darkGreen);
 
             // Separator line
-            imageline($img, 250, 440, $w - 250, 440, $emerald);
-            imageline($img, 250, 441, $w - 250, 441, $emerald);
+            imageline($img, 300, 420, $w - 300, 420, $emerald);
+            imageline($img, 300, 421, $w - 300, 421, $emerald);
 
-            // Challenge CTA in emerald
-            $this->ttfCentered($img, 40, $fontBold, 'Ready to challenge your knowledge?', $w, 510, $emerald);
-
-            // Footer in dark green
-            $safeHost = $this->getSafeHost();
-            $this->ttfCentered($img, 22, $fontRegular, 'Play now at ' . $safeHost, $w, 580, $darkGreen);
+            // Call-to-action in emerald
+            $this->ttfCentered($img, 40, $fontBold, 'Play Now!', $w, 500, $emerald);
         } else {
             // GD built-in fonts fallback
-            $safeHost = $this->getSafeHost();
-            $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 80, $darkGreen);
-            $this->gdCentered($img, 4, 'Master International Address Formatting', $w, 140, $darkGreen);
-            imageline($img, 250, 190, $w - 250, 190, $emerald);
-            $this->gdCentered($img, 4, 'Test Your Skills • Compete for High Scores', $w, 260, $darkGreen);
-            $this->gdCentered($img, 4, 'Learn ISO 20022 • Challenge Friends', $w, 300, $darkGreen);
-            imageline($img, 250, 360, $w - 250, 360, $emerald);
-            $this->gdCentered($img, 4, 'Ready to challenge your knowledge?', $w, 430, $emerald);
-            $this->gdCentered($img, 2, 'Play now at ' . $safeHost, $w, 520, $darkGreen);
+            $this->gdCentered($img, 5, 'ISO 20022 Address Game', $w, 100, $darkGreen);
+            $this->gdCentered($img, 4, 'Test Your Address Skills', $w, 160, $darkGreen);
+            imageline($img, 300, 210, $w - 300, 210, $emerald);
+            $this->gdCentered($img, 4, 'Learn - Compete - Challenge', $w, 280, $darkGreen);
+            imageline($img, 300, 340, $w - 300, 340, $emerald);
+            $this->gdCentered($img, 5, 'Play Now!', $w, 420, $emerald);
         }
 
         // Render PNG to buffer
