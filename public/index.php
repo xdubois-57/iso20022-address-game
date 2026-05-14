@@ -37,6 +37,10 @@ if ($requestUri === '/share/home-image') {
     (new ShareController())->homeShareImage();
     exit;
 }
+if ($requestUri === '/share/go') {
+    (new ShareController())->shareGoPage();
+    exit;
+}
 if ($requestUri === '/share') {
     (new ShareController())->sharePage();
     exit;

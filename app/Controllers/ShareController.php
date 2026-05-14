@@ -34,6 +34,26 @@ class ShareController
     }
 
     /**
+     * GET /share/go?d=<token> — Trigger native share on mobile (scanned from QR code in kiosk mode).
+     */
+    public function shareGoPage(): void
+    {
+        $data = $this->decryptToken($_GET['d'] ?? '');
+        if (!$data) {
+            header('Location: /');
+            exit;
+        }
+
+        $baseUrl = $this->getBaseUrl();
+        $rawToken = $_GET['d'];
+        $shareUrl = $baseUrl . '/share?d=' . urlencode($rawToken);
+        $shareTitle = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts!';
+        $shareText = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts on the ISO 20022 Address Challenge! Can you beat me?';
+
+        require __DIR__ . '/../Views/share-go.php';
+    }
+
+    /**
      * GET /share?d=<token> — Serve HTML with OpenGraph meta tags.
      */
     public function sharePage(): void

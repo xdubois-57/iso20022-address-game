@@ -902,7 +902,11 @@
         html += '</div>';
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
-        html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
+        if (kioskMode) {
+            html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
+        } else {
+            html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
+        }
         html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -942,38 +946,58 @@
             showScreen('game');
         });
 
-        var shareBtn = document.getElementById('shareScoreBtn');
-        if (shareBtn) {
-            shareBtn.addEventListener('click', async function () {
-                shareBtn.disabled = true;
-                shareBtn.textContent = '\u23F3 Preparing...';
+        if (kioskMode) {
+            // In kiosk mode, generate a QR code linking to /share/go (triggers native share on mobile)
+            (async function () {
                 var tokenData = await api('share/token', {
                     score: finalGameScore,
                     name: playerName
                 });
-                if (!tokenData || !tokenData.token) {
+                if (tokenData && tokenData.token) {
+                    var qrUrl = window.location.origin + '/share/go?d=' + encodeURIComponent(tokenData.token);
+                    var qrContainer = document.getElementById('kioskQrCode');
+                    if (qrContainer && typeof qrcode === 'function') {
+                        var qr = qrcode(0, 'M');
+                        qr.addData(qrUrl);
+                        qr.make();
+                        qrContainer.innerHTML = qr.createSvgTag(6, 0);
+                    }
+                }
+            })();
+        } else {
+            var shareBtn = document.getElementById('shareScoreBtn');
+            if (shareBtn) {
+                shareBtn.addEventListener('click', async function () {
+                    shareBtn.disabled = true;
+                    shareBtn.textContent = '\u23F3 Preparing...';
+                    var tokenData = await api('share/token', {
+                        score: finalGameScore,
+                        name: playerName
+                    });
+                    if (!tokenData || !tokenData.token) {
+                        shareBtn.disabled = false;
+                        shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
+                        return;
+                    }
+                    var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
+                    if (navigator.share) {
+                        navigator.share({
+                            title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
+                            text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83E\uDD14',
+                            url: shareUrl
+                        }).catch(function () { /* user cancelled */ });
+                    } else {
+                        copyToClipboard(shareUrl).then(function (ok) {
+                            if (ok) {
+                                shareBtn.textContent = '\u2705 Link copied!';
+                                setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
+                            }
+                        });
+                    }
                     shareBtn.disabled = false;
                     shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
-                    return;
-                }
-                var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
-                if (navigator.share) {
-                    navigator.share({
-                        title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
-                        text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83E\uDD14',
-                        url: shareUrl
-                    }).catch(function () { /* user cancelled */ });
-                } else {
-                    copyToClipboard(shareUrl).then(function (ok) {
-                        if (ok) {
-                            shareBtn.textContent = '\u2705 Link copied!';
-                            setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
-                        }
-                    });
-                }
-                shareBtn.disabled = false;
-                shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
-            });
+                });
+            }
         }
     }
 
