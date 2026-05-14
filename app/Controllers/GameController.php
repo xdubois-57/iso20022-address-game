@@ -175,7 +175,7 @@ class GameController
             $chips[] = [
                 'id' => 'chip_' . $field . '_' . bin2hex(random_bytes(4)),
                 'field' => $field,
-                'value' => htmlspecialchars($value, ENT_QUOTES, 'UTF-8'),
+                'value' => $value,
                 'label' => $fieldLabels[$field] ?? $field,
             ];
         }

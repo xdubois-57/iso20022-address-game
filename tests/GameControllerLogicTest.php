@@ -34,7 +34,7 @@ class GameControllerLogicTest extends TestCase
             $chips[] = [
                 'id' => 'chip_' . $field . '_' . bin2hex(random_bytes(4)),
                 'field' => $field,
-                'value' => htmlspecialchars($value, ENT_QUOTES, 'UTF-8'),
+                'value' => $value,
                 'label' => $fieldLabels[$field] ?? $field,
             ];
         }
@@ -97,7 +97,7 @@ class GameControllerLogicTest extends TestCase
         $this->assertCount(2, $chips);
     }
 
-    public function testGenerateChipsEscapesHtmlInValues(): void
+    public function testGenerateChipsReturnsRawValues(): void
     {
         $data = [
             'TwnNm' => 'O\'Brien & Sons',
@@ -113,7 +113,10 @@ class GameControllerLogicTest extends TestCase
             }
         }
         $this->assertNotNull($twnChip);
-        $this->assertStringContainsString('&amp;', $twnChip['value']);
+        // Values in JSON payload must be raw — the frontend handles HTML escaping
+        $this->assertSame("O'Brien & Sons", $twnChip['value']);
+        $this->assertStringNotContainsString('&amp;', $twnChip['value']);
+        $this->assertStringNotContainsString('&#039;', $twnChip['value']);
     }
 
     public function testGenerateChipsHaveUniqueIds(): void
