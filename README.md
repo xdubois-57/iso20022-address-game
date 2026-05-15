@@ -25,14 +25,16 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
 - **Hall of Fame** — Encrypted leaderboard with composite game score (accuracy × speed bonus), GDPR-compliant 365-day retention
-- **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards (mobile only)
+- **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards
+- **Dynamic Apple Touch Icon** — Themed PNG icon with color 🎮 emoji that updates automatically with theme changes
+- **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
-- **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity)
+- **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity), external link removal
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
 - **Responsive** — Mobile hamburger menu, touch-first design for tablets
-- **Cache Busting** — Automatic browser refresh when CSS/JS files change
+- **Cache Busting** — Theme-aware cache busting for background images and icons (includes theme colors + file mtimes)
 
 ## Requirements
 
@@ -84,7 +86,19 @@ Configure your web server's document root to the `public/` directory.
 1. Access the Admin panel (default PIN: `1234`)
 2. Upload a `Scenarios.xlsx` file with the required columns (see DESIGN.md)
 
-### 5. Kiosk Mode (Optional)
+### 5. Customize Theme (Optional)
+
+1. Access the Admin panel
+2. Navigate to the "Theme" section
+3. Adjust any of the 5 color variables:
+   - **Primary** — Main brand color (buttons, chips, accents)
+   - **Primary Hover** — Darker shade for hover states
+   - **Primary Light** — Very light tint for filled slots/highlights
+   - **Background** — Page background and image background
+   - **Text** — Dark text and headings
+4. Changes apply immediately and update the Apple Touch Icon automatically
+
+### 6. Kiosk Mode (Optional)
 
 Enable **Kiosk Mode** for unattended public displays:
 
@@ -103,6 +117,17 @@ Enable **Kiosk Mode** for unattended public displays:
 - Dismisses on any touch/click interaction
 
 **Note:** Kiosk mode is session-only and resets on page reload.
+
+**iPad Setup Guide:**
+For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
+
+1. Open this page in **Safari** on the iPad
+2. Tap the **Share** button (square with arrow) in Safari toolbar
+3. Choose **Add to Home Screen**, then tap **Add**
+4. Open the app from the home screen icon (launches fullscreen)
+5. Enable **Guided Access**: Settings → Accessibility → Guided Access → set passcode
+6. Triple-click the Side button to start Guided Access (locks to this app)
+7. Triple-click again and enter passcode to stop Guided Access
 
 ## Excel File Format
 

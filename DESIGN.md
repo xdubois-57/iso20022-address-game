@@ -35,11 +35,11 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 
 - **Framework**: PicoCSS (semantic HTML, minimal footprint)
 - **Branding** (Color Palette):
-  - Primary: `#01a990` (Emerald)
-  - Accent: `#acf9e9` (Peppermint)
-  - Text/Headers: `#333d3e` (Dark Green)
-  - Muted: `#698287` (Grey Green)
-  - Background: `#ffffff` (White)
+  - Primary: `#00364a` (Dark Teal)
+  - Primary Hover: `#00a3d7` (Bright Blue)
+  - Primary Light: `#caf0fe` (Light Blue)
+  - Background: `#94e3fe` (Sky Blue)
+  - Text/Headers: `#00364a` (Dark Teal)
 - **Animations**: `canvas-confetti` for high-score celebrations
 
 ### 2.3 Controller (Traffic & API)
@@ -68,13 +68,14 @@ Each chip must match its specific semantic slot:
 - Speed bonus: up to 2× multiplier for completing within 5 minutes
 - Hall of Fame and admin leaderboard both sort by this computed game score
 
-### Social Sharing (Mobile Only)
+### Social Sharing
 - Players can share their score via an encrypted URL token (AES-256-GCM)
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
 - Dynamic 1200×630 PNG share card generated server-side with GD library
 - Share card features theme-branded colors with decorative balloons
 - Gzip-encoded image responses for Facebook crawler compatibility
-- Share button hidden on desktop/tablet via CSS media query
+- **Mobile**: Native share button (navigator.share) with clipboard fallback
+- **Kiosk Mode**: QR code displayed for scanning and sharing on mobile devices
 
 ### Session Management
 - 30s inactivity timer triggers a 10s countdown overlay (during active game)
@@ -151,6 +152,9 @@ facts: id, content, created_at
 /project-root
 ├── app/
 │   ├── Controllers/    # API Logic
+│   │   ├── AppIconController.php    # Dynamic Apple Touch Icon
+│   │   ├── BackgroundController.php # Themed Background SVG
+│   │   └── ...
 │   ├── Models/         # DB, Encryption, Excel Parsing
 │   └── Views/          # SPA Template Fragments
 ├── config/
@@ -160,7 +164,13 @@ facts: id, content, created_at
 ├── public/
 │   ├── index.php       # Front Controller
 │   ├── .htaccess       # URL rewriting
-│   └── assets/         # CSS, JS, Fonts
+│   └── assets/
+│       ├── css/        # Stylesheets
+│       ├── js/         # JavaScript
+│       ├── fonts/      # Bundled fonts (Liberation Sans)
+│       └── images/
+│           ├── emoji-controller.png    # Color 🎮 emoji for icon
+│           └── world_map.svg          # Background map SVG
 ├── scripts/
 │   ├── cleanup.php     # GDPR retention cron job
 │   └── schema.sql      # Database schema
