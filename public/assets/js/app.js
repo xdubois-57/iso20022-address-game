@@ -131,7 +131,10 @@
     /* =======================================================
        Fullscreen
        ======================================================= */
+    var isStandalone = (window.navigator.standalone === true);
+
     function enterFullscreen() {
+        if (isStandalone) return; // Already fullscreen in iOS standalone (home screen web app)
         var el = document.documentElement;
         if (document.fullscreenElement) return;
         if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
@@ -1194,6 +1197,19 @@
         html += '<span class="kiosk-slider"></span>';
         html += '<span class="kiosk-label">' + (kioskMode ? 'Enabled' : 'Disabled') + '</span>';
         html += '</label>';
+        html += '<details class="kiosk-ipad-guide"><summary>iPad setup guide</summary>';
+        html += '<ol>';
+        html += '<li>Open this page in <strong>Safari</strong> on the iPad (other browsers do not support home screen shortcuts).</li>';
+        html += '<li>Tap the <strong>Share</strong> button (the square with an arrow pointing up) in the Safari toolbar.</li>';
+        html += '<li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>';
+        html += '<li>Edit the name if desired, then tap <strong>Add</strong>. An icon will appear on the home screen.</li>';
+        html += '<li>Open the app from that icon — it will launch in full-screen mode without any browser chrome.</li>';
+        html += '<li>To prevent users from switching apps, enable <strong>Guided Access</strong>: go to <em>Settings &rarr; Accessibility &rarr; Guided Access</em>, turn it on, and set a passcode.</li>';
+        html += '<li>Start a Guided Access session: triple-click the <strong>Side button</strong> (or Home button on older iPads) while the app is open, then tap <strong>Start</strong>.</li>';
+        html += '<li>To end Guided Access, triple-click the Side/Home button again and enter the passcode.</li>';
+        html += '</ol>';
+        html += '<p><strong>Note:</strong> Guided Access locks the iPad to this single app — users cannot switch to Safari, the home screen, or any other app.</p>';
+        html += '</details>';
         html += '</div>';
 
         // Game Counter section
