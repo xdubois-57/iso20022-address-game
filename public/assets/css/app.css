@@ -1451,7 +1451,6 @@ html, body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('../images/background.png');
     background-position: center center;
     background-size: cover;
     background-repeat: no-repeat;
@@ -1476,51 +1475,79 @@ html, body {
     width: 100%;
 }
 .ss-countdown {
-    background: rgba(255,255,255,0.1);
-    border-radius: 12px;
+    background: var(--game-dark-green);
+    color: var(--game-peppermint);
+    border-radius: 16px;
     padding: 1rem 3rem;
     text-align: center;
     max-width: 500px;
     width: 100%;
-    color: var(--game-grey-green);
 }
 .ss-countdown .countdown-label {
-    color: var(--game-grey-green);
-    opacity: 0.8;
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
 }
 .ss-countdown .countdown-timer {
-    color: var(--game-grey-green);
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+.ss-countdown .countdown-unit {
+    display: inline-block;
+    min-width: 2ch;
+    text-align: right;
+}
+.ss-countdown .countdown-suffix {
+    display: inline-block;
+    min-width: 1.2em;
+    text-align: left;
+}
+.ss-countdown .countdown-sep {
+    opacity: 0.4;
+    margin: 0 0.25em;
 }
 .ss-cta {
-    color: var(--game-grey-green);
+    color: var(--game-dark-green);
     font-size: 2.5rem;
     text-align: center;
     line-height: 1.3;
     font-weight: 700;
     animation: ss-pulse 3s ease-in-out infinite;
+    background: var(--game-white);
+    border-radius: 16px;
+    padding: 1rem 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 }
 .ss-fact {
-    background: rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 1.5rem 2rem;
+    background: var(--game-white);
+    border-radius: 16px;
+    padding: 2.5rem 3rem;
     text-align: center;
     max-width: 500px;
     width: 100%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    color: var(--game-grey-green);
+    line-height: 1.6;
     transition: opacity 0.4s ease;
 }
 .ss-fact h2 {
-    color: var(--game-grey-green);
-    margin-bottom: 0.4rem;
-    font-size: 1.3rem;
+    color: var(--game-dark-green);
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
 }
 .ss-fact p {
-    color: rgba(105,130,135,0.8);
+    color: var(--game-grey-green);
     margin: 0;
-    font-size: 1.05rem;
-    line-height: 1.6;
+    font-size: 1.1rem;
+    line-height: 1.7;
 }
 .ss-fact a {
-    color: var(--game-grey-green);
+    color: var(--game-emerald);
+    text-decoration: underline;
 }
 @keyframes ss-pulse {
     0%, 100% { opacity: 1; }

@@ -2006,6 +2006,9 @@
             document.body.appendChild(overlay);
         }
 
+        // Mirror the exact same background as the main page (includes ?v= cache-bust hash)
+        overlay.style.backgroundImage = getComputedStyle(document.body).backgroundImage;
+
         var actionWord = hasTouchScreen ? 'Touch' : 'Click';
 
         overlay.innerHTML = '<div class="screen-saver-inner">'
