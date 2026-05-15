@@ -77,6 +77,10 @@ header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self';");
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
+// HSTS: enforce HTTPS for 1 year, include subdomains, allow preload
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+};
 
 // All API communication is via POST with an X-Action header.
 // GET requests serve the SPA shell or the setup page.
