@@ -73,6 +73,7 @@ if (!function_exists('getVersionInfo')) {
         . filemtime(__DIR__ . '/../../public/assets/images/world_map.svg')
         . filemtime(__DIR__ . '/../Controllers/BackgroundController.php')
         . filemtime(__DIR__ . '/../Controllers/AppIconController.php')
+        . filemtime(__DIR__ . '/../../public/assets/images/emoji-controller.png')
     ), 0, 8);
     $p = $layoutTheme['color_primary'];
     $ph = $layoutTheme['color_primary_hover'];
