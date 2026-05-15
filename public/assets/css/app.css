@@ -40,6 +40,10 @@
 /* =========================================================
    Global
    ========================================================= */
+html {
+    overflow-x: hidden;
+}
+
 html, body {
     margin: 0;
     padding: 0;
@@ -50,7 +54,6 @@ html, body {
     background-attachment: fixed;
     color: var(--game-dark-green);
     font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
-    overflow-x: hidden;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;

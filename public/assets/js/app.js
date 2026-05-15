@@ -101,6 +101,30 @@
     const headerNav = document.getElementById('headerNav');
 
     /* =======================================================
+       Confetti (iOS Safari compatible)
+       Bind to a pre-existing canvas to avoid position:fixed
+       clipping caused by overflow-x:hidden on body and the
+       background-attachment:fixed GPU compositing layer.
+       ======================================================= */
+    var boundConfetti = null;
+    (function () {
+        if (typeof confetti !== 'function') return;
+        var canvas = document.getElementById('confettiCanvas');
+        if (!canvas) return;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        window.addEventListener('resize', function () {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        boundConfetti = confetti.create(canvas, {
+            resize: true,
+            useWorker: false,
+            disableForReducedMotion: true,
+        });
+    }());
+
+    /* =======================================================
        API Helper
        ======================================================= */
     var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
@@ -925,14 +949,14 @@
         // Animate score counter, then launch confetti
         var scoreEl = document.getElementById('animatedScore');
         animateScore(scoreEl, finalGameScore, 2000, function () {
-            if (typeof confetti === 'function') {
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, useWorker: false });
+            if (boundConfetti) {
+                boundConfetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
                 setTimeout(function () {
-                    confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 }, useWorker: false });
-                    confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 }, useWorker: false });
+                    boundConfetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0 } });
+                    boundConfetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1 } });
                 }, 300);
                 setTimeout(function () {
-                    confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 }, useWorker: false });
+                    boundConfetti({ particleCount: 100, spread: 100, origin: { y: 0.4 } });
                 }, 600);
             }
         });
@@ -1099,13 +1123,13 @@
                 try { myRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
                 catch (e) { myRow.scrollIntoView(false); }
             }
-            if (typeof confetti === 'function') {
+            if (boundConfetti) {
                 setTimeout(function () {
-                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, useWorker: false });
+                    boundConfetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
                 }, 200);
                 setTimeout(function () {
-                    confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0 }, useWorker: false });
-                    confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1 }, useWorker: false });
+                    boundConfetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0 } });
+                    boundConfetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1 } });
                 }, 500);
             }
         }
