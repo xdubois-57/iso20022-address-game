@@ -25,15 +25,15 @@
     /* Injected by layout.php: --game-peppermint, --game-dark-green,
        --game-emerald, --game-light-peppermint, and all --pico-primary-* vars */
     /* Static values below are only used if layout.php injection is unavailable */
-    --game-peppermint: #acf9e9;
-    --game-dark-green: #333d3e;
-    --game-emerald: #01a990;
-    --game-light-peppermint: #cffbf2;
-    --game-grey-green: #698287;
+    --game-peppermint: #94e3fe;
+    --game-dark-green: #00364a;
+    --game-emerald: #00364a;
+    --game-light-peppermint: #caf0fe;
+    --game-grey-green: #00364a;
     --game-white: #ffffff;
     --game-neutral: #f8f8f8;
-    --game-danger: #c0392b;
-    --game-success: #01a990;
+    --game-danger: #dc3545;
+    --game-success: #28a745;
     --pico-font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
 }
 

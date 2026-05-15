@@ -1181,17 +1181,6 @@
         var html = '<section class="admin-screen"><div class="admin-dashboard">';
         html += '<h2>Admin Dashboard</h2>';
 
-        // Theme Colors
-        html += '<div class="admin-section"><h3>Theme Colors</h3>';
-        html += '<p>Customize the brand colors. Changes take effect after saving and reloading the page.</p>';
-        html += '<div class="theme-color-grid" id="themeColorGrid"><p>Loading...</p></div>';
-        html += '<div class="theme-actions">';
-        html += '<button class="btn-primary" id="saveThemeBtn">Save Colors</button>';
-        html += '<button class="btn-secondary" id="resetThemeBtn">Reset to Defaults</button>';
-        html += '</div>';
-        html += '<p class="theme-status" id="themeStatus"></p>';
-        html += '</div>';
-
         // Kiosk Mode
         html += '<div class="admin-section kiosk-section"><h3>Kiosk Mode</h3>';
         html += '<p>Enable fullscreen kiosk mode with screen saver for this session.</p>';
@@ -1202,15 +1191,14 @@
         html += '</label>';
         html += '</div>';
 
-        // Upload section
-        html += '<div class="admin-section"><h3>Upload Scenarios</h3>';
-        html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
-        html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
-        html += '<div id="uploadStatus" class="upload-status hidden"></div>';
-        html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
-        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary" style="text-decoration:none;display:inline-block;">\u2B07 Download Example Excel</a>';
-        html += '<button class="btn-secondary" id="exportScenariosBtn">\u2B07 Export Current Scenarios</button>';
-        html += '</div></div>';
+        // Game Counter section
+        html += '<div class="admin-section"><h3>\uD83C\uDFAE Game Counter</h3>';
+        html += '<div class="game-counter-info">';
+        html += '<p>Total games played: <strong id="totalGamesCount">...</strong></p>';
+        html += '<button class="btn-secondary" id="resetGameCounterBtn">Reset from Hall of Fame</button>';
+        html += '</div>';
+        html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
+        html += '</div>';
 
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
@@ -1230,6 +1218,17 @@
         html += '<p id="deadlineStatus" class="deadline-status hidden"></p>';
         html += '</div>';
 
+        // Theme Colors
+        html += '<div class="admin-section"><h3>Theme Colors</h3>';
+        html += '<p>Customize the brand colors. Changes take effect after saving and reloading the page.</p>';
+        html += '<div class="theme-color-grid" id="themeColorGrid"><p>Loading...</p></div>';
+        html += '<div class="theme-actions">';
+        html += '<button class="btn-primary" id="saveThemeBtn">Save Colors</button>';
+        html += '<button class="btn-secondary" id="resetThemeBtn">Reset to Defaults</button>';
+        html += '</div>';
+        html += '<p class="theme-status" id="themeStatus"></p>';
+        html += '</div>';
+
         // Did You Know Facts
         html += '<div class="admin-section"><h3>\uD83D\uDCA1 Did You Know — Quick Facts</h3>';
         html += '<p>Add fun facts displayed on the welcome screen.</p>';
@@ -1237,14 +1236,15 @@
         html += '<div id="adminFactsList"><p>Loading facts...</p></div>';
         html += '</div>';
 
-        // Game Counter section
-        html += '<div class="admin-section"><h3>\uD83C\uDFAE Game Counter</h3>';
-        html += '<div class="game-counter-info">';
-        html += '<p>Total games played: <strong id="totalGamesCount">...</strong></p>';
-        html += '<button class="btn-secondary" id="resetGameCounterBtn">Reset from Hall of Fame</button>';
-        html += '</div>';
-        html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
-        html += '</div>';
+        // Upload section
+        html += '<div class="admin-section"><h3>Upload Scenarios</h3>';
+        html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
+        html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
+        html += '<div id="uploadStatus" class="upload-status hidden"></div>';
+        html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
+        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary" style="text-decoration:none;display:inline-block;">\u2B07 Download Example Excel</a>';
+        html += '<button class="btn-secondary" id="exportScenariosBtn">\u2B07 Export Current Scenarios</button>';
+        html += '</div></div>';
 
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
@@ -1466,11 +1466,11 @@
     }
 
     var themeDefaults = {
-        color_primary:       '#01a990',
-        color_primary_hover: '#018a76',
-        color_primary_light: '#cffbf2',
-        color_bg:            '#acf9e9',
-        color_text:          '#333d3e'
+        color_primary:       '#00364a',
+        color_primary_hover: '#00a3d7',
+        color_primary_light: '#caf0fe',
+        color_bg:            '#94e3fe',
+        color_text:          '#00364a'
     };
 
     var themeLabels = {
