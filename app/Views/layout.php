@@ -89,6 +89,14 @@ if (!function_exists('getVersionInfo')) {
             --swift-emerald: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
             --swift-light-peppermint: <?= htmlspecialchars($pl, ENT_QUOTES) ?>;
             --swift-neutral: #f8f8f8;
+            --swift-grey-green: <?= htmlspecialchars($tx, ENT_QUOTES) ?>;
+            --swift-white: #ffffff;
+            --swift-danger: #dc3545;
+            --swift-danger-bg: #fde8e8;
+            --swift-success: #28a745;
+            --swift-success-bg: #e8f8ef;
+            --swift-gold: #FFD700;
+            --swift-orange: #FFA500;
             --pico-primary: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
             --pico-primary-background: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
             --pico-primary-border: <?= htmlspecialchars($p, ENT_QUOTES) ?>;

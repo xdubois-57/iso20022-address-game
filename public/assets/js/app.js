@@ -400,12 +400,12 @@
         var nameInput = document.getElementById('welcomeNameInput');
         document.getElementById('startGameBtn').addEventListener('click', async function () {
             playerName = nameInput.value.trim();
-            if (!playerName) { nameInput.style.borderColor = '#c0392b'; nameInput.focus(); return; }
+            if (!playerName) { nameInput.style.borderColor = 'var(--swift-danger)'; nameInput.focus(); return; }
             // Check name for profanity
             var check = await api('game/check-name', { name: playerName });
             if (!check) return;
             if (!check.allowed) {
-                nameInput.style.borderColor = '#c0392b';
+                nameInput.style.borderColor = 'var(--swift-danger)';
                 var warn = document.createElement('p');
                 warn.className = 'profanity-warning';
                 warn.textContent = check.message || 'Please choose a different name.';
@@ -1526,7 +1526,7 @@
                 if (resp && resp.success) {
                     if (status) { status.textContent = 'Colors saved. Reload the page to apply.'; status.style.color = 'var(--swift-emerald)'; }
                 } else {
-                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = '#c0392b'; }
+                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = 'var(--swift-danger)'; }
                 }
             };
         }
