@@ -24,7 +24,7 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
-- **Hall of Fame** — Encrypted leaderboard with composite game score (accuracy × speed bonus), GDPR-compliant 30-day retention
+- **Hall of Fame** — Encrypted leaderboard with composite game score (accuracy × speed bonus), GDPR-compliant 365-day retention
 - **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards (mobile only)
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
 - **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity)
@@ -143,7 +143,7 @@ Schedule the cleanup script to run daily:
 0 3 * * * php /path/to/scripts/cleanup.php
 ```
 
-This deletes leaderboard entries older than 30 days. A fallback "poor man's cron" also runs cleanup automatically once per day on visitor traffic.
+This deletes leaderboard entries older than 365 days. A fallback "poor man's cron" also runs cleanup automatically once per day on visitor traffic.
 
 ## Deployment
 

@@ -20,7 +20,7 @@
 /**
  * GDPR Retention Cleanup Script
  *
- * Deletes leaderboard entries older than 30 days.
+ * Deletes leaderboard entries older than 365 days.
  * Schedule via cron: 0 3 * * * php /path/to/scripts/cleanup.php
  */
 
@@ -36,7 +36,7 @@ if (!$db->connect()) {
 }
 
 $leaderboard = new LeaderboardModel($db->getPdo());
-$deleted = $leaderboard->purgeExpired(30);
+$deleted = $leaderboard->purgeExpired(365);
 
 $timestamp = date('Y-m-d H:i:s');
 echo "[CLEANUP] $timestamp — Deleted $deleted expired leaderboard entries.\n";

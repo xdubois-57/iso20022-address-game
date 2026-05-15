@@ -133,7 +133,7 @@ facts: id, content, created_at
 - **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout); leaderboard submissions throttled (10 per 5 minutes per session)
 - **Input validation**: Server-side bounds on score (0–100), time_seconds (0–3600), player name (1–50 chars)
-- **Retention**: Auto-deletion of leaderboard entries after 30 days (cron + poor man's cron fallback)
+- **Retention**: Auto-deletion of leaderboard entries after 365 days (cron + poor man's cron fallback)
 - **XSS prevention**: `escapeHtml()` on client and `htmlspecialchars()` on server for all dynamic output
 - **Sessions**: Secure PHP sessions with `session_regenerate_id()`, HttpOnly, SameSite=Strict flags
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy

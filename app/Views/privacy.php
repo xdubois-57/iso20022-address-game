@@ -38,7 +38,7 @@
            They are only decrypted momentarily for display and are never shared with third parties.</p>
 
         <h3>Data Retention</h3>
-        <p>Leaderboard entries are automatically deleted after <strong>30 days</strong> via an automated
+        <p>Leaderboard entries are automatically deleted after <strong>365 days</strong> via an automated
            cleanup process, in accordance with GDPR data retention principles.</p>
 
         <h3>Your Rights</h3>

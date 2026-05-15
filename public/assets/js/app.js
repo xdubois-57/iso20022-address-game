@@ -1677,8 +1677,8 @@
 
         html += '<h3>3. Categories of Personal Data Collected</h3>';
         html += '<div class="overflow-auto"><table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
-        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Database, encrypted at rest (AES-256-GCM)</td><td>30 days, then automatically deleted</td></tr>';
-        html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>30 days</td></tr>';
+        html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Database, encrypted at rest (AES-256-GCM)</td><td>365 days, then automatically deleted</td></tr>';
+        html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>365 days</td></tr>';
         html += '<tr><td>Share token (name + score)</td><td>Social sharing URL generation</td><td>Client-side only, encrypted in URL parameter</td><td>Not stored server-side; expires when URL is no longer shared</td></tr>';
         html += '<tr><td>Session cookie (PHPSESSID)</td><td>CSRF protection &amp; admin authentication</td><td>Server-side; cookie contains only a random session ID</td><td>Browser session (deleted on close)</td></tr>';
         html += '<tr><td>IP address (logs only)</td><td>Security event logging (CSRF failures, admin login attempts)</td><td>Server error logs (not database)</td><td>Depends on server log rotation policy</td></tr>';
@@ -1713,7 +1713,7 @@
         html += '</ul>';
 
         html += '<h3>7. Data Retention &amp; Automated Deletion (Art. 5(1)(e))</h3>';
-        html += '<p>Leaderboard entries (player name + score) are automatically and permanently deleted after <strong>30 days</strong> via an automated cleanup script. ';
+        html += '<p>Leaderboard entries (player name + score) are automatically and permanently deleted after <strong>365 days</strong> via an automated cleanup script. ';
         html += 'The administrator may also manually purge all leaderboard data at any time via the admin panel. ';
         html += 'Once deleted, encrypted player names cannot be recovered.</p>';
 

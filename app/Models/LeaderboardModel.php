@@ -178,9 +178,9 @@ class LeaderboardModel
     }
 
     /**
-     * Delete entries older than 30 days (GDPR retention policy).
+     * Delete entries older than 365 days (GDPR retention policy).
      */
-    public function purgeExpired(int $days = 30): int
+    public function purgeExpired(int $days = 365): int
     {
         $stmt = $this->pdo->prepare(
             'DELETE FROM leaderboard WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
