@@ -902,12 +902,12 @@
         html += '</div>';
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
+        html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
         if (kioskMode) {
             html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
         } else {
             html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
         }
-        html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
         html += '</div></div></section>';
         appContainer.innerHTML = html;
 
@@ -960,7 +960,7 @@
                         var qr = qrcode(0, 'M');
                         qr.addData(qrUrl);
                         qr.make();
-                        qrContainer.innerHTML = qr.createSvgTag(6, 0);
+                        qrContainer.innerHTML = qr.createSvgTag(4, 0);
                     }
                 }
             })();
