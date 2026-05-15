@@ -159,6 +159,15 @@ This script runs `composer install --no-dev`, then syncs files to the production
 
 This game was built by **Xavier Dubois** and **Niel Buchan**.
 
+### Third-party assets
+
+#### Background image
+
+Derived from [Simplified World Map.svg](https://commons.wikimedia.org/wiki/File:Simplified_World_Map.svg)
+by Guilherme de Souza Vieira and Hogweard (Wikimedia Commons), licensed under
+[CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/deed.en).
+Colors are replaced at request time to match the application theme; no structural changes are made.
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).

@@ -26,6 +26,18 @@ if (!function_exists('assetUrl')) {
     }
 }
 
+// Load theme colors from DB (with graceful fallback to defaults)
+if (!isset($layoutTheme)) {
+    $layoutTheme = \App\Models\ThemeModel::defaults();
+    $layoutDb = \App\Models\Database::getInstance();
+    if ($layoutDb->isConnected() || $layoutDb->connect()) {
+        $layoutPdo = $layoutDb->getPdo();
+        if ($layoutPdo) {
+            $layoutTheme = (new \App\Models\ThemeModel($layoutPdo))->get();
+        }
+    }
+}
+
 // Version info helper: reads from config/version.php or falls back to git
 if (!function_exists('getVersionInfo')) {
     function getVersionInfo(): array {
@@ -53,6 +65,49 @@ if (!function_exists('getVersionInfo')) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.2.2/css/pico.min.css" integrity="sha384-L2RaVCHS9h6hXcb75D7/007oHi3zJENE2zKMlMUn91AH3p8x1SPCeDZmRB7yS6cl" crossorigin="anonymous">
     <link rel="stylesheet" href="https://unpkg.com/dropzone@5.9.3/dist/min/dropzone.min.css" integrity="sha384-hKRH7ZmTc4+t+iae668SDRfEsjc7HT3VrEMKuSwiDUK4pNQXd/v9BPVpIa0OLlp7" crossorigin="anonymous">
     <link rel="stylesheet" href="<?= assetUrl('assets/css/app.css') ?>">
+    <?php
+    // Compute a version hash for the background image:
+    // includes theme colors + SVG asset mtime + controller mtime so any
+    // code or asset change forces browsers to reload the image.
+    $bgVersion = substr(md5(implode('', $layoutTheme)
+        . filemtime(__DIR__ . '/../../public/assets/images/world_map.svg')
+        . filemtime(__DIR__ . '/../Controllers/BackgroundController.php')
+    ), 0, 8);
+    $p = $layoutTheme['color_primary'];
+    $ph = $layoutTheme['color_primary_hover'];
+    $pl = $layoutTheme['color_primary_light'];
+    $bg = $layoutTheme['color_bg'];
+    $tx = $layoutTheme['color_text'];
+    // Derive pico focus as rgba from primary (simplified)
+    $pRgb = \App\Models\ThemeModel::hexToRgb($p) ?? [1, 169, 144];
+    $picoFocus = 'rgba(' . $pRgb[0] . ',' . $pRgb[1] . ',' . $pRgb[2] . ',0.25)';
+    ?>
+    <style>
+        :root {
+            --swift-peppermint: <?= htmlspecialchars($bg, ENT_QUOTES) ?>;
+            --swift-dark-green: <?= htmlspecialchars($tx, ENT_QUOTES) ?>;
+            --swift-emerald: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
+            --swift-light-peppermint: <?= htmlspecialchars($pl, ENT_QUOTES) ?>;
+            --swift-neutral: #f8f8f8;
+            --pico-primary: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
+            --pico-primary-background: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
+            --pico-primary-border: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
+            --pico-primary-underline: <?= htmlspecialchars($p, ENT_QUOTES) ?>;
+            --pico-primary-hover: <?= htmlspecialchars($ph, ENT_QUOTES) ?>;
+            --pico-primary-hover-background: <?= htmlspecialchars($ph, ENT_QUOTES) ?>;
+            --pico-primary-hover-border: <?= htmlspecialchars($ph, ENT_QUOTES) ?>;
+            --pico-primary-focus: <?= $picoFocus ?>;
+            --pico-primary-inverse: #ffffff;
+            --pico-form-element-focus-color: <?= $picoFocus ?>;
+        }
+        html, body {
+            background-image: url('/bg?v=<?= $bgVersion ?>');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+    </style>
     <meta name="robots" content="index, follow">
     <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
     <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">

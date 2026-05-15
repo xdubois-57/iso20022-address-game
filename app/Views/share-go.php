@@ -5,6 +5,21 @@
  *
  * Variables expected: $shareUrl, $shareTitle, $shareText
  */
+use App\Models\Database;
+use App\Models\ThemeModel;
+
+$shareGoTheme = ThemeModel::defaults();
+$shareGoDb = Database::getInstance();
+if ($shareGoDb->isConnected() || $shareGoDb->connect()) {
+    $shareGoPdo = $shareGoDb->getPdo();
+    if ($shareGoPdo) {
+        $shareGoTheme = (new ThemeModel($shareGoPdo))->get();
+    }
+}
+$sgPrimary = htmlspecialchars($shareGoTheme['color_primary'], ENT_QUOTES);
+$sgHover   = htmlspecialchars($shareGoTheme['color_primary_hover'], ENT_QUOTES);
+$sgBg      = htmlspecialchars($shareGoTheme['color_bg'], ENT_QUOTES);
+$sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
 ?>
 <!doctype html>
 <html lang="en">
@@ -13,14 +28,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Share Result - ISO 20022 Address Game</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 2rem; background: #acf9e9; color: #333d3e; }
+        body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 2rem; background: <?= $sgBg ?>; color: <?= $sgText ?>; }
         .card { max-width: 400px; margin: 2rem auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-        .btn { display: inline-block; background: #01a990; color: #fff; padding: 1rem 2rem; border-radius: 8px; text-decoration: none; font-size: 1.1rem; border: none; cursor: pointer; margin: 0.5rem; }
-        .btn:hover { background: #018a76; }
-        .btn-secondary { background: #333d3e; }
+        .btn { display: inline-block; background: <?= $sgPrimary ?>; color: #fff; padding: 1rem 2rem; border-radius: 8px; text-decoration: none; font-size: 1.1rem; border: none; cursor: pointer; margin: 0.5rem; }
+        .btn:hover { background: <?= $sgHover ?>; }
+        .btn-secondary { background: <?= $sgText ?>; }
         .link-display { word-break: break-all; font-size: 0.85rem; color: #666; margin: 1rem 0; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; }
-        .status { margin-top: 1rem; font-size: 0.9rem; color: #01a990; }
+        .status { margin-top: 1rem; font-size: 0.9rem; color: <?= $sgPrimary ?>; }
     </style>
 </head>
 <body>
@@ -33,7 +48,7 @@
             <button class="btn btn-secondary" id="copyBtn">Copy Link</button>
             <p class="status" id="copyStatus"></p>
         </div>
-        <p style="margin-top:2rem;"><a href="/" style="color:#01a990;">Play the game</a></p>
+        <p style="margin-top:2rem;"><a href="/" style="color:<?= $sgPrimary ?>;">Play the game</a></p>
     </div>
     <script>
         var shareUrl = <?= json_encode($shareUrl) ?>;

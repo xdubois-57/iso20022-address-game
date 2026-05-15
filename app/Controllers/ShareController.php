@@ -8,7 +8,9 @@
 
 namespace App\Controllers;
 
+use App\Models\Database;
 use App\Models\Encryption;
+use App\Models\ThemeModel;
 
 class ShareController
 {
@@ -92,89 +94,7 @@ class ShareController
         $score = $data['s'];
         $name = $data['n'];
 
-        $w = 1200;
-        $h = 630;
-        $img = imagecreatetruecolor($w, $h);
-        imagealphablending($img, true);
-        imagesavealpha($img, true);
-
-        // Swift palette
-        $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
-        $lightPepper = imagecolorallocate($img, 207, 251, 242); // #cffbf2 lighter
-        $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
-        $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
-        $white       = imagecolorallocate($img, 255, 255, 255);
-
-        // Peppermint background
-        imagefill($img, 0, 0, $peppermint);
-
-        // Party balloons - colorful circles with strings
-        // Place balloons ONLY in margins/corners to avoid text overlap
-        // RANDOM positions (not seeded) - changes on each load
-        $balloonColors = [
-            [1, 169, 144],     // emerald
-            [207, 251, 242],   // light peppermint
-            [255, 193, 7],     // gold
-            [255, 107, 107],   // coral
-            [69, 183, 209],    // sky blue
-        ];
-        
-        $balloons = []; // Track placed balloons to prevent overlap
-        $attempts = 0;
-        $maxAttempts = 100;
-        
-        for ($i = 0; $i < 12 && $attempts < $maxAttempts; $i++) {
-            $attempts++;
-            $r = mt_rand(25, 45);
-            
-            // Constrain balloons to edges/corners only (not center text area)
-            $zone = $i % 4;
-            if ($zone === 0) {
-                // Left margin
-                $cx = mt_rand(30, 120);
-                $cy = mt_rand(50, $h - 50);
-            } elseif ($zone === 1) {
-                // Right margin
-                $cx = mt_rand($w - 120, $w - 30);
-                $cy = mt_rand(50, $h - 50);
-            } elseif ($zone === 2) {
-                // Top corners only (avoid title text in center)
-                $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
-                $cy = mt_rand(30, 120);
-            } else {
-                // Bottom margin (left and right sides)
-                $cx = mt_rand(150, $w - 150);
-                $cy = mt_rand($h - 120, $h - 30);
-            }
-            
-            // Check for overlap with existing balloons
-            $overlap = false;
-            foreach ($balloons as $b) {
-                $dist = sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2));
-                if ($dist < ($r + $b['r'] + 20)) { // 20px minimum spacing
-                    $overlap = true;
-                    $i--; // Retry this balloon
-                    break;
-                }
-            }
-            
-            if (!$overlap) {
-                $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
-                
-                $col = $balloonColors[array_rand($balloonColors)];
-                $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
-                
-                // Balloon circle
-                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
-                
-                // String
-                $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
-                imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
-            }
-        }
-
-        // Top emerald accent bar
-        imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
+        [$img, $w, $h, $emerald, $darkGreen] = $this->buildImageCanvas();
 
         // Resolve fonts
         $fontBold = $this->findFont(true);
@@ -194,7 +114,7 @@ class ShareController
 
             // HUGE score in dark green
             $this->ttfCentered($img, 150, $fontBold, (string) $score, $w, 385, $darkGreen);
-            
+
             // "POINTS" label in emerald
             $this->ttfCentered($img, 32, $fontBold, 'POINTS', $w, 435, $emerald);
 
@@ -258,79 +178,7 @@ class ShareController
      */
     public function homeShareImage(): void
     {
-        $w = 1200;
-        $h = 630;
-        $img = imagecreatetruecolor($w, $h);
-        imagealphablending($img, true);
-        imagesavealpha($img, true);
-
-        // Swift palette
-        $peppermint  = imagecolorallocate($img, 172, 249, 233); // #acf9e9
-        $lightPepper = imagecolorallocate($img, 207, 251, 242); // #cffbf2 lighter
-        $emerald     = imagecolorallocate($img, 1, 169, 144);   // #01a990
-        $darkGreen   = imagecolorallocate($img, 51, 61, 62);    // #333d3e
-        $white       = imagecolorallocate($img, 255, 255, 255);
-
-        // Peppermint background
-        imagefill($img, 0, 0, $peppermint);
-
-        // Party balloons - colorful circles with strings
-        $balloonColors = [
-            [1, 169, 144],     // emerald
-            [207, 251, 242],   // light peppermint
-            [255, 193, 7],     // gold
-            [255, 107, 107],   // coral
-            [69, 183, 209],    // sky blue
-        ];
-        
-        $balloons = [];
-        $attempts = 0;
-        $maxAttempts = 100;
-        
-        for ($i = 0; $i < 12 && $attempts < $maxAttempts; $i++) {
-            $attempts++;
-            $r = mt_rand(25, 45);
-            
-            $zone = $i % 4;
-            if ($zone === 0) {
-                $cx = mt_rand(30, 120);
-                $cy = mt_rand(50, $h - 50);
-            } elseif ($zone === 1) {
-                $cx = mt_rand($w - 120, $w - 30);
-                $cy = mt_rand(50, $h - 50);
-            } elseif ($zone === 2) {
-                $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
-                $cy = mt_rand(30, 120);
-            } else {
-                $cx = mt_rand(150, $w - 150);
-                $cy = mt_rand($h - 120, $h - 30);
-            }
-            
-            $overlap = false;
-            foreach ($balloons as $b) {
-                $dist = sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2));
-                if ($dist < ($r + $b['r'] + 20)) {
-                    $overlap = true;
-                    $i--;
-                    break;
-                }
-            }
-            
-            if (!$overlap) {
-                $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
-                
-                $col = $balloonColors[array_rand($balloonColors)];
-                $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
-                
-                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
-                
-                $stringColor = imagecolorallocatealpha($img, 51, 61, 62, 70);
-                imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
-            }
-        }
-
-        // Top emerald accent bar
-        imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
+        [$img, $w, $h, $emerald, $darkGreen] = $this->buildImageCanvas();
 
         // Resolve fonts
         $fontBold = $this->findFont(true);
@@ -397,6 +245,97 @@ class ShareController
     }
 
     /* --- Helpers --- */
+
+    /**
+     * Build a themed 1200×630 image canvas with background and decorative balloons.
+     * Returns [$img, $w, $h, $emeraldColor, $darkGreenColor].
+     */
+    private function buildImageCanvas(): array
+    {
+        $theme = $this->loadTheme();
+
+        $bgRgb      = ThemeModel::hexToRgb($theme['color_bg'])           ?? [172, 249, 233];
+        $lightRgb   = ThemeModel::hexToRgb($theme['color_primary_light']) ?? [207, 251, 242];
+        $emeraldRgb = ThemeModel::hexToRgb($theme['color_primary'])       ?? [1, 169, 144];
+        $textRgb    = ThemeModel::hexToRgb($theme['color_text'])          ?? [51, 61, 62];
+
+        $w = 1200;
+        $h = 630;
+        $img = imagecreatetruecolor($w, $h);
+        imagealphablending($img, true);
+        imagesavealpha($img, true);
+
+        $bgColor    = imagecolorallocate($img, $bgRgb[0], $bgRgb[1], $bgRgb[2]);
+        $emerald    = imagecolorallocate($img, $emeraldRgb[0], $emeraldRgb[1], $emeraldRgb[2]);
+        $darkGreen  = imagecolorallocate($img, $textRgb[0], $textRgb[1], $textRgb[2]);
+
+        imagefill($img, 0, 0, $bgColor);
+
+        // Decorative balloons in margins
+        $balloonColors = [
+            $emeraldRgb,
+            $lightRgb,
+            [255, 193, 7],
+            [255, 107, 107],
+            [69, 183, 209],
+        ];
+
+        $balloons = [];
+        $attempts = 0;
+        for ($i = 0; $i < 12 && $attempts < 100; $i++) {
+            $attempts++;
+            $r    = mt_rand(25, 45);
+            $zone = $i % 4;
+            if ($zone === 0) {
+                $cx = mt_rand(30, 120);        $cy = mt_rand(50, $h - 50);
+            } elseif ($zone === 1) {
+                $cx = mt_rand($w - 120, $w - 30); $cy = mt_rand(50, $h - 50);
+            } elseif ($zone === 2) {
+                $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
+                $cy = mt_rand(30, 120);
+            } else {
+                $cx = mt_rand(150, $w - 150);  $cy = mt_rand($h - 120, $h - 30);
+            }
+            $overlap = false;
+            foreach ($balloons as $b) {
+                if (sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2)) < ($r + $b['r'] + 20)) {
+                    $overlap = true;
+                    $i--;
+                    break;
+                }
+            }
+            if (!$overlap) {
+                $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
+                $col          = $balloonColors[array_rand($balloonColors)];
+                $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
+                $stringColor  = imagecolorallocatealpha($img, $textRgb[0], $textRgb[1], $textRgb[2], 70);
+                imagefilledellipse($img, $cx, $cy, $r * 2, $r * 2 + 5, $balloonColor);
+                imageline($img, $cx, $cy + $r + 2, $cx + mt_rand(-10, 10), $cy + $r + mt_rand(30, 60), $stringColor);
+            }
+        }
+
+        // Top accent bar
+        imagefilledrectangle($img, 0, 0, $w, 15, $emerald);
+
+        return [$img, $w, $h, $emerald, $darkGreen];
+    }
+
+    /**
+     * Load theme colors from DB if available, otherwise fall back to defaults.
+     *
+     * @return array<string,string>
+     */
+    private function loadTheme(): array
+    {
+        $db = Database::getInstance();
+        if ($db->isConnected() || $db->connect()) {
+            $pdo = $db->getPdo();
+            if ($pdo) {
+                return (new ThemeModel($pdo))->get();
+            }
+        }
+        return ThemeModel::defaults();
+    }
 
     private function decryptToken(string $urlToken): ?array
     {

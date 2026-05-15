@@ -1181,6 +1181,17 @@
         var html = '<section class="admin-screen"><div class="admin-dashboard">';
         html += '<h2>Admin Dashboard</h2>';
 
+        // Theme Colors
+        html += '<div class="admin-section"><h3>Theme Colors</h3>';
+        html += '<p>Customize the brand colors. Changes take effect after saving and reloading the page.</p>';
+        html += '<div class="theme-color-grid" id="themeColorGrid"><p>Loading...</p></div>';
+        html += '<div class="theme-actions">';
+        html += '<button class="btn-primary" id="saveThemeBtn">Save Colors</button>';
+        html += '<button class="btn-secondary" id="resetThemeBtn">Reset to Defaults</button>';
+        html += '</div>';
+        html += '<p class="theme-status" id="themeStatus"></p>';
+        html += '</div>';
+
         // Kiosk Mode
         html += '<div class="admin-section kiosk-section"><h3>Kiosk Mode</h3>';
         html += '<p>Enable fullscreen kiosk mode with screen saver for this session.</p>';
@@ -1251,6 +1262,7 @@
         loadAdminLeaderboard();
         loadAdminDeadline();
         loadAdminFacts();
+        loadAdminTheme();
     }
 
     var gamesChart = null;
@@ -1278,8 +1290,8 @@
                 datasets: [{
                     label: 'Games per week',
                     data: counts,
-                    backgroundColor: 'rgba(1, 169, 144, 0.6)',
-                    borderColor: '#01a990',
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--swift-emerald').trim().replace(/^(#[0-9a-f]{6})$/i, function (_, h) { var r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16); return 'rgba(' + r + ',' + g + ',' + b + ',0.6)'; }) || 'rgba(1,169,144,0.6)',
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--swift-emerald').trim() || '#01a990',
                     borderWidth: 1
                 }]
             },
@@ -1451,6 +1463,88 @@
                 close(null);
             });
         });
+    }
+
+    var themeDefaults = {
+        color_primary:       '#01a990',
+        color_primary_hover: '#018a76',
+        color_primary_light: '#cffbf2',
+        color_bg:            '#acf9e9',
+        color_text:          '#333d3e'
+    };
+
+    var themeLabels = {
+        color_primary:       'Primary (buttons, chips, accents)',
+        color_primary_hover: 'Primary Hover (darker shade)',
+        color_primary_light: 'Primary Light (highlights, filled slots)',
+        color_bg:            'Background',
+        color_text:          'Text / Headings'
+    };
+
+    async function loadAdminTheme() {
+        var grid = document.getElementById('themeColorGrid');
+        if (!grid) return;
+        var data = await api('admin/get-theme');
+        var theme = (data && data.theme) ? data.theme : Object.assign({}, themeDefaults);
+        var html = '';
+        Object.keys(themeLabels).forEach(function (key) {
+            var val = theme[key] || themeDefaults[key];
+            html += '<div class="theme-color-row">';
+            html += '<label class="theme-color-label" for="tc_' + key + '">' + themeLabels[key] + '</label>';
+            html += '<div class="theme-color-inputs">';
+            html += '<input type="color" id="tc_' + key + '" data-key="' + key + '" value="' + escapeHtml(val) + '" class="theme-color-swatch">';
+            html += '<input type="text" id="tc_text_' + key + '" value="' + escapeHtml(val) + '" maxlength="7" class="theme-color-hex" pattern="#[0-9a-fA-F]{6}">';
+            html += '</div>';
+            html += '</div>';
+        });
+        grid.innerHTML = html;
+
+        // Sync color picker <-> text field
+        Object.keys(themeLabels).forEach(function (key) {
+            var picker = document.getElementById('tc_' + key);
+            var text   = document.getElementById('tc_text_' + key);
+            if (!picker || !text) return;
+            picker.addEventListener('input', function () { text.value = picker.value; });
+            text.addEventListener('input', function () {
+                if (/^#[0-9a-fA-F]{6}$/.test(text.value)) {
+                    picker.value = text.value;
+                }
+            });
+        });
+
+        // Save button
+        var saveBtn = document.getElementById('saveThemeBtn');
+        if (saveBtn) {
+            saveBtn.onclick = async function () {
+                var colors = {};
+                Object.keys(themeLabels).forEach(function (key) {
+                    var t = document.getElementById('tc_text_' + key);
+                    if (t && /^#[0-9a-fA-F]{6}$/.test(t.value)) colors[key] = t.value;
+                });
+                var resp = await api('admin/save-theme', { theme: colors });
+                var status = document.getElementById('themeStatus');
+                if (resp && resp.success) {
+                    if (status) { status.textContent = 'Colors saved. Reload the page to apply.'; status.style.color = 'var(--swift-emerald)'; }
+                } else {
+                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = '#c0392b'; }
+                }
+            };
+        }
+
+        // Reset to defaults button
+        var resetBtn = document.getElementById('resetThemeBtn');
+        if (resetBtn) {
+            resetBtn.onclick = function () {
+                Object.keys(themeDefaults).forEach(function (key) {
+                    var picker = document.getElementById('tc_' + key);
+                    var text   = document.getElementById('tc_text_' + key);
+                    if (picker) picker.value = themeDefaults[key];
+                    if (text)   text.value   = themeDefaults[key];
+                });
+                var status = document.getElementById('themeStatus');
+                if (status) { status.textContent = 'Defaults restored. Click "Save Colors" to persist.'; status.style.color = 'var(--swift-dark-green)'; }
+            };
+        }
     }
 
     async function loadAdminDeadline() {

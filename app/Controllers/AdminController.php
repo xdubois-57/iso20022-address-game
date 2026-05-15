@@ -24,6 +24,7 @@ use App\Models\ScenarioModel;
 use App\Models\LeaderboardModel;
 use App\Models\GameCounterModel;
 use App\Models\ExcelParser;
+use App\Models\ThemeModel;
 
 class AdminController
 {
@@ -536,6 +537,44 @@ class AdminController
             'success' => true,
             'total_games' => $newCount,
         ]);
+    }
+
+    /**
+     * POST /api/admin/get-theme — Return current theme colors.
+     */
+    public function getTheme(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $db = Database::getInstance();
+        $theme = (new ThemeModel($db->getPdo()))->get();
+        $this->jsonResponse(['theme' => $theme]);
+    }
+
+    /**
+     * POST /api/admin/save-theme — Persist theme colors.
+     */
+    public function saveTheme(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $colors = $input['theme'] ?? [];
+
+        if (!is_array($colors)) {
+            $this->jsonResponse(['error' => 'Invalid theme data'], 400);
+            return;
+        }
+
+        $db = Database::getInstance();
+        (new ThemeModel($db->getPdo()))->save($colors);
+        $this->jsonResponse(['success' => true]);
     }
 
     /**

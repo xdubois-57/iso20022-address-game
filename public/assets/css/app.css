@@ -18,8 +18,13 @@
 
 /* =========================================================
    Swift Brand Palette
+   Theme colors are injected dynamically by layout.php from the DB.
+   Static fallbacks are defined here for non-layout contexts.
    ========================================================= */
 :root {
+    /* Injected by layout.php: --swift-peppermint, --swift-dark-green,
+       --swift-emerald, --swift-light-peppermint, and all --pico-primary-* vars */
+    /* Static values below are only used if layout.php injection is unavailable */
     --swift-peppermint: #acf9e9;
     --swift-dark-green: #333d3e;
     --swift-emerald: #01a990;
@@ -29,17 +34,6 @@
     --swift-neutral: #f8f8f8;
     --swift-danger: #c0392b;
     --swift-success: #01a990;
-    /* PicoCSS overrides — all button variables */
-    --pico-primary: #01a990;
-    --pico-primary-background: #01a990;
-    --pico-primary-border: #01a990;
-    --pico-primary-underline: #01a990;
-    --pico-primary-hover: #018a76;
-    --pico-primary-hover-background: #018a76;
-    --pico-primary-hover-border: #018a76;
-    --pico-primary-focus: rgba(1, 169, 144, 0.25);
-    --pico-primary-inverse: #ffffff;
-    --pico-form-element-focus-color: rgba(1, 169, 144, 0.25);
     --pico-font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
 }
 
@@ -49,7 +43,7 @@
 html, body {
     margin: 0;
     padding: 0;
-    background-image: url('../images/background.png');
+    background-image: url('/bg');
     background-position: center center;
     background-size: cover;
     background-repeat: no-repeat;
@@ -143,13 +137,13 @@ html, body {
 }
 
 .nav-btn:hover, .nav-btn:focus {
-    background: #018a76;
+    background: var(--pico-primary-hover);
 }
 
 .nav-btn.active {
-    background: #018a76;
+    background: var(--pico-primary-hover);
     color: var(--swift-white);
-    border-color: #018a76;
+    border-color: var(--pico-primary-hover);
 }
 
 .stop-btn {
@@ -428,7 +422,7 @@ html, body {
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #018a76;
+    background: var(--pico-primary-hover);
 }
 
 .btn-primary:disabled {
@@ -448,7 +442,7 @@ html, body {
 }
 
 .btn-secondary:hover {
-    background: #018a76;
+    background: var(--pico-primary-hover);
 }
 
 .btn-danger {
@@ -634,7 +628,7 @@ html, body {
 }
 
 .pin-key-submit:hover {
-    background: #018a76;
+    background: var(--pico-primary-hover);
 }
 
 .pin-error {
@@ -1555,4 +1549,67 @@ html, body {
 }
 .kiosk-qr-container svg {
     display: block;
+}
+
+/* =========================================================
+   Admin — Theme Color Editor
+   ========================================================= */
+.theme-color-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.theme-color-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.theme-color-label {
+    flex: 1;
+    min-width: 220px;
+    font-size: 0.9rem;
+    color: var(--swift-dark-green);
+    font-weight: 500;
+}
+
+.theme-color-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.theme-color-swatch {
+    width: 44px;
+    height: 36px;
+    border: 2px solid var(--swift-grey-green);
+    border-radius: 6px;
+    padding: 2px;
+    cursor: pointer;
+    background: none;
+}
+
+.theme-color-hex {
+    width: 90px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--swift-grey-green);
+    border-radius: 6px;
+}
+
+.theme-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.theme-status {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    min-height: 1.2em;
 }

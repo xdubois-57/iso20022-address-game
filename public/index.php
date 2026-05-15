@@ -26,6 +26,7 @@ use App\Controllers\AdminController;
 use App\Controllers\LeaderboardController;
 use App\Controllers\SetupController;
 use App\Controllers\ShareController;
+use App\Controllers\BackgroundController;
 
 // GET share routes MUST run BEFORE session/CSRF to allow social media crawlers
 $requestUri = strtok($_SERVER['REQUEST_URI'], '?');
@@ -35,6 +36,10 @@ if ($requestUri === '/share/image') {
 }
 if ($requestUri === '/share/home-image') {
     (new ShareController())->homeShareImage();
+    exit;
+}
+if ($requestUri === '/bg') {
+    (new BackgroundController())->generate();
     exit;
 }
 if ($requestUri === '/share/go') {
@@ -152,6 +157,8 @@ if ($method === 'POST') {
         'admin/delete-fact' => (new AdminController())->deleteFact(),
         'admin/game-stats' => (new AdminController())->getGameStats(),
         'admin/reset-game-counter' => (new AdminController())->resetGameCounter(),
+        'admin/get-theme' => (new AdminController())->getTheme(),
+        'admin/save-theme' => (new AdminController())->saveTheme(),
 
         default => jsonError('Unknown action', 404),
     };
@@ -180,7 +187,7 @@ $lastCleanup = @file_get_contents($cleanupStamp);
 if ($lastCleanup === false || (time() - (int)$lastCleanup) > 86400) {
     @file_put_contents($cleanupStamp, (string)time());
     $leaderboard = new \App\Models\LeaderboardModel($db->getPdo());
-    $leaderboard->purgeExpired(30);
+    $leaderboard->purgeExpired(365);
 }
 
 // GET export route (requires admin session)
