@@ -330,10 +330,15 @@
         return factsCache[currentFactIndex];
     }
 
+    function stripLinks(html) {
+        return html.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
+    }
+
     function renderFactInto(el) {
         var fact = nextFact();
         if (!fact) { el.innerHTML = ''; return; }
-        el.innerHTML = '<h2>Did you know?</h2><p>' + fact.content + '</p>';
+        var content = kioskMode ? stripLinks(fact.content) : fact.content;
+        el.innerHTML = '<h2>Did you know?</h2><p>' + content + '</p>';
     }
 
     function startFactRotation(el) {
@@ -1760,7 +1765,7 @@
 
         html += '<h3>1. Data Controller</h3>';
         html += '<p>The data controllers for this application are <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>, the developers and maintainers of the ISO 20022 Address Structuring Game. ';
-        html += 'For questions regarding data processing, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a>.</p>';
+        html += 'For questions regarding data processing, please raise an issue on ' + (kioskMode ? 'GitHub' : '<a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a>') + '.</p>';
 
         html += '<h3>2. Legal Basis for Processing (Art. 6 GDPR)</h3>';
         html += '<p>Personal data is processed on the following legal basis:</p>';
@@ -1823,7 +1828,7 @@
         html += '<li><strong>Right to withdraw consent (Art. 7(3))</strong> &mdash; You may withdraw your consent at any time without affecting the lawfulness of processing prior to withdrawal.</li>';
         html += '<li><strong>Right to lodge a complaint (Art. 77)</strong> &mdash; You have the right to lodge a complaint with a supervisory authority (e.g. your national Data Protection Authority).</li>';
         html += '</ul>';
-        html += '<p>To exercise any of these rights, please raise an issue on <a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a> with details of your request. The data controller will respond in a reasonable timeframe.</p>';
+        html += '<p>To exercise any of these rights, please raise an issue on ' + (kioskMode ? 'GitHub' : '<a href="https://github.com/xdubois-57/iso20022-address-game/issues" target="_blank" rel="noopener">GitHub</a>') + ' with details of your request. The data controller will respond in a reasonable timeframe.</p>';
 
         html += '<h3>9. International Data Transfers</h3>';
         html += '<p>This application is hosted by <strong>LWS (Ligne Web Services)</strong>, a French hosting provider located in France (EU). ';
@@ -1845,8 +1850,8 @@
         html += '<h3>13. Open Source &amp; Transparency</h3>';
         html += '<p>This application is fully open source, enabling complete transparency and independent audit of all data processing activities.</p>';
         html += '<ul>';
-        html += '<li><strong>License:</strong> <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a></li>';
-        html += '<li><strong>Source code:</strong> <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener">github.com/xdubois-57/iso20022-address-game</a></li>';
+        html += '<li><strong>License:</strong> ' + (kioskMode ? 'GNU GPL v3.0' : '<a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a>') + '</li>';
+        html += '<li><strong>Source code:</strong> ' + (kioskMode ? 'github.com/xdubois-57/iso20022-address-game' : '<a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener">github.com/xdubois-57/iso20022-address-game</a>') + '</li>';
         html += '</ul>';
 
         html += '</article></section>';
@@ -1958,6 +1963,10 @@
         document.addEventListener('fullscreenchange', onFullscreenChange);
         document.addEventListener('webkitfullscreenchange', onFullscreenChange);
         resetScreenSaverTimer();
+        var ghLink = document.getElementById('footerGithubLink');
+        var ghSep  = document.getElementById('footerGithubSep');
+        if (ghLink) ghLink.style.display = 'none';
+        if (ghSep)  ghSep.style.display  = 'none';
     }
 
     function disableKioskMode() {
@@ -1965,6 +1974,10 @@
         document.removeEventListener('fullscreenchange', onFullscreenChange);
         document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
         exitFullscreen();
+        var ghLink = document.getElementById('footerGithubLink');
+        var ghSep  = document.getElementById('footerGithubSep');
+        if (ghLink) ghLink.style.display = '';
+        if (ghSep)  ghSep.style.display  = '';
         stopScreenSaver();
     }
 
