@@ -738,7 +738,7 @@ html, body {
 }
 
 .countdown-banner {
-    background: linear-gradient(135deg, var(--swift-dark-green), #1a2526);
+    background: var(--swift-dark-green);
     color: var(--swift-peppermint);
     border-radius: 16px;
     padding: 1rem 3rem;
