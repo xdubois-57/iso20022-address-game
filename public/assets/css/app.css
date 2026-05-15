@@ -1521,6 +1521,8 @@ html, body {
     border-radius: 16px;
     padding: 1rem 2rem;
     box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 500px;
 }
 .ss-fact {
     background: var(--game-white);

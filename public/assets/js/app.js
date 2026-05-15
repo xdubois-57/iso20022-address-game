@@ -2013,7 +2013,7 @@
 
         overlay.innerHTML = '<div class="screen-saver-inner">'
             + '<div id="ssCountdown" class="ss-countdown"></div>'
-            + '<h1 class="ss-cta">' + actionWord + ' to play the<br>ISO 20022 Address Game</h1>'
+            + '<div class="ss-cta">' + actionWord + ' to play the<br>ISO 20022 Address Game</div>'
             + '<div id="ssFactDisplay" class="ss-fact"></div>'
             + '</div>';
         overlay.classList.add('visible');
