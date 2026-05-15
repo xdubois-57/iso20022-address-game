@@ -43,8 +43,8 @@ class AppIconController
         $svg = <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
   <rect width="180" height="180" rx="22" fill="{$bg}"/>
-  <text x="90" y="100" font-size="72" text-anchor="middle" dominant-baseline="middle" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">🎮</text>
-  <text x="90" y="152" font-size="22" font-weight="700" text-anchor="middle" dominant-baseline="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica Neue, Arial, sans-serif" fill="{$text}">ISO 20022</text>
+  <text x="90" y="78" font-size="80" text-anchor="middle" dominant-baseline="middle" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">🎮</text>
+  <text x="90" y="150" font-size="22" font-weight="700" text-anchor="middle" dominant-baseline="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica Neue, Arial, sans-serif" fill="{$text}">ISO 20022</text>
 </svg>
 SVG;
 
