@@ -63,7 +63,10 @@ class BackgroundController
     {
         try {
             $db = Database::getInstance();
-            $tm = new ThemeModel($db);
+            if (!$db->isConnected() && !$db->connect()) {
+                return ThemeModel::defaults();
+            }
+            $tm = new ThemeModel($db->getPdo());
             return $tm->get();
         } catch (\Throwable) {
             return ThemeModel::defaults();
