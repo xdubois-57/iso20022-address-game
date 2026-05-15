@@ -1329,6 +1329,31 @@
         var labels = stats.map(function (s) { return s.week; });
         var counts = stats.map(function (s) { return s.count; });
 
+        // Pre-compute a month label for each week label (e.g. "2026-W05" → "Feb 2026")
+        // Only show the label when the month changes, to get clean monthly markers.
+        var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        function isoWeekToDate(isoWeek) {
+            // isoWeek: "YYYY-Www"
+            var parts = isoWeek.split('-W');
+            if (parts.length !== 2) return null;
+            var year = parseInt(parts[0], 10);
+            var week = parseInt(parts[1], 10);
+            // ISO week 1 contains the first Thursday of the year; calculate Monday of that week
+            var jan4 = new Date(Date.UTC(year, 0, 4));
+            var dayOfWeek = jan4.getUTCDay() || 7; // Mon=1..Sun=7
+            var monday = new Date(jan4);
+            monday.setUTCDate(jan4.getUTCDate() - (dayOfWeek - 1) + (week - 1) * 7);
+            return monday;
+        }
+        var monthLabels = labels.map(function (lbl) {
+            var d = isoWeekToDate(lbl);
+            if (!d) return '';
+            return MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+        });
+        var tickLabels = labels.map(function (lbl, i) {
+            return (i === 0 || monthLabels[i] !== monthLabels[i - 1]) ? monthLabels[i] : '';
+        });
+
         if (gamesChart) gamesChart.destroy();
         gamesChart = new Chart(canvas, {
             type: 'bar',
@@ -1348,7 +1373,13 @@
                 plugins: { legend: { display: false } },
                 scales: {
                     y: { beginAtZero: true, ticks: { precision: 0 } },
-                    x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 } }
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            autoSkip: false,
+                            callback: function (val, i) { return tickLabels[i] || null; }
+                        }
+                    }
                 }
             }
         });
