@@ -27,6 +27,7 @@ use App\Controllers\LeaderboardController;
 use App\Controllers\SetupController;
 use App\Controllers\ShareController;
 use App\Controllers\BackgroundController;
+use App\Controllers\AppIconController;
 
 // GET share routes MUST run BEFORE session/CSRF to allow social media crawlers
 $requestUri = strtok($_SERVER['REQUEST_URI'], '?');
@@ -40,6 +41,10 @@ if ($requestUri === '/share/home-image') {
 }
 if ($requestUri === '/bg') {
     (new BackgroundController())->generate();
+    exit;
+}
+if ($requestUri === '/app-icon') {
+    (new AppIconController())->generate();
     exit;
 }
 if ($requestUri === '/share/go') {
