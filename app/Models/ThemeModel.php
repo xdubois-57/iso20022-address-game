@@ -42,11 +42,11 @@ class ThemeModel
     ];
 
     private const DEFAULTS = [
-        'color_primary'       => '#01a990',
-        'color_primary_hover' => '#018a76',
-        'color_primary_light' => '#cffbf2',
-        'color_bg'            => '#acf9e9',
-        'color_text'          => '#333d3e',
+        'color_primary'       => '#00364a',
+        'color_primary_hover' => '#00a3d7',
+        'color_primary_light' => '#caf0fe',
+        'color_bg'            => '#94e3fe',
+        'color_text'          => '#00364a',
     ];
 
     private PDO $pdo;
