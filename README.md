@@ -20,6 +20,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 An interactive kiosk-style game to educate users on ISO 20022 postal address structuring (Standard Release 2026). Built for tablets in landscape mode with a touch-first interface.
 
+## Legal notice
+
+This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained as a personal project and is not endorsed by any company.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
+
 ## Features
 
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
