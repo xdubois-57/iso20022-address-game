@@ -170,6 +170,7 @@
        ======================================================= */
     function showScreen(name) {
         currentScreen = name;
+        window.scrollTo(0, 0);
         dismissScreenSaver();
         // Update nav active state
         document.querySelectorAll('.nav-btn[data-screen]').forEach(function (btn) {
@@ -942,6 +943,7 @@
         }
         html += '</div></div></section>';
         appContainer.innerHTML = html;
+        window.scrollTo(0, 0);
 
         // Track game completion (regardless of Hall of Fame submission)
         api('game/complete', {});
