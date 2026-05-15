@@ -34,7 +34,7 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 ### 2.2 View (UI/UX)
 
 - **Framework**: PicoCSS (semantic HTML, minimal footprint)
-- **Branding** (Swift Palette):
+- **Branding** (Color Palette):
   - Primary: `#01a990` (Emerald)
   - Accent: `#acf9e9` (Peppermint)
   - Text/Headers: `#333d3e` (Dark Green)
@@ -72,7 +72,7 @@ Each chip must match its specific semantic slot:
 - Players can share their score via an encrypted URL token (AES-256-GCM)
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
 - Dynamic 1200×630 PNG share card generated server-side with GD library
-- Share card features Swift-branded peppermint theme with decorative balloons
+- Share card features theme-branded colors with decorative balloons
 - Gzip-encoded image responses for Facebook crawler compatibility
 - Share button hidden on desktop/tablet via CSS media query
 

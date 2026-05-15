@@ -400,12 +400,12 @@
         var nameInput = document.getElementById('welcomeNameInput');
         document.getElementById('startGameBtn').addEventListener('click', async function () {
             playerName = nameInput.value.trim();
-            if (!playerName) { nameInput.style.borderColor = 'var(--swift-danger)'; nameInput.focus(); return; }
+            if (!playerName) { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
             // Check name for profanity
             var check = await api('game/check-name', { name: playerName });
             if (!check) return;
             if (!check.allowed) {
-                nameInput.style.borderColor = 'var(--swift-danger)';
+                nameInput.style.borderColor = 'var(--game-danger)';
                 var warn = document.createElement('p');
                 warn.className = 'profanity-warning';
                 warn.textContent = check.message || 'Please choose a different name.';
@@ -1290,8 +1290,8 @@
                 datasets: [{
                     label: 'Games per week',
                     data: counts,
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--swift-emerald').trim().replace(/^(#[0-9a-f]{6})$/i, function (_, h) { var r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16); return 'rgba(' + r + ',' + g + ',' + b + ',0.6)'; }) || 'rgba(1,169,144,0.6)',
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--swift-emerald').trim() || '#01a990',
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--game-emerald').trim().replace(/^(#[0-9a-f]{6})$/i, function (_, h) { var r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16); return 'rgba(' + r + ',' + g + ',' + b + ',0.6)'; }) || 'rgba(1,169,144,0.6)',
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--game-emerald').trim() || '#01a990',
                     borderWidth: 1
                 }]
             },
@@ -1524,9 +1524,9 @@
                 var resp = await api('admin/save-theme', { theme: colors });
                 var status = document.getElementById('themeStatus');
                 if (resp && resp.success) {
-                    if (status) { status.textContent = 'Colors saved. Reload the page to apply.'; status.style.color = 'var(--swift-emerald)'; }
+                    if (status) { status.textContent = 'Colors saved. Reload the page to apply.'; status.style.color = 'var(--game-emerald)'; }
                 } else {
-                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = 'var(--swift-danger)'; }
+                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = 'var(--game-danger)'; }
                 }
             };
         }
@@ -1542,7 +1542,7 @@
                     if (text)   text.value   = themeDefaults[key];
                 });
                 var status = document.getElementById('themeStatus');
-                if (status) { status.textContent = 'Defaults restored. Click "Save Colors" to persist.'; status.style.color = 'var(--swift-dark-green)'; }
+                if (status) { status.textContent = 'Defaults restored. Click "Save Colors" to persist.'; status.style.color = 'var(--game-dark-green)'; }
             };
         }
     }

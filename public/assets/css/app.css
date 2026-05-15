@@ -17,23 +17,23 @@
  */
 
 /* =========================================================
-   Swift Brand Palette
+   Game Color Palette
    Theme colors are injected dynamically by layout.php from the DB.
    Static fallbacks are defined here for non-layout contexts.
    ========================================================= */
 :root {
-    /* Injected by layout.php: --swift-peppermint, --swift-dark-green,
-       --swift-emerald, --swift-light-peppermint, and all --pico-primary-* vars */
+    /* Injected by layout.php: --game-peppermint, --game-dark-green,
+       --game-emerald, --game-light-peppermint, and all --pico-primary-* vars */
     /* Static values below are only used if layout.php injection is unavailable */
-    --swift-peppermint: #acf9e9;
-    --swift-dark-green: #333d3e;
-    --swift-emerald: #01a990;
-    --swift-light-peppermint: #cffbf2;
-    --swift-grey-green: #698287;
-    --swift-white: #ffffff;
-    --swift-neutral: #f8f8f8;
-    --swift-danger: #c0392b;
-    --swift-success: #01a990;
+    --game-peppermint: #acf9e9;
+    --game-dark-green: #333d3e;
+    --game-emerald: #01a990;
+    --game-light-peppermint: #cffbf2;
+    --game-grey-green: #698287;
+    --game-white: #ffffff;
+    --game-neutral: #f8f8f8;
+    --game-danger: #c0392b;
+    --game-success: #01a990;
     --pico-font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
 }
 
@@ -48,7 +48,7 @@ html, body {
     background-size: cover;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
     overflow-x: hidden;
     touch-action: manipulation;
@@ -64,7 +64,7 @@ html, body {
    ========================================================= */
 .game-header {
     background: transparent;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     padding: 1rem 1.5rem;
     position: sticky;
     top: 0;
@@ -83,7 +83,7 @@ html, body {
     font-size: 1.4rem;
     margin: 0;
     font-weight: 700;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
 }
 
 .header-nav {
@@ -106,7 +106,7 @@ html, body {
     display: block;
     width: 26px;
     height: 3px;
-    background: var(--swift-dark-green);
+    background: var(--game-dark-green);
     border-radius: 2px;
     transition: transform 0.25s, opacity 0.25s;
 }
@@ -124,9 +124,9 @@ html, body {
 }
 
 .nav-btn {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
-    border: 1px solid var(--swift-emerald);
+    background: var(--game-emerald);
+    color: var(--game-white);
+    border: 1px solid var(--game-emerald);
     border-radius: 8px;
     padding: 0.6rem 1.3rem;
     font-size: 0.95rem;
@@ -142,18 +142,18 @@ html, body {
 
 .nav-btn.active {
     background: var(--pico-primary-hover);
-    color: var(--swift-white);
+    color: var(--game-white);
     border-color: var(--pico-primary-hover);
 }
 
 .stop-btn {
-    background: var(--swift-danger);
-    color: var(--swift-white);
-    border-color: var(--swift-danger);
+    background: var(--game-danger);
+    color: var(--game-white);
+    border-color: var(--game-danger);
 }
 
 .stop-btn:hover {
-    background: var(--swift-danger);
+    background: var(--game-danger);
 }
 
 /* =========================================================
@@ -166,24 +166,24 @@ html, body {
 }
 
 .footer-link {
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     text-decoration: underline;
     cursor: pointer;
     font-size: 0.85rem;
 }
 
 .footer-link:hover {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
 }
 
 .footer-separator {
     margin: 0 0.5rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 0.85rem;
 }
 
 .footer-text {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 0.85rem;
 }
 
@@ -208,7 +208,7 @@ html, body {
 }
 
 .source-panel, .target-panel {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 12px;
     padding: 1.25rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -216,7 +216,7 @@ html, body {
 
 .source-panel h2, .target-panel h2 {
     font-size: 1.15rem;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 0.75rem;
 }
 
@@ -229,9 +229,9 @@ html, body {
 .mode-tab {
     flex: 1;
     padding: 0.5rem 1rem;
-    border: 2px solid var(--swift-emerald);
+    border: 2px solid var(--game-emerald);
     background: transparent;
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     cursor: pointer;
     font-weight: 600;
     font-size: 0.85rem;
@@ -248,24 +248,24 @@ html, body {
 }
 
 .mode-tab.active {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
+    background: var(--game-emerald);
+    color: var(--game-white);
 }
 
 .mode-tab:not(.active):hover {
-    background: var(--swift-light-peppermint);
+    background: var(--game-light-peppermint);
 }
 
 .mode-hint {
     font-size: 0.85rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     margin: 0.5rem 0 1rem 0;
     font-style: italic;
 }
 
 .hint-text {
     font-size: 0.9rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     margin-bottom: 1rem;
 }
 
@@ -278,17 +278,17 @@ html, body {
     gap: 0.6rem;
     min-height: 60px;
     padding: 0.75rem;
-    border: 2px dashed var(--swift-grey-green);
+    border: 2px dashed var(--game-grey-green);
     border-radius: 8px;
-    background: var(--swift-neutral);
+    background: var(--game-neutral);
 }
 
 .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    background: var(--swift-emerald);
-    color: var(--swift-white);
+    background: var(--game-emerald);
+    color: var(--game-white);
     border-radius: 20px;
     padding: 0.5rem 1rem;
     font-size: 0.95rem;
@@ -311,7 +311,7 @@ html, body {
 
 .chip-label {
     font-size: 0.7rem;
-    color: var(--swift-peppermint);
+    color: var(--game-peppermint);
     font-weight: 400;
 }
 
@@ -328,8 +328,8 @@ html, body {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    background: var(--swift-neutral);
-    border: 2px solid var(--swift-neutral);
+    background: var(--game-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     padding: 0.75rem 1rem;
     min-height: 48px;
@@ -337,37 +337,37 @@ html, body {
 }
 
 .slot.drag-over {
-    border-color: var(--swift-emerald);
-    background: var(--swift-light-peppermint);
+    border-color: var(--game-emerald);
+    background: var(--game-light-peppermint);
 }
 
 .slot.filled {
-    border-color: var(--swift-emerald);
-    background: var(--swift-light-peppermint);
+    border-color: var(--game-emerald);
+    background: var(--game-light-peppermint);
 }
 
 .slot.mandatory {
-    border-left: 4px solid var(--swift-emerald);
+    border-left: 4px solid var(--game-emerald);
 }
 
 .slot-tag {
     font-family: monospace;
     font-size: 0.8rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     min-width: 100px;
 }
 
 .slot-label {
     font-size: 0.85rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     flex: 1;
 }
 
 .slot-chip {
     display: inline-flex;
     align-items: center;
-    background: var(--swift-emerald);
-    color: var(--swift-white);
+    background: var(--game-emerald);
+    color: var(--game-white);
     border-radius: 20px;
     padding: 0.35rem 0.75rem;
     font-size: 0.9rem;
@@ -383,7 +383,7 @@ html, body {
 .slot-remove {
     background: none;
     border: none;
-    color: var(--swift-white);
+    color: var(--game-white);
     cursor: pointer;
     font-size: 1.1rem;
     padding: 0 0.3rem;
@@ -397,8 +397,8 @@ html, body {
 
 .goal-badge {
     display: inline-block;
-    background: var(--swift-peppermint);
-    color: var(--swift-dark-green);
+    background: var(--game-peppermint);
+    color: var(--game-dark-green);
     border-radius: 4px;
     padding: 0.2rem 0.6rem;
     font-size: 0.8rem;
@@ -410,8 +410,8 @@ html, body {
    Buttons
    ========================================================= */
 .btn-primary {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
+    background: var(--game-emerald);
+    color: var(--game-white);
     border: none;
     border-radius: 8px;
     padding: 0.75rem 1.5rem;
@@ -431,8 +431,8 @@ html, body {
 }
 
 .btn-secondary {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
+    background: var(--game-emerald);
+    color: var(--game-white);
     border: none;
     border-radius: 8px;
     padding: 0.75rem 1.5rem;
@@ -446,8 +446,8 @@ html, body {
 }
 
 .btn-danger {
-    background: var(--swift-danger);
-    color: var(--swift-white);
+    background: var(--game-danger);
+    color: var(--game-white);
     border: none;
     border-radius: 8px;
     padding: 0.75rem 1.5rem;
@@ -457,7 +457,7 @@ html, body {
 }
 
 .btn-danger:hover {
-    background: var(--swift-danger);
+    background: var(--game-danger);
 }
 
 .btn-validate {
@@ -471,14 +471,14 @@ html, body {
    Download Link
    ========================================================= */
 .download-link {
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     text-decoration: none;
     font-weight: 600;
 }
 
 .download-link:hover {
     text-decoration: underline;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
 }
 
 /* =========================================================
@@ -502,7 +502,7 @@ html, body {
 }
 
 .overlay-content {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 16px;
     padding: 2rem;
     max-width: 500px;
@@ -533,24 +533,24 @@ html, body {
 }
 
 .error-item {
-    background: var(--swift-danger-bg);
+    background: var(--game-danger-bg);
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.4rem;
-    color: var(--swift-danger);
+    color: var(--game-danger);
 }
 
 .name-input {
     width: 100%;
     padding: 0.6rem;
-    border: 2px solid var(--swift-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     font-size: 1rem;
     margin-bottom: 0.75rem;
 }
 
 .profanity-warning {
-    color: var(--swift-danger);
+    color: var(--game-danger);
     font-size: 0.9rem;
     font-weight: 600;
     margin: 0.5rem 0;
@@ -583,12 +583,12 @@ html, body {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: var(--swift-neutral);
+    background: var(--game-neutral);
     transition: background 0.2s;
 }
 
 .pin-dot.filled {
-    background: var(--swift-emerald);
+    background: var(--game-emerald);
 }
 
 .pin-pad {
@@ -600,9 +600,9 @@ html, body {
 }
 
 .pin-key {
-    background: var(--swift-white) !important;
-    color: var(--swift-dark-green) !important;
-    border: 2px solid var(--swift-neutral) !important;
+    background: var(--game-white) !important;
+    color: var(--game-dark-green) !important;
+    border: 2px solid var(--game-neutral) !important;
     border-radius: 12px;
     padding: 1rem;
     font-size: 1.5rem;
@@ -613,18 +613,18 @@ html, body {
 }
 
 .pin-key:hover, .pin-key:active {
-    background: var(--swift-neutral);
-    border-color: var(--swift-emerald);
+    background: var(--game-neutral);
+    border-color: var(--game-emerald);
 }
 
 .pin-key-clear {
-    color: var(--swift-danger) !important;
+    color: var(--game-danger) !important;
 }
 
 .pin-key-submit {
-    background: var(--swift-emerald) !important;
-    color: var(--swift-white) !important;
-    border-color: var(--swift-emerald) !important;
+    background: var(--game-emerald) !important;
+    color: var(--game-white) !important;
+    border-color: var(--game-emerald) !important;
 }
 
 .pin-key-submit:hover {
@@ -632,7 +632,7 @@ html, body {
 }
 
 .pin-error {
-    color: var(--swift-danger);
+    color: var(--game-danger);
     font-weight: 600;
     margin-top: 0.75rem;
 }
@@ -646,7 +646,7 @@ html, body {
 }
 
 .admin-section {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 12px;
     padding: 1.25rem;
     margin-bottom: 1rem;
@@ -654,7 +654,7 @@ html, body {
 }
 
 .admin-section h3 {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 0.5rem;
 }
 
@@ -674,7 +674,7 @@ html, body {
     position: relative;
     width: 48px;
     height: 26px;
-    background: var(--swift-neutral);
+    background: var(--game-neutral);
     border-radius: 13px;
     transition: background 0.3s;
     flex-shrink: 0;
@@ -686,19 +686,19 @@ html, body {
     left: 3px;
     width: 20px;
     height: 20px;
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 50%;
     transition: transform 0.3s;
 }
 .kiosk-toggle input:checked + .kiosk-slider {
-    background: var(--swift-emerald);
+    background: var(--game-emerald);
 }
 .kiosk-toggle input:checked + .kiosk-slider::after {
     transform: translateX(22px);
 }
 .kiosk-label {
     font-weight: 600;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
 }
 
 .pin-change-form {
@@ -710,7 +710,7 @@ html, body {
 .pin-change-form input {
     flex: 1;
     padding: 0.6rem;
-    border: 2px solid var(--swift-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     font-size: 1rem;
 }
@@ -726,7 +726,7 @@ html, body {
     flex: 1;
     min-width: 200px;
     padding: 0.6rem;
-    border: 2px solid var(--swift-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     font-size: 1rem;
 }
@@ -734,12 +734,12 @@ html, body {
 .deadline-status {
     margin-top: 0.5rem;
     font-size: 0.9rem;
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
 }
 
 .countdown-banner {
-    background: var(--swift-dark-green);
-    color: var(--swift-peppermint);
+    background: var(--game-dark-green);
+    color: var(--game-peppermint);
     border-radius: 16px;
     padding: 1rem 3rem;
     margin-bottom: 1rem;
@@ -781,7 +781,7 @@ html, body {
 }
 
 .countdown-expired {
-    color: var(--swift-danger);
+    color: var(--game-danger);
     font-weight: 700;
     font-size: 1.2rem;
 }
@@ -797,7 +797,7 @@ html, body {
     margin-bottom: 0.5rem;
 }
 .fact-fmt-btn {
-    background: var(--swift-white);
+    background: var(--game-white);
     border: 1px solid #ccc;
     border-radius: 4px;
     cursor: pointer;
@@ -805,23 +805,23 @@ html, body {
     padding: 0.3rem 0.6rem;
     min-width: 32px;
     text-align: center;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 .fact-fmt-btn:hover {
-    background: var(--swift-light-peppermint);
-    border-color: var(--swift-emerald);
-    color: var(--swift-dark-green);
+    background: var(--game-light-peppermint);
+    border-color: var(--game-emerald);
+    color: var(--game-dark-green);
 }
 .fact-fmt-btn.active {
-    background: var(--swift-emerald);
+    background: var(--game-emerald);
     color: white;
-    border-color: var(--swift-emerald);
+    border-color: var(--game-emerald);
 }
 .fact-editor {
     min-height: 80px;
     padding: 0.75rem;
-    border: 2px solid var(--swift-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     font-family: inherit;
     font-size: 1rem;
@@ -831,10 +831,10 @@ html, body {
     max-height: 200px;
 }
 .fact-editor:focus {
-    border-color: var(--swift-emerald);
+    border-color: var(--game-emerald);
 }
 .fact-editor a {
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     text-decoration: underline;
 }
 .facts-list {
@@ -867,23 +867,23 @@ html, body {
 .btn-edit-fact,
 .btn-delete-fact {
     background: none;
-    border: 1px solid var(--swift-neutral);
+    border: 1px solid var(--game-neutral);
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.8rem;
     padding: 0.2rem 0.5rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     transition: background 0.2s, color 0.2s;
 }
 .btn-edit-fact:hover {
-    background: var(--swift-light-peppermint);
-    border-color: var(--swift-emerald);
-    color: var(--swift-emerald);
+    background: var(--game-light-peppermint);
+    border-color: var(--game-emerald);
+    color: var(--game-emerald);
 }
 .btn-delete-fact:hover {
-    background: var(--swift-danger-bg);
-    border-color: var(--swift-danger);
-    color: var(--swift-danger);
+    background: var(--game-danger-bg);
+    border-color: var(--game-danger);
+    color: var(--game-danger);
 }
 .fact-edit-form {
     width: 100%;
@@ -896,7 +896,7 @@ html, body {
 
 /* ===== Did You Know Facts — Welcome Screen ===== */
 .fact-display-card {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 16px;
     padding: 2.5rem 3rem;
     max-width: 500px;
@@ -905,7 +905,7 @@ html, body {
     box-shadow: 0 8px 32px rgba(0,0,0,0.1);
     margin-top: 1rem;
     font-size: 0.95rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     line-height: 1.6;
     transition: opacity 0.4s ease;
     min-height: 2.5rem;
@@ -914,18 +914,18 @@ html, body {
     display: none;
 }
 .fact-display-card h2 {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 0.5rem;
     font-size: 1.5rem;
 }
 .fact-display-card p {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     margin: 0;
     font-size: 1.1rem;
     line-height: 1.7;
 }
 .fact-display-card a {
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     text-decoration: underline;
 }
 
@@ -967,7 +967,7 @@ html, body {
 .btn-delete-entry {
     background: none;
     border: none;
-    color: var(--swift-danger);
+    color: var(--game-danger);
     font-size: 1.3rem;
     font-weight: 700;
     cursor: pointer;
@@ -983,7 +983,7 @@ html, body {
 
 .leaderboard-separator td {
     text-align: center;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 0.9rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -1001,7 +1001,7 @@ html, body {
 }
 
 .leaderboard-table-wrap {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 12px;
     padding: 1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -1013,8 +1013,8 @@ html, body {
 }
 
 .leaderboard-table th {
-    background: var(--swift-dark-green);
-    color: var(--swift-peppermint);
+    background: var(--game-dark-green);
+    color: var(--game-peppermint);
     padding: 0.75rem;
     text-align: left;
     font-size: 0.9rem;
@@ -1027,24 +1027,24 @@ html, body {
 }
 
 .leaderboard-table tr:nth-child(1) td {
-    background: var(--swift-light-peppermint);
+    background: var(--game-light-peppermint);
     font-weight: 700;
 }
 
 .leaderboard-table tr.my-entry td {
-    background: var(--swift-peppermint);
+    background: var(--game-peppermint);
     font-weight: 700;
     animation: partyPulse 1.5s ease-in-out 3;
 }
 
 @keyframes partyPulse {
-    0%, 100% { background: var(--swift-peppermint); }
-    50% { background: var(--swift-light-peppermint); }
+    0%, 100% { background: var(--game-peppermint); }
+    50% { background: var(--game-light-peppermint); }
 }
 
 .empty-state {
     text-align: center;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     padding: 2rem;
 }
 
@@ -1059,8 +1059,8 @@ html, body {
 }
 
 .btn-page {
-    background: var(--swift-white);
-    color: var(--swift-dark-green);
+    background: var(--game-white);
+    color: var(--game-dark-green);
     border: 1px solid #ddd;
     border-radius: 6px;
     padding: 0.4rem 0.75rem;
@@ -1071,19 +1071,19 @@ html, body {
 }
 
 .btn-page:hover {
-    background: var(--swift-light-peppermint);
-    border-color: var(--swift-emerald);
+    background: var(--game-light-peppermint);
+    border-color: var(--game-emerald);
 }
 
 .btn-page.active {
-    background: var(--swift-emerald);
-    color: var(--swift-white);
-    border-color: var(--swift-emerald);
+    background: var(--game-emerald);
+    color: var(--game-white);
+    border-color: var(--game-emerald);
     font-weight: 700;
 }
 
 .page-info {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 0.85rem;
     margin-left: 0.5rem;
 }
@@ -1097,7 +1097,7 @@ html, body {
 }
 
 .privacy-screen article {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -1117,7 +1117,7 @@ html, body {
 .setup-card {
     max-width: 480px;
     width: 100%;
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 16px;
     padding: 2rem;
     box-shadow: 0 8px 32px rgba(0,0,0,0.1);
@@ -1129,7 +1129,7 @@ html, body {
 }
 
 .setup-card header h1 {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     font-size: 1.4rem;
 }
 
@@ -1138,13 +1138,13 @@ html, body {
     margin-bottom: 1rem;
     font-weight: 600;
     font-size: 0.9rem;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
 }
 
 .setup-card input {
     width: 100%;
     padding: 0.6rem;
-    border: 2px solid var(--swift-neutral);
+    border: 2px solid var(--game-neutral);
     border-radius: 8px;
     font-size: 1rem;
     margin-top: 0.3rem;
@@ -1169,22 +1169,22 @@ html, body {
 }
 
 .status-success {
-    background: var(--swift-success-bg);
-    color: var(--swift-success);
+    background: var(--game-success-bg);
+    color: var(--game-success);
 }
 
 .status-error {
-    background: var(--swift-danger-bg);
-    color: var(--swift-danger);
+    background: var(--game-danger-bg);
+    color: var(--game-danger);
 }
 
 /* =========================================================
    Dropzone Override
    ========================================================= */
 .dropzone {
-    border: 2px dashed var(--swift-grey-green) !important;
+    border: 2px dashed var(--game-grey-green) !important;
     border-radius: 12px !important;
-    background: var(--swift-neutral) !important;
+    background: var(--game-neutral) !important;
     min-height: 120px !important;
     display: flex;
     align-items: center;
@@ -1193,7 +1193,7 @@ html, body {
 
 .dropzone .dz-message {
     font-size: 1rem;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
 }
 
 /* =========================================================
@@ -1208,7 +1208,7 @@ html, body {
 }
 
 .welcome-card {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 16px;
     padding: 2.5rem 3rem;
     max-width: 500px;
@@ -1218,12 +1218,12 @@ html, body {
 }
 
 .welcome-card h2 {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 0.5rem;
 }
 
 .welcome-card p {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     margin-bottom: 1.5rem;
 }
 
@@ -1246,7 +1246,7 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 10px;
     padding: 0.6rem 1.25rem;
     margin-bottom: 1rem;
@@ -1255,21 +1255,21 @@ html, body {
 }
 
 .round-info {
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     font-size: 1rem;
 }
 
 .game-timer {
     font-size: 1.15rem;
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     font-variant-numeric: tabular-nums;
-    background: var(--swift-neutral);
+    background: var(--game-neutral);
     padding: 0.3rem 0.9rem;
     border-radius: 8px;
 }
 
 .player-info {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 0.95rem;
     max-width: 160px;
     overflow: hidden;
@@ -1281,14 +1281,14 @@ html, body {
    Address Block (envelope-style display)
    ========================================================= */
 .address-block {
-    background: var(--swift-white);
-    border: 2px solid var(--swift-dark-green);
+    background: var(--game-white);
+    border: 2px solid var(--game-dark-green);
     border-radius: 8px;
     padding: 1rem 1.25rem;
     font-family: 'Courier New', Courier, monospace;
     font-size: 1rem;
     line-height: 1.7;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 1rem;
     white-space: pre-line;
 }
@@ -1304,7 +1304,7 @@ html, body {
 }
 
 .final-score-card {
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 16px;
     padding: 2.5rem 3rem;
     max-width: 520px;
@@ -1315,20 +1315,20 @@ html, body {
 
 .final-score-card h1 {
     font-size: 2rem;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin-bottom: 0.5rem;
 }
 
 .final-score-value {
     font-size: 4rem;
     font-weight: 800;
-    color: var(--swift-emerald);
+    color: var(--game-emerald);
     margin: 0.5rem 0;
     line-height: 1;
 }
 
 .final-score-detail {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 1rem;
     margin: 0.25rem 0;
 }
@@ -1350,13 +1350,13 @@ html, body {
 }
 
 .round-badge.perfect {
-    background: var(--swift-light-peppermint);
-    color: var(--swift-emerald);
+    background: var(--game-light-peppermint);
+    color: var(--game-emerald);
 }
 
 .round-badge.partial {
-    background: var(--swift-neutral);
-    color: var(--swift-grey-green);
+    background: var(--game-neutral);
+    color: var(--game-grey-green);
 }
 
 .final-score-card .result-actions {
@@ -1370,8 +1370,8 @@ html, body {
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    background: linear-gradient(135deg, var(--swift-gold), var(--swift-orange));
-    color: var(--swift-dark-green);
+    background: linear-gradient(135deg, var(--game-gold), var(--game-orange));
+    color: var(--game-dark-green);
     box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3);
     transition: transform 0.15s, box-shadow 0.15s;
 }
@@ -1420,7 +1420,7 @@ html, body {
         top: 100%;
         right: 0;
         left: 0;
-        background: var(--swift-peppermint);
+        background: var(--game-peppermint);
         flex-direction: column;
         padding: 0.5rem 1rem 1rem;
         gap: 0.4rem;
@@ -1482,17 +1482,17 @@ html, body {
     text-align: center;
     max-width: 500px;
     width: 100%;
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
 }
 .ss-countdown .countdown-label {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     opacity: 0.8;
 }
 .ss-countdown .countdown-timer {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
 }
 .ss-cta {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     font-size: 2.5rem;
     text-align: center;
     line-height: 1.3;
@@ -1509,7 +1509,7 @@ html, body {
     transition: opacity 0.4s ease;
 }
 .ss-fact h2 {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
     margin-bottom: 0.4rem;
     font-size: 1.3rem;
 }
@@ -1520,7 +1520,7 @@ html, body {
     line-height: 1.6;
 }
 .ss-fact a {
-    color: var(--swift-grey-green);
+    color: var(--game-grey-green);
 }
 @keyframes ss-pulse {
     0%, 100% { opacity: 1; }
@@ -1536,14 +1536,14 @@ html, body {
     align-items: center;
     margin: 1rem 0;
     padding: 1rem;
-    background: var(--swift-white);
+    background: var(--game-white);
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 .kiosk-qr-label {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     margin: 0 0 0.75rem 0;
 }
 .kiosk-qr-container svg {
@@ -1571,7 +1571,7 @@ html, body {
     flex: 1;
     min-width: 220px;
     font-size: 0.9rem;
-    color: var(--swift-dark-green);
+    color: var(--game-dark-green);
     font-weight: 500;
 }
 
@@ -1584,7 +1584,7 @@ html, body {
 .theme-color-swatch {
     width: 44px;
     height: 36px;
-    border: 2px solid var(--swift-grey-green);
+    border: 2px solid var(--game-grey-green);
     border-radius: 6px;
     padding: 2px;
     cursor: pointer;
@@ -1596,7 +1596,7 @@ html, body {
     font-family: monospace;
     font-size: 0.9rem;
     padding: 0.35rem 0.5rem;
-    border: 1px solid var(--swift-grey-green);
+    border: 1px solid var(--game-grey-green);
     border-radius: 6px;
 }
 
