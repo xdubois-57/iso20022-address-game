@@ -740,13 +740,12 @@ html, body {
 .countdown-banner {
     background: linear-gradient(135deg, var(--swift-dark-green), #1a2526);
     color: var(--swift-peppermint);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 1rem 3rem;
     margin-bottom: 1rem;
     text-align: center;
     max-width: 500px;
     width: 100%;
-    box-sizing: border-box;
 }
 
 .countdown-banner .countdown-label {
