@@ -155,6 +155,10 @@ An FTP deployment script is included:
 
 This script runs `composer install --no-dev`, then syncs files to the production server via `lftp`.
 
+## Credits
+
+This game was built by **Xavier Dubois** and **Niel Buchan**.
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).
