@@ -1078,6 +1078,8 @@
                 var shareBtn = document.getElementById('shareScoreBtn');
                 var linkedinBtn = document.getElementById('linkedinShareBtn');
 
+                console.log('Elements found: shareBtn=' + !!shareBtn + ', linkedinBtn=' + !!linkedinBtn);
+
                 if (!tokenData || !tokenData.token) {
                     // Token failed - hide both buttons
                     if (shareBtn) shareBtn.style.display = 'none';
@@ -1096,7 +1098,7 @@
                     ('ontouchstart' in window)
                 );
 
-                console.log('Share setup: isMobile=' + isMobileDevice + ', hasShareAPI=' + !!navigator.share);
+                console.log('Share setup: isMobile=' + isMobileDevice + ', hasShareAPI=' + !!navigator.share + ', width=' + window.innerWidth);
 
                 if (isMobileDevice) {
                     // Mobile: show native share button, hide LinkedIn
@@ -1114,11 +1116,17 @@
                     if (linkedinBtn) linkedinBtn.style.display = 'none';
                 } else {
                     // Desktop: show LinkedIn share button, hide native
-                    console.log('Showing LinkedIn share button for desktop');
+                    console.log('Showing LinkedIn share button for desktop, url=' + linkedinUrl);
                     if (shareBtn) shareBtn.style.display = 'none';
                     if (linkedinBtn) {
                         linkedinBtn.style.display = 'inline-flex';
+                        linkedinBtn.style.visibility = 'visible';
+                        linkedinBtn.style.opacity = '1';
                         linkedinBtn.href = linkedinUrl;
+                        console.log('LinkedIn button display set to: ' + linkedinBtn.style.display);
+                        console.log('LinkedIn button computed style: ' + window.getComputedStyle(linkedinBtn).display);
+                    } else {
+                        console.error('LinkedIn button element not found!');
                     }
                 }
             })();

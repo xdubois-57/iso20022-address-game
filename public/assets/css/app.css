@@ -1415,12 +1415,7 @@ html, body {
     transform: translateY(0);
 }
 
-/* Hide share button on desktop/tablet - only show on mobile */
-@media (min-width: 769px) {
-    .btn-share {
-        display: none !important;
-    }
-}
+/* Note: JavaScript controls which share button is visible (native vs LinkedIn) */
 
 /* =========================================================
    Utility
