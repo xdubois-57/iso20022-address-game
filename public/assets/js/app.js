@@ -129,31 +129,47 @@
        Format address according to country-specific rules.
        ======================================================= */
     function formatAddressForDisplay(addressData) {
-        // Check if address-formatter library is available
-        if (typeof window.addressFormatter === 'undefined' || !addressData) {
-            // Fallback: return simple concatenation
+        // Fallback: simple concatenation if library unavailable or no data
+        if (!addressData) return '';
+
+        if (typeof window.addressFormatter === 'undefined') {
             var lines = [];
             if (addressData.road || addressData.houseNumber) {
-                lines.push((addressData.road || '') + ' ' + (addressData.houseNumber || ''));
+                lines.push(((addressData.houseNumber || '') + ' ' + (addressData.road || '')).trim());
             }
             if (addressData.suburb) lines.push(addressData.suburb);
             if (addressData.postcode || addressData.city) {
-                lines.push((addressData.postcode || '') + ' ' + (addressData.city || ''));
+                lines.push(((addressData.postcode || '') + ' ' + (addressData.city || '')).trim());
             }
             return lines.join('\n');
         }
 
-        // Use @fragaria/address-formatter with country-specific formatting
-        var formatted = window.addressFormatter.format(addressData, {
-            output: 'array',
-            countryCode: addressData.countryCode || undefined
-        });
+        // @fragaria/address-formatter v7: countryCode must be inside the address
+        // object — it is NOT a format option. Pass all ISO 20022 components.
+        var addr = {
+            road: addressData.road || '',
+            houseNumber: addressData.houseNumber || '',
+            city: addressData.city || '',
+            postcode: addressData.postcode || '',
+            suburb: addressData.suburb || '',
+            countryCode: (addressData.countryCode || '').toUpperCase(),
+        };
 
-        // Filter out empty lines and country name (we already know the country)
-        return formatted.filter(function (line) {
-            return line && line.trim() !== '' &&
-                   !line.includes(addressData.countryCode);
-        }).join('\n');
+        var lines = window.addressFormatter.format(addr, { output: 'array' });
+
+        // Remove empty lines; also remove the last line if it is the country
+        // name (the library appends it by default — we omit it since the
+        // country is already visible from context in the game UI).
+        lines = lines.filter(function (l) { return l && l.trim() !== ''; });
+        if (lines.length > 0) {
+            var last = lines[lines.length - 1].trim();
+            // Drop country line: it is purely alphabetic words / spaces
+            // and does not contain a digit (distinguishes it from postal code lines)
+            if (/^[^\d]+$/.test(last) && last.length > 2) {
+                lines = lines.slice(0, -1);
+            }
+        }
+        return lines.join('\n');
     }
 
     /* =======================================================
