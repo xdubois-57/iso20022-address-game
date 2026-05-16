@@ -1005,7 +1005,9 @@
         if (kioskMode) {
             html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
         } else {
-            html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
+            // Mobile: native share button, Desktop: LinkedIn share button
+            html += '<button class="btn-share" id="shareScoreBtn" style="display:none;">\uD83D\uDCE4 Challenge a Friend</button>';
+            html += '<a class="btn-share btn-linkedin" id="linkedinShareBtn" href="#" target="_blank" rel="noopener" style="display:none;background:#0a66c2;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>Share on LinkedIn</a>';
         }
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -1065,39 +1067,44 @@
                 }
             })();
         } else {
-            var shareBtn = document.getElementById('shareScoreBtn');
-            if (shareBtn) {
-                shareBtn.addEventListener('click', async function () {
-                    shareBtn.disabled = true;
-                    shareBtn.textContent = '\u23F3 Preparing...';
-                    var tokenData = await api('share/token', {
-                        score: finalGameScore,
-                        name: playerName
-                    });
-                    if (!tokenData || !tokenData.token) {
-                        shareBtn.disabled = false;
-                        shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
-                        return;
-                    }
-                    var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
-                    if (navigator.share) {
-                        navigator.share({
-                            title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
-                            text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83E\uDD14',
-                            url: shareUrl
-                        }).catch(function () { /* user cancelled */ });
-                    } else {
-                        copyToClipboard(shareUrl).then(function (ok) {
-                            if (ok) {
-                                shareBtn.textContent = '\u2705 Link copied!';
-                                setTimeout(function () { shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend'; }, 2000);
-                            }
+            // Setup sharing buttons based on device capability
+            (async function setupShareButtons() {
+                var tokenData = await api('share/token', {
+                    score: finalGameScore,
+                    name: playerName
+                });
+                if (!tokenData || !tokenData.token) return;
+
+                var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
+                var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
+
+                var shareBtn = document.getElementById('shareScoreBtn');
+                var linkedinBtn = document.getElementById('linkedinShareBtn');
+
+                // Show appropriate button based on device
+                if (navigator.share) {
+                    // Mobile: show native share button
+                    if (shareBtn) shareBtn.style.display = 'inline-block';
+                    if (linkedinBtn) linkedinBtn.style.display = 'none';
+
+                    if (shareBtn) {
+                        shareBtn.addEventListener('click', function () {
+                            navigator.share({
+                                title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
+                                text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me? \uD83E\uDD14',
+                                url: shareUrl
+                            }).catch(function () { /* user cancelled */ });
                         });
                     }
-                    shareBtn.disabled = false;
-                    shareBtn.textContent = '\uD83D\uDCE4 Challenge a Friend';
-                });
-            }
+                } else {
+                    // Desktop: show LinkedIn share button
+                    if (shareBtn) shareBtn.style.display = 'none';
+                    if (linkedinBtn) {
+                        linkedinBtn.style.display = 'inline-flex';
+                        linkedinBtn.href = linkedinUrl;
+                    }
+                }
+            })();
         }
     }
 
