@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Address Formatter Tests</title>
+    <script src="https://unpkg.com/@fragaria/address-formatter@7.0.0/dist/umd/address-formatter.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #333; }
+        h2 { color: #555; margin-top: 30px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-case h3 { margin-top: 0; color: #333; }
+        .input { background: #f5f5f5; padding: 10px; margin: 10px 0; border-left: 3px solid #666; font-family: monospace; }
+        .output { background: #e8f5e9; padding: 10px; margin: 10px 0; border-left: 3px solid #4caf50; white-space: pre-wrap; }
+        .error { background: #ffebee; border-left-color: #f44336; }
+        .pass { border-color: #4caf50; background: #f1f8e9; }
+        .fail { border-color: #f44336; background: #ffebee; }
+        .status { font-weight: bold; padding: 5px 10px; border-radius: 3px; display: inline-block; margin: 10px 0; }
+        .status.pass { color: #2e7d32; }
+        .status.fail { color: #c62828; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .summary { background: #e3f2fd; padding: 20px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Address Formatter Test Suite</h1>
+    <p>Tests the @fragaria/address-formatter library integration with ISO 20022 address components.</p>
+
+    <div id="summary" class="summary">
+        <h2>Test Summary</h2>
+        <p id="testResults">Running tests...</p>
+    </div>
+
+    <div id="testContainer"></div>
+
+    <script>
+        // Copy of the formatter function from app.js (for testing)
+        function formatAddressForDisplay(addressData) {
+            if (!addressData) return '';
+
+            if (typeof window.addressFormatter === 'undefined') {
+                console.error('address-formatter library not loaded!');
+                return '';
+            }
+
+            var addr = {
+                attention: addressData.attention || '',
+                houseNumber: addressData.houseNumber || '',
+                road: addressData.road || '',
+                city: addressData.city || '',
+                postcode: addressData.postcode || '',
+                countryCode: (addressData.countryCode || '').toUpperCase(),
+            };
+
+            var lines = window.addressFormatter.format(addr, { output: 'array' });
+            lines = lines.filter(function (l) { return l && l.trim() !== ''; });
+            return lines.join('\n');
+        }
+
+        // Test cases
+        const testCases = [
+            {
+                name: 'German Address (postal code before city)',
+                description: 'German format: street + number, then postal code before city',
+                input: {
+                    attention: '3. Etage',
+                    houseNumber: '15',
+                    road: 'Hauptstraße',
+                    postcode: '10115',
+                    city: 'Berlin',
+                    countryCode: 'DE',
+                },
+                expectedContains: ['Hauptstraße', '15', '10115', 'Berlin', 'Germany'],
+            },
+            {
+                name: 'US Address (postal code after city)',
+                description: 'US format: number before street, city then state+postal',
+                input: {
+                    attention: 'Suite 200',
+                    houseNumber: '123',
+                    road: 'Main Street',
+                    postcode: '10001',
+                    city: 'New York',
+                    countryCode: 'US',
+                },
+                expectedContains: ['123', 'Main Street', 'New York', '10001', 'United States'],
+            },
+            {
+                name: 'French Address',
+                description: 'French format: number before street, postal before city',
+                input: {
+                    attention: 'Appartement 4B',
+                    houseNumber: '10',
+                    road: 'Rue de la Paix',
+                    postcode: '75002',
+                    city: 'Paris',
+                    countryCode: 'FR',
+                },
+                expectedContains: ['10', 'Rue de la Paix', '75002', 'Paris', 'France'],
+            },
+            {
+                name: 'UK Address',
+                description: 'UK format: number before street, city on same line as postal',
+                input: {
+                    attention: 'Flat 3',
+                    houseNumber: '42',
+                    road: 'High Street',
+                    postcode: 'SW1A 1AA',
+                    city: 'London',
+                    countryCode: 'GB',
+                },
+                expectedContains: ['42', 'High Street', 'London', 'SW1A 1AA', 'United Kingdom'],
+            },
+            {
+                name: 'Belgian Address',
+                description: 'Belgian format: postal code before city',
+                input: {
+                    attention: 'Bureau 5',
+                    houseNumber: '25',
+                    road: 'Avenue Louise',
+                    postcode: '1050',
+                    city: 'Brussels',
+                    countryCode: 'BE',
+                },
+                expectedContains: ['25', 'Avenue Louise', '1050', 'Brussels', 'Belgium'],
+            },
+            {
+                name: 'Dutch Address',
+                description: 'Netherlands format: postal code before city, space in postal',
+                input: {
+                    attention: 'Verdieping 2',
+                    houseNumber: '50',
+                    road: 'Dam Square',
+                    postcode: '1012 JS',
+                    city: 'Amsterdam',
+                    countryCode: 'NL',
+                },
+                expectedContains: ['50', 'Dam Square', 'Amsterdam', 'Netherlands'],
+            },
+            {
+                name: 'Spanish Address',
+                description: 'Spanish format: number after street, postal before city',
+                input: {
+                    attention: 'Piso 3',
+                    houseNumber: '5',
+                    road: 'Calle Mayor',
+                    postcode: '28013',
+                    city: 'Madrid',
+                    countryCode: 'ES',
+                },
+                expectedContains: ['Calle Mayor', '5', '28013', 'Madrid', 'Spain'],
+            },
+            {
+                name: 'Italian Address',
+                description: 'Italian format: number after street, postal before city',
+                input: {
+                    attention: 'Interno 7',
+                    houseNumber: '15',
+                    road: 'Via Roma',
+                    postcode: '00184',
+                    city: 'Rome',
+                    countryCode: 'IT',
+                },
+                expectedContains: ['Via Roma', '15', '00184', 'Rome', 'Italy'],
+            },
+            {
+                name: 'Japanese Address',
+                description: 'Japanese format: special ordering with postcode and country',
+                input: {
+                    attention: 'Building 5F',
+                    houseNumber: '1-2-3',
+                    road: 'Shibuya Street',
+                    postcode: '150-0001',
+                    city: 'Shibuya',
+                    countryCode: 'JP',
+                },
+                expectedContains: ['1-2-3', 'Shibuya Street', 'Shibuya', '150-0001', 'Japan'],
+            },
+            {
+                name: 'Canadian Address',
+                description: 'Canadian format: similar to US but with province',
+                input: {
+                    attention: 'Suite 100',
+                    houseNumber: '100',
+                    road: 'Bay Street',
+                    postcode: 'M5H 2K1',
+                    city: 'Toronto',
+                    countryCode: 'CA',
+                },
+                expectedContains: ['100', 'Bay Street', 'Toronto', 'M5H 2K1', 'Canada'],
+            },
+            {
+                name: 'Australian Address',
+                description: 'Australian format: state after city, postcode at end',
+                input: {
+                    attention: 'Level 10',
+                    houseNumber: '200',
+                    road: 'George Street',
+                    postcode: '2000',
+                    city: 'Sydney',
+                    countryCode: 'AU',
+                },
+                expectedContains: ['200', 'George Street', 'Sydney', '2000', 'Australia'],
+            },
+            {
+                name: 'Swiss Address',
+                description: 'Swiss format: postal code before city',
+                input: {
+                    attention: 'Etage 3',
+                    houseNumber: '1',
+                    road: 'Bahnhofstrasse',
+                    postcode: '8001',
+                    city: 'Zurich',
+                    countryCode: 'CH',
+                },
+                expectedContains: ['1', 'Bahnhofstrasse', '8001', 'Zurich', 'Switzerland'],
+            },
+            {
+                name: 'Address without attention (no additional info)',
+                description: 'Test that empty attention field is handled correctly',
+                input: {
+                    attention: '',
+                    houseNumber: '10',
+                    road: 'Simple Street',
+                    postcode: '12345',
+                    city: 'Simpletown',
+                    countryCode: 'DE',
+                },
+                expectedContains: ['10', 'Simple Street', '12345', 'Simpletown', 'Germany'],
+                notExpectedContains: ['undefined', 'null'],
+            },
+            {
+                name: 'Address with special characters',
+                description: 'Test handling of special characters in address',
+                input: {
+                    attention: 'Étage 2',
+                    houseNumber: '1 bis',
+                    road: 'Rue de l\'Église',
+                    postcode: '75001',
+                    city: 'Paris',
+                    countryCode: 'FR',
+                },
+                expectedContains: ['1 bis', 'Rue de l\'Église', 'Paris', 'France'],
+            },
+            {
+                name: 'Polish Address',
+                description: 'Polish format: postal code before city',
+                input: {
+                    attention: 'Piętro 2',
+                    houseNumber: '10',
+                    road: 'ulica Marszałkowska',
+                    postcode: '00-626',
+                    city: 'Warsaw',
+                    countryCode: 'PL',
+                },
+                expectedContains: ['10', 'ulica Marszałkowska', 'Warsaw', 'Poland'],
+            },
+        ];
+
+        // Run tests
+        let passCount = 0;
+        let failCount = 0;
+        const container = document.getElementById('testContainer');
+
+        testCases.forEach((test, index) => {
+            const result = formatAddressForDisplay(test.input);
+            let passed = true;
+            let errors = [];
+
+            // Check expected contains
+            if (test.expectedContains) {
+                test.expectedContains.forEach(expected => {
+                    if (!result.includes(expected)) {
+                        passed = false;
+                        errors.push(`Missing expected text: "${expected}"`);
+                    }
+                });
+            }
+
+            // Check not expected contains
+            if (test.notExpectedContains) {
+                test.notExpectedContains.forEach(notExpected => {
+                    if (result.includes(notExpected)) {
+                        passed = false;
+                        errors.push(`Unexpected text found: "${notExpected}"`);
+                    }
+                });
+            }
+
+            // Create test case HTML
+            const testDiv = document.createElement('div');
+            testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`;
+            testDiv.innerHTML = `
+                <h3>Test ${index + 1}: ${test.name}</h3>
+                <p>${test.description}</p>
+                <div class="input">
+                    <strong>Input:</strong><br>
+                    ${JSON.stringify(test.input, null, 2)}
+                </div>
+                <div class="output ${passed ? '' : 'error'}">
+                    <strong>Output:</strong><br>
+                    ${result || '(empty)'}
+                </div>
+                <div class="status ${passed ? 'pass' : 'fail'}">
+                    ${passed ? '✓ PASS' : '✗ FAIL'}
+                </div>
+                ${errors.length > 0 ? `<div class="error"><strong>Errors:</strong><br>${errors.join('<br>')}</div>` : ''}
+            `;
+            container.appendChild(testDiv);
+
+            if (passed) passCount++; else failCount++;
+        });
+
+        // Update summary
+        document.getElementById('testResults').innerHTML = `
+            <strong>Total Tests:</strong> ${testCases.length}<br>
+            <strong style="color: #2e7d32;">Passed:</strong> ${passCount}<br>
+            <strong style="color: #c62828;">Failed:</strong> ${failCount}<br>
+            <strong>Library Version:</strong> ${window.addressFormatter ? 'Loaded' : 'NOT LOADED'}
+        `;
+
+        console.log('Test Results:', { passCount, failCount, total: testCases.length });
+    </script>
+</body>
+</html>

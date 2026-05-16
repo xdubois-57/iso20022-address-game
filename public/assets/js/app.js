@@ -134,41 +134,43 @@
 
         if (typeof window.addressFormatter === 'undefined') {
             var lines = [];
+            // Additional info first (like floor, suite)
+            if (addressData.attention) lines.push(addressData.attention);
+            // Street line: houseNumber + road (order depends on country; fallback uses number first)
             if (addressData.road || addressData.houseNumber) {
                 lines.push(((addressData.houseNumber || '') + ' ' + (addressData.road || '')).trim());
             }
-            if (addressData.suburb) lines.push(addressData.suburb);
+            // City + postcode line
             if (addressData.postcode || addressData.city) {
                 lines.push(((addressData.postcode || '') + ' ' + (addressData.city || '')).trim());
             }
+            // Country
+            if (addressData.country) lines.push(addressData.country);
             return lines.join('\n');
         }
 
         // @fragaria/address-formatter v7: countryCode must be inside the address
         // object — it is NOT a format option. Pass all ISO 20022 components.
+        // Field mapping:
+        //   AdtlAdrInf -> attention (appears in all templates as first line)
+        //   BldgNb -> houseNumber
+        //   StrtNm -> road
+        //   PstCd -> postcode
+        //   TwnNm -> city
+        //   Ctry -> countryCode (library looks up country name from this)
         var addr = {
-            road: addressData.road || '',
+            attention: addressData.attention || '',
             houseNumber: addressData.houseNumber || '',
+            road: addressData.road || '',
             city: addressData.city || '',
             postcode: addressData.postcode || '',
-            suburb: addressData.suburb || '',
             countryCode: (addressData.countryCode || '').toUpperCase(),
         };
 
         var lines = window.addressFormatter.format(addr, { output: 'array' });
 
-        // Remove empty lines; also remove the last line if it is the country
-        // name (the library appends it by default — we omit it since the
-        // country is already visible from context in the game UI).
+        // Remove empty lines only — keep country visible as requested
         lines = lines.filter(function (l) { return l && l.trim() !== ''; });
-        if (lines.length > 0) {
-            var last = lines[lines.length - 1].trim();
-            // Drop country line: it is purely alphabetic words / spaces
-            // and does not contain a digit (distinguishes it from postal code lines)
-            if (/^[^\d]+$/.test(last) && last.length > 2) {
-                lines = lines.slice(0, -1);
-            }
-        }
         return lines.join('\n');
     }
 
