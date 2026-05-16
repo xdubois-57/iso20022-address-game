@@ -57,6 +57,17 @@
 
             var lines = window.addressFormatter.format(addr, { output: 'array' });
             lines = lines.filter(function (l) { return l && l.trim() !== ''; });
+
+            // Ensure country is shown - append it if not present
+            if (addressData.country && lines.length > 0) {
+                var hasCountry = lines.some(function(line) {
+                    return line.toLowerCase().indexOf(addressData.country.toLowerCase()) !== -1;
+                });
+                if (!hasCountry) {
+                    lines.push(addressData.country);
+                }
+            }
+
             return lines.join('\n');
         }
 
@@ -72,6 +83,7 @@
                     postcode: '10115',
                     city: 'Berlin',
                     countryCode: 'DE',
+                    country: 'Germany',
                 },
                 expectedContains: ['Hauptstraße', '15', '10115', 'Berlin', 'Germany'],
             },
@@ -85,6 +97,7 @@
                     postcode: '10001',
                     city: 'New York',
                     countryCode: 'US',
+                    country: 'United States',
                 },
                 expectedContains: ['123', 'Main Street', 'New York', '10001', 'United States'],
             },
@@ -98,6 +111,7 @@
                     postcode: '75002',
                     city: 'Paris',
                     countryCode: 'FR',
+                    country: 'France',
                 },
                 expectedContains: ['10', 'Rue de la Paix', '75002', 'Paris', 'France'],
             },
@@ -111,6 +125,7 @@
                     postcode: 'SW1A 1AA',
                     city: 'London',
                     countryCode: 'GB',
+                    country: 'United Kingdom',
                 },
                 expectedContains: ['42', 'High Street', 'London', 'SW1A 1AA', 'United Kingdom'],
             },
@@ -124,6 +139,7 @@
                     postcode: '1050',
                     city: 'Brussels',
                     countryCode: 'BE',
+                    country: 'Belgium',
                 },
                 expectedContains: ['25', 'Avenue Louise', '1050', 'Brussels', 'Belgium'],
             },
@@ -137,6 +153,7 @@
                     postcode: '1012 JS',
                     city: 'Amsterdam',
                     countryCode: 'NL',
+                    country: 'Netherlands',
                 },
                 expectedContains: ['50', 'Dam Square', 'Amsterdam', 'Netherlands'],
             },
@@ -150,6 +167,7 @@
                     postcode: '28013',
                     city: 'Madrid',
                     countryCode: 'ES',
+                    country: 'Spain',
                 },
                 expectedContains: ['Calle Mayor', '5', '28013', 'Madrid', 'Spain'],
             },
@@ -163,6 +181,7 @@
                     postcode: '00184',
                     city: 'Rome',
                     countryCode: 'IT',
+                    country: 'Italy',
                 },
                 expectedContains: ['Via Roma', '15', '00184', 'Rome', 'Italy'],
             },
@@ -176,6 +195,7 @@
                     postcode: '150-0001',
                     city: 'Shibuya',
                     countryCode: 'JP',
+                    country: 'Japan',
                 },
                 expectedContains: ['1-2-3', 'Shibuya Street', 'Shibuya', '150-0001', 'Japan'],
             },
@@ -189,6 +209,7 @@
                     postcode: 'M5H 2K1',
                     city: 'Toronto',
                     countryCode: 'CA',
+                    country: 'Canada',
                 },
                 expectedContains: ['100', 'Bay Street', 'Toronto', 'M5H 2K1', 'Canada'],
             },
@@ -202,6 +223,7 @@
                     postcode: '2000',
                     city: 'Sydney',
                     countryCode: 'AU',
+                    country: 'Australia',
                 },
                 expectedContains: ['200', 'George Street', 'Sydney', '2000', 'Australia'],
             },
@@ -215,6 +237,7 @@
                     postcode: '8001',
                     city: 'Zurich',
                     countryCode: 'CH',
+                    country: 'Switzerland',
                 },
                 expectedContains: ['1', 'Bahnhofstrasse', '8001', 'Zurich', 'Switzerland'],
             },
@@ -228,6 +251,7 @@
                     postcode: '12345',
                     city: 'Simpletown',
                     countryCode: 'DE',
+                    country: 'Germany',
                 },
                 expectedContains: ['10', 'Simple Street', '12345', 'Simpletown', 'Germany'],
                 notExpectedContains: ['undefined', 'null'],
@@ -242,6 +266,7 @@
                     postcode: '75001',
                     city: 'Paris',
                     countryCode: 'FR',
+                    country: 'France',
                 },
                 expectedContains: ['1 bis', 'Rue de l\'Église', 'Paris', 'France'],
             },
@@ -255,6 +280,7 @@
                     postcode: '00-626',
                     city: 'Warsaw',
                     countryCode: 'PL',
+                    country: 'Poland',
                 },
                 expectedContains: ['10', 'ulica Marszałkowska', 'Warsaw', 'Poland'],
             },

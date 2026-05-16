@@ -169,8 +169,22 @@
 
         var lines = window.addressFormatter.format(addr, { output: 'array' });
 
-        // Remove empty lines only — keep country visible as requested
+        // Remove empty lines
         lines = lines.filter(function (l) { return l && l.trim() !== ''; });
+
+        // Ensure country is shown - append it if not present in library output
+        // The library sometimes omits country when components are sparse
+        if (addressData.country && lines.length > 0) {
+            var lastLine = lines[lines.length - 1];
+            // Check if country is already in the output (case-insensitive)
+            var hasCountry = lines.some(function(line) {
+                return line.toLowerCase().indexOf(addressData.country.toLowerCase()) !== -1;
+            });
+            if (!hasCountry) {
+                lines.push(addressData.country);
+            }
+        }
+
         return lines.join('\n');
     }
 
