@@ -1414,8 +1414,23 @@ html, body {
 .btn-share:active {
     transform: translateY(0);
 }
-
-/* Note: JavaScript controls which share button is visible (native vs LinkedIn) */
+.btn-linkedin {
+    background: #0a66c2;
+    color: #fff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    box-shadow: 0 2px 8px rgba(10, 102, 194, 0.3);
+}
+.btn-linkedin:hover {
+    background: #004182;
+    box-shadow: 0 4px 16px rgba(10, 102, 194, 0.4);
+}
+.btn-linkedin:visited {
+    color: #fff;
+}
 
 /* =========================================================
    Utility

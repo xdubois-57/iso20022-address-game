@@ -74,9 +74,9 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
             document.getElementById('statusText').textContent = '';
             document.getElementById('fallback').style.display = 'block';
 
-            // Set up LinkedIn share URL for desktop
-            // LinkedIn sharing URL format: https://www.linkedin.com/sharing/share-offsite/?url={encoded_url}
-            var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
+            // LinkedIn text: message with question mark, URL on new line
+            var linkedinText = shareText.replace(' \uD83E\uDD14', '') + String.fromCharCode(10, 10) + shareUrl;
+            var linkedinUrl = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(linkedinText);
             document.getElementById('linkedinBtn').href = linkedinUrl;
         }
 
