@@ -209,30 +209,20 @@ class GameController
     }
 
     /**
-     * Format address data as a human-readable multi-line string (like an envelope).
+     * Build address object for frontend formatter.
+     * Returns structured address components that @fragaria/address-formatter
+     * can format according to country-specific rules.
      */
-    private function formatAddressDisplay(array $data): string
+    private function formatAddressDisplay(array $data): array
     {
-        $lines = [];
-        $street = trim($data['StrtNm'] ?? '');
-        $bldg = trim($data['BldgNb'] ?? '');
-        if ($street !== '' || $bldg !== '') {
-            $lines[] = trim($street . ' ' . $bldg);
-        }
-        $extra = trim($data['AdtlAdrInf'] ?? '');
-        if ($extra !== '') {
-            $lines[] = $extra;
-        }
-        $postal = trim($data['PstCd'] ?? '');
-        $town = trim($data['TwnNm'] ?? '');
-        if ($postal !== '' || $town !== '') {
-            $lines[] = trim($postal . ' ' . $town);
-        }
-        $country = trim($data['Ctry'] ?? '');
-        if ($country !== '') {
-            $lines[] = $country;
-        }
-        return implode("\n", $lines);
+        return [
+            'road' => trim($data['StrtNm'] ?? ''),
+            'houseNumber' => trim($data['BldgNb'] ?? ''),
+            'city' => trim($data['TwnNm'] ?? ''),
+            'postcode' => trim($data['PstCd'] ?? ''),
+            'suburb' => trim($data['AdtlAdrInf'] ?? ''),
+            'countryCode' => trim($data['Ctry'] ?? ''),
+        ];
     }
 
     private function getJsonInput(): array

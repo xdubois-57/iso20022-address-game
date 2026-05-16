@@ -125,6 +125,38 @@
     }());
 
     /* =======================================================
+       Address Formatter Helper
+       Format address according to country-specific rules.
+       ======================================================= */
+    function formatAddressForDisplay(addressData) {
+        // Check if address-formatter library is available
+        if (typeof window.addressFormatter === 'undefined' || !addressData) {
+            // Fallback: return simple concatenation
+            var lines = [];
+            if (addressData.road || addressData.houseNumber) {
+                lines.push((addressData.road || '') + ' ' + (addressData.houseNumber || ''));
+            }
+            if (addressData.suburb) lines.push(addressData.suburb);
+            if (addressData.postcode || addressData.city) {
+                lines.push((addressData.postcode || '') + ' ' + (addressData.city || ''));
+            }
+            return lines.join('\n');
+        }
+
+        // Use @fragaria/address-formatter with country-specific formatting
+        var formatted = window.addressFormatter.format(addressData, {
+            output: 'array',
+            countryCode: addressData.countryCode || undefined
+        });
+
+        // Filter out empty lines and country name (we already know the country)
+        return formatted.filter(function (line) {
+            return line && line.trim() !== '' &&
+                   !line.includes(addressData.countryCode);
+        }).join('\n');
+    }
+
+    /* =======================================================
        API Helper
        ======================================================= */
     var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
@@ -509,8 +541,10 @@
         html += '<div class="source-panel">';
         html += '<h2>Unstructured Address</h2>';
         if (data.scenario.address_display) {
+            // Format address according to country-specific rules
+            var formattedAddress = formatAddressForDisplay(data.scenario.address_display);
             html += '<div class="address-block">' +
-                escapeHtml(data.scenario.address_display).replace(/\n/g, '<br>') + '</div>';
+                escapeHtml(formattedAddress).replace(/\n/g, '<br>') + '</div>';
         }
         html += '<p class="hint-text">Drag the value chips to the correct ISO 20022 fields \u2192</p>';
         html += '<div class="chip-container" id="chipContainer">';
