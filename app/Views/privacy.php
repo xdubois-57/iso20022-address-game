@@ -21,6 +21,8 @@
     <article>
         <h2>Privacy &amp; GDPR Information</h2>
 
+        <p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>. It is developed and maintained as a personal project and is not affiliated with or endorsed by any organisation.</p>
+
         <h3>Data Minimisation</h3>
         <p>This application follows the principle of data minimisation. We collect only the information
            strictly necessary for the game experience:</p>

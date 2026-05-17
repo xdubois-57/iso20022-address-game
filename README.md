@@ -22,7 +22,7 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 ## Legal notice
 
-This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained as a personal project and is not endorsed by any company.
+This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained as a personal project and is not affiliated with or endorsed by any organisation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
 
