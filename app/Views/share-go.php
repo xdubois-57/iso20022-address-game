@@ -88,6 +88,30 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
             transition: background 0.2s;
         }
         .btn:hover { background: <?= $sgHover ?>; }
+        /* btn-share matches game over page Challenge a Friend button */
+        .btn-share {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            color: #00364a;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-share:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(255, 140, 0, 0.4);
+        }
         .btn-linkedin { background: #0a66c2; }
         .btn-linkedin:hover { background: #004182; }
         .btn-linkedin svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
@@ -118,6 +142,8 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
                 </a>
                 <button class="btn btn-linkedin" id="copyBtn">📋 Copy Link</button>
             </div>
+            <!-- Mobile: native share button matching game over page style -->
+            <button class="btn-share" id="mobileShareBtn" style="display:none;">📤 Challenge a Friend</button>
             <a class="btn" href="/">🎮 Play the Game</a>
         </div>
         <p class="copy-status" id="copyStatus"></p>
@@ -142,7 +168,11 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
                 var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
                 document.getElementById('linkedinBtn').href = linkedinUrl;
                 document.getElementById('desktopShareRow').style.display = 'grid';
+            } else if (navigator.share) {
+                // Mobile with native share: show share button
+                document.getElementById('mobileShareBtn').style.display = 'inline-flex';
             }
+            // Mobile without native share: only shows "Play the Game"
         }
 
         function tryShare() {
@@ -163,6 +193,21 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
         }
 
         tryShare();
+
+        // Mobile share button click handler
+        document.getElementById('mobileShareBtn').addEventListener('click', function() {
+            if (navigator.share) {
+                navigator.share({
+                    title: shareTitle,
+                    text: shareText,
+                    url: shareUrl
+                }).then(function() {
+                    document.getElementById('statusText').textContent = 'Shared successfully!';
+                }).catch(function() {
+                    // user cancelled - keep actions visible
+                });
+            }
+        });
 
         document.getElementById('copyBtn').addEventListener('click', function() {
             if (navigator.clipboard && navigator.clipboard.writeText) {
