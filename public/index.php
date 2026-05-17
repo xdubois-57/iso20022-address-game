@@ -74,7 +74,7 @@ if (empty($_SESSION['csrf_token'])) {
 // Security headers
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self';");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self'; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;");
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
 // HSTS: enforce HTTPS for 1 year, include subdomains, allow preload

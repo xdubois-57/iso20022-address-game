@@ -223,12 +223,13 @@ class SecurityTest extends TestCase
 
     public function testCspHeaderContainsRequiredDirectives(): void
     {
-        $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self';";
+        $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self'; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;";
 
         $this->assertStringContainsString("default-src 'self'", $csp);
         $this->assertStringContainsString('https://unpkg.com', $csp);
         $this->assertStringContainsString('https://cdn.jsdelivr.net', $csp);
         $this->assertStringContainsString("font-src 'self'", $csp);
+        $this->assertStringContainsString("connect-src", $csp);
     }
 
     /* =======================================================
