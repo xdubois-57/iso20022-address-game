@@ -51,6 +51,8 @@ class ShareController
         $shareUrl = $baseUrl . '/share?d=' . urlencode($rawToken);
         $shareTitle = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts!';
         $shareText = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts on the ISO 20022 Address Challenge! Can you beat me?';
+        $shareScore = $data['s'];
+        $shareName  = $data['n'];
 
         require __DIR__ . '/../Views/share-go.php';
     }

@@ -1431,6 +1431,30 @@ html, body {
 .btn-linkedin:visited {
     color: #fff;
 }
+.btn-share-copy {
+    background: #0a66c2;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    box-shadow: 0 2px 8px rgba(10, 102, 194, 0.3);
+}
+.btn-share-copy:hover {
+    background: #004182;
+    box-shadow: 0 4px 16px rgba(10, 102, 194, 0.4);
+}
+.share-actions-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+}
+@media (max-width: 360px) {
+    .share-actions-row {
+        grid-template-columns: 1fr;
+    }
+}
 
 /* =========================================================
    Utility

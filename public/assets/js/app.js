@@ -1005,10 +1005,14 @@
         if (kioskMode) {
             html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
         } else {
-            // Mobile: native share button, Desktop: LinkedIn share button
-            // Both rendered, JavaScript will show/hide based on device
+            // Mobile: native share button, Desktop: LinkedIn + Copy Link side by side
+            // Both sets rendered; JavaScript shows/hides based on device
             html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
-            html += '<a class="btn-share btn-linkedin" id="linkedinShareBtn" href="#" target="_blank" rel="noopener" style="display:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:6px;"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>Share on LinkedIn</a>';
+            html += '<div class="share-actions-row" id="desktopShareRow" style="display:none;">';
+            html += '<a class="btn-share btn-linkedin" id="linkedinShareBtn" href="#" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>Share on LinkedIn</a>';
+            html += '<button class="btn-share btn-share-copy" id="copyLinkBtn">\uD83D\uDCCB Copy Link</button>';
+            html += '</div>';
+            html += '<p id="copyLinkStatus" style="font-size:0.85rem;min-height:1.2rem;margin:0;color:var(--game-emerald);"></p>';
         }
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -1076,21 +1080,20 @@
                 });
 
                 var shareBtn = document.getElementById('shareScoreBtn');
+                var desktopRow = document.getElementById('desktopShareRow');
                 var linkedinBtn = document.getElementById('linkedinShareBtn');
+                var copyLinkBtn = document.getElementById('copyLinkBtn');
+                var copyLinkStatus = document.getElementById('copyLinkStatus');
 
                 if (!tokenData || !tokenData.token) {
-                    // Token failed - hide both buttons
                     if (shareBtn) shareBtn.style.display = 'none';
-                    if (linkedinBtn) linkedinBtn.style.display = 'none';
                     return;
                 }
 
                 var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
-                // LinkedIn text format: message with question mark, then URL on new line
-                var linkedinText = '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me?' + String.fromCharCode(10, 10) + shareUrl;
-                var linkedinUrl = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(linkedinText);
+                var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
 
-                // More reliable mobile detection: check for touch + share API or small screen
+                // Mobile: has native share + mobile UA or touch or narrow screen
                 var isMobileDevice = navigator.share && (
                     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                     window.innerWidth <= 768 ||
@@ -1098,7 +1101,7 @@
                 );
 
                 if (isMobileDevice) {
-                    // Mobile: show native share button, hide LinkedIn
+                    // Mobile: native share button only
                     if (shareBtn) {
                         shareBtn.style.display = 'inline-block';
                         shareBtn.addEventListener('click', function () {
@@ -1109,13 +1112,28 @@
                             }).catch(function () { /* user cancelled */ });
                         });
                     }
-                    if (linkedinBtn) linkedinBtn.style.display = 'none';
                 } else {
-                    // Desktop: show LinkedIn share button, hide native
+                    // Desktop: LinkedIn + Copy Link side by side in grid row
                     if (shareBtn) shareBtn.style.display = 'none';
-                    if (linkedinBtn) {
-                        linkedinBtn.style.display = 'inline-flex';
-                        linkedinBtn.href = linkedinUrl;
+                    if (linkedinBtn) linkedinBtn.href = linkedinUrl;
+                    if (desktopRow) desktopRow.style.display = 'grid';
+                    if (copyLinkBtn) {
+                        copyLinkBtn.addEventListener('click', function () {
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(shareUrl).then(function () {
+                                    if (copyLinkStatus) copyLinkStatus.textContent = 'Link copied!';
+                                });
+                            } else {
+                                var ta = document.createElement('textarea');
+                                ta.value = shareUrl;
+                                ta.style.position = 'fixed';
+                                ta.style.left = '-9999px';
+                                document.body.appendChild(ta);
+                                ta.select();
+                                try { document.execCommand('copy'); if (copyLinkStatus) copyLinkStatus.textContent = 'Link copied!'; } catch(e) {}
+                                ta.remove();
+                            }
+                        });
                     }
                 }
             })();

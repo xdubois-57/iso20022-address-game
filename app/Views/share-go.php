@@ -28,80 +28,142 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Share Result - ISO 20022 Address Game</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; text-align: center; padding: 2rem; background: <?= $sgBg ?>; color: <?= $sgText ?>; }
-        .card { max-width: 400px; margin: 2rem auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: <?= $sgPrimary ?>; color: #fff; padding: 1rem 2rem; border-radius: 8px; text-decoration: none; font-size: 1.1rem; border: none; cursor: pointer; margin: 0.5rem; }
+        html, body {
+            margin: 0; padding: 0;
+            font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
+            background-image: url('/bg');
+            background-position: center center;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: <?= $sgText ?>;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .card {
+            max-width: 420px;
+            width: 100%;
+            background: #fff;
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            text-align: center;
+        }
+        .card h1 { font-size: 2rem; color: <?= $sgText ?>; margin: 0 0 0.25rem; }
+        .score-value {
+            font-size: 4rem;
+            font-weight: 800;
+            color: <?= $sgPrimary ?>;
+            line-height: 1;
+            margin: 0.5rem 0 0.25rem;
+        }
+        .score-label { font-size: 1rem; color: <?= $sgText ?>; margin: 0 0 1.5rem; opacity: 0.75; }
+        .status-text { min-height: 1.5rem; font-size: 0.9rem; color: <?= $sgPrimary ?>; margin-bottom: 0.5rem; }
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: stretch;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            box-sizing: border-box;
+            background: <?= $sgPrimary ?>;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
         .btn:hover { background: <?= $sgHover ?>; }
-        .btn-secondary { background: <?= $sgText ?>; }
-        /* LinkedIn brand button styling */
         .btn-linkedin { background: #0a66c2; }
         .btn-linkedin:hover { background: #004182; }
-        .btn-linkedin svg { width: 20px; height: 20px; fill: currentColor; }
-        .link-display { word-break: break-all; font-size: 0.85rem; color: #666; margin: 1rem 0; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; }
-        .status { margin-top: 1rem; font-size: 0.9rem; color: <?= $sgPrimary ?>; }
+        .btn-linkedin svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+        .share-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        @media (max-width: 360px) { .share-row { grid-template-columns: 1fr; } }
+        .copy-status { font-size: 0.85rem; color: <?= $sgPrimary ?>; min-height: 1.2rem; margin-top: 0.25rem; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>Share Your Score!</h1>
-        <p id="statusText">Opening share dialog...</p>
-        <div id="fallback" style="display:none;">
-            <p>Challenge 5 friends on social media!</p>
-            <!-- Desktop: LinkedIn share button -->
-            <a class="btn btn-linkedin" id="linkedinBtn" href="#" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                Share on LinkedIn
-            </a>
-            <button class="btn btn-secondary" id="copyBtn">Copy Link</button>
-            <p class="status" id="copyStatus"></p>
+        <h1>🎉 Game Over!</h1>
+        <div class="score-value"><?= (int)$shareScore ?></div>
+        <p class="score-label">points scored by <?= htmlspecialchars($shareName, ENT_QUOTES, 'UTF-8') ?></p>
+
+        <p class="status-text" id="statusText">Opening share dialog...</p>
+
+        <div class="actions" id="actions" style="display:none;">
+            <!-- Desktop only: LinkedIn + Copy Link side by side -->
+            <div class="share-row" id="desktopShareRow" style="display:none;">
+                <a class="btn btn-linkedin" id="linkedinBtn" href="#" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                    Share on LinkedIn
+                </a>
+                <button class="btn btn-linkedin" id="copyBtn">📋 Copy Link</button>
+            </div>
+            <a class="btn" href="/">🎮 Play the Game</a>
         </div>
-        <p style="margin-top:2rem;"><a href="/" style="color:<?= $sgPrimary ?>;">Play the game</a></p>
+        <p class="copy-status" id="copyStatus"></p>
     </div>
     <script>
         var shareUrl = <?= json_encode($shareUrl) ?>;
         var shareTitle = <?= json_encode($shareTitle) ?>;
         var shareText = <?= json_encode($shareText) ?>;
 
-        // Detect mobile device (has native share capability)
-        function isMobile() {
-            return navigator.share !== undefined ||
-                   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   ('ontouchstart' in window) ||
                    (window.innerWidth <= 768);
         }
 
-        function showFallback() {
+        function showActions() {
             document.getElementById('statusText').textContent = '';
-            document.getElementById('fallback').style.display = 'block';
+            document.getElementById('actions').style.display = 'flex';
 
-            // LinkedIn text: message with question mark, URL on new line
-            var linkedinText = shareText.replace(' \uD83E\uDD14', '') + String.fromCharCode(10, 10) + shareUrl;
-            var linkedinUrl = 'https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(linkedinText);
-            document.getElementById('linkedinBtn').href = linkedinUrl;
+            if (!isMobileDevice()) {
+                // Desktop: show LinkedIn + Copy Link side by side
+                var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
+                document.getElementById('linkedinBtn').href = linkedinUrl;
+                document.getElementById('desktopShareRow').style.display = 'grid';
+            }
         }
 
         function tryShare() {
-            // On mobile: try native share first
-            if (isMobile() && navigator.share) {
+            if (isMobileDevice() && navigator.share) {
                 navigator.share({
                     title: shareTitle,
                     text: shareText,
                     url: shareUrl
                 }).then(function() {
                     document.getElementById('statusText').textContent = 'Shared successfully!';
+                    showActions();
                 }).catch(function() {
-                    showFallback();
+                    showActions();
                 });
             } else {
-                // On desktop: show LinkedIn share button immediately
-                showFallback();
+                showActions();
             }
         }
 
-        // Auto-trigger on page load
         tryShare();
 
-        // Copy button
         document.getElementById('copyBtn').addEventListener('click', function() {
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(shareUrl).then(function() {
