@@ -70,6 +70,9 @@ class GameController
         $scenarioId = (int) ($input['scenario_id'] ?? 0);
         $mapping = $input['mapping'] ?? [];
         $goalType = $input['goal_type'] ?? null;
+        $adrFieldOrder = isset($input['adr_field_order']) && is_array($input['adr_field_order'])
+            ? array_values(array_filter($input['adr_field_order'], 'is_string'))
+            : null;
 
         if ($scenarioId <= 0 || empty($mapping)) {
             $this->jsonResponse(['error' => 'Missing scenario_id or mapping'], 400);
@@ -87,7 +90,7 @@ class GameController
             return;
         }
 
-        $result = $this->scenarioModel->validateAnswer($scenario, $mapping, $goalType);
+        $result = $this->scenarioModel->validateAnswer($scenario, $mapping, $goalType, $adrFieldOrder);
         $this->jsonResponse($result);
     }
 

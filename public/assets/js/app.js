@@ -910,11 +910,38 @@
             }
         });
 
-        var data = await api('game/validate', {
+        var validatePayload = {
             scenario_id: scenario.id,
             goal_type: selectedGoalType,
             mapping: mapping,
-        });
+        };
+
+        if (selectedGoalType === 'Hybrid' && scenario.address_display) {
+            // Derive the country-specific AdrLine field order from the formatted address.
+            // Fields that go into AdrLine (all except TwnNm and Ctry).
+            var adrFields = [
+                { field: 'StrtNm',    value: scenario.address_display.road },
+                { field: 'BldgNb',   value: scenario.address_display.houseNumber },
+                { field: 'AdtlAdrInf', value: scenario.address_display.attention },
+                { field: 'PstCd',    value: scenario.address_display.postcode },
+            ];
+            var formattedLines = formatAddressForDisplay(scenario.address_display);
+            // Find each non-empty field's first occurrence position in the formatted text
+            var withPos = adrFields
+                .filter(function (f) { return f.value && f.value.trim() !== ''; })
+                .map(function (f) {
+                    return { field: f.field, pos: formattedLines.indexOf(f.value.trim()) };
+                });
+            // Sort by position in formatted output (fields not found go to end)
+            withPos.sort(function (a, b) {
+                var pa = a.pos === -1 ? Infinity : a.pos;
+                var pb = b.pos === -1 ? Infinity : b.pos;
+                return pa - pb;
+            });
+            validatePayload.adr_field_order = withPos.map(function (f) { return f.field; });
+        }
+
+        var data = await api('game/validate', validatePayload);
         if (!data) return;
 
         roundScores.push({

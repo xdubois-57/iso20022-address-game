@@ -315,6 +315,63 @@ class ScenarioValidationTest extends TestCase
         $this->assertTrue($result['perfect']);
     }
 
+    public function testHybridModeCountrySpecificOrderCorrect(): void
+    {
+        $scenario = [
+            'json_data' => [
+                'StrtNm' => 'Hauptstraße',
+                'BldgNb' => '12',
+                'PstCd' => '10115',
+                'TwnNm' => 'Berlin',
+                'Ctry' => 'DE',
+            ],
+        ];
+
+        // German format: BldgNb after StrtNm on same line, PstCd before TwnNm
+        // Formatted: "Hauptstraße 12\n10115 Berlin\nGermany"
+        // Client sends order: StrtNm, BldgNb, PstCd (TwnNm and Ctry excluded from AdrLine)
+        $mapping = [
+            'TwnNm' => 'Berlin',
+            'Ctry' => 'DE',
+            'AdrLine1' => ['StrtNm', 'BldgNb'],
+            'AdrLine2' => ['PstCd'],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid', ['StrtNm', 'BldgNb', 'PstCd']);
+        $this->assertTrue($result['perfect']);
+    }
+
+    public function testHybridModeCountrySpecificOrderWrong(): void
+    {
+        $scenario = [
+            'json_data' => [
+                'StrtNm' => 'Hauptstraße',
+                'BldgNb' => '12',
+                'PstCd' => '10115',
+                'TwnNm' => 'Berlin',
+                'Ctry' => 'DE',
+            ],
+        ];
+
+        // Client supplies German order (StrtNm, BldgNb, PstCd) but player put PstCd first
+        $mapping = [
+            'TwnNm' => 'Berlin',
+            'Ctry' => 'DE',
+            'AdrLine1' => ['PstCd', 'StrtNm', 'BldgNb'],
+            'AdrLine2' => [],
+        ];
+
+        $result = $this->model->validateAnswer($scenario, $mapping, 'Hybrid', ['StrtNm', 'BldgNb', 'PstCd']);
+        $this->assertFalse($result['perfect']);
+        $hasOrderError = false;
+        foreach ($result['errors'] as $err) {
+            if (isset($err['error']) && str_contains($err['error'], 'wrong order')) {
+                $hasOrderError = true;
+            }
+        }
+        $this->assertTrue($hasOrderError, 'Should have a wrong order error for country-specific ordering');
+    }
+
     public function testDefaultGoalTypeIsStructured(): void
     {
         $scenario = [

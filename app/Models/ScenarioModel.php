@@ -108,13 +108,16 @@ class ScenarioModel
      * Structured Mode: Each chip must land in its exact semantic slot.
      * Hybrid Mode: TwnNm and Ctry are mandatory slots; remaining components
      *              go into AdrLine1/AdrLine2 as field-name arrays. The order
-     *              across both lines must match the natural address order, but
+     *              across both lines must match the formatted address order
+     *              (country-specific, as shown on the left panel), but
      *              the split point between lines does not matter. Each line
      *              must not exceed 70 characters.
      *
-     * @param string $goalType The player's chosen mode ('Structured' or 'Hybrid').
+     * @param string     $goalType      The player's chosen mode ('Structured' or 'Hybrid').
+     * @param array|null $adrFieldOrder Country-specific field order derived from the formatted
+     *                                  address (sent by the client). Falls back to HYBRID_FIELD_ORDER.
      */
-    public function validateAnswer(array $scenario, array $userMapping, string $goalType = 'Structured'): array
+    public function validateAnswer(array $scenario, array $userMapping, string $goalType = 'Structured', ?array $adrFieldOrder = null): array
     {
         $correct = $scenario['json_data'];
         $errors = [];
@@ -169,9 +172,13 @@ class ScenarioModel
                 $adrLine2Fields = [];
             }
 
-            // Expected fields with values, in natural address order
+            // Expected fields with values, in country-specific formatted address order.
+            // Use client-supplied order if provided, fall back to static HYBRID_FIELD_ORDER.
+            $baseOrder = (!empty($adrFieldOrder))
+                ? array_filter($adrFieldOrder, fn($f) => in_array($f, self::HYBRID_FIELD_ORDER, true))
+                : self::HYBRID_FIELD_ORDER;
             $expectedOrder = array_values(array_filter(
-                self::HYBRID_FIELD_ORDER,
+                $baseOrder,
                 function ($f) use ($correct) {
                     return trim($correct[$f] ?? '') !== '';
                 }
