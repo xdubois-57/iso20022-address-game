@@ -34,7 +34,24 @@ class BackgroundController
     public function generate(): void
     {
         $theme = $this->loadTheme();
+        $svg   = self::buildThemedSvg($theme);
 
+        header('Content-Type: image/svg+xml');
+        header('Cache-Control: public, max-age=31536000, immutable');
+        echo $svg;
+    }
+
+    /**
+     * Build the themed world-map SVG string.
+     *
+     * This is the single source of truth for the background — used both by
+     * the /bg SVG route and by ShareController when rasterising to PNG.
+     *
+     * @param array<string,string> $theme  Theme color map (color_bg, color_primary_light, color_primary, …)
+     * @return string  Complete SVG markup ready to serve or rasterise.
+     */
+    public static function buildThemedSvg(array $theme): string
+    {
         $oceanColor = $theme['color_bg'];
         $landColor  = $theme['color_primary_light'];
         $lineColor  = $theme['color_primary'];
@@ -54,9 +71,7 @@ class BackgroundController
         $oceanRect = '<rect width="100%" height="100%" fill="' . htmlspecialchars($oceanColor, ENT_QUOTES) . '"/>';
         $svg = preg_replace('/(<svg[^>]*>)/', '$1' . $oceanRect, $svg, 1);
 
-        header('Content-Type: image/svg+xml');
-        header('Cache-Control: public, max-age=31536000, immutable');
-        echo $svg;
+        return $svg;
     }
 
     private function loadTheme(): array

@@ -8,6 +8,7 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BackgroundController;
 use App\Models\Database;
 use App\Models\Encryption;
 use App\Models\ThemeModel;
@@ -93,86 +94,168 @@ class ShareController
             exit;
         }
 
-        $score = $data['s'];
-        $name = $data['n'];
+        $score = (string) $data['s'];
+        $name  = $data['n'];
 
-        [$img, $w, $h, $emerald, $darkGreen] = $this->buildImageCanvas();
+        if (extension_loaded('imagick')) {
+            $pngData = $this->buildShareImageImagick($score, $name);
+        } else {
+            $pngData = $this->buildShareImageGd($score, $name);
+        }
 
-        // Resolve fonts
+        $this->outputPng($pngData);
+    }
+
+    /**
+     * Build share image using Imagick: SVG world-map background + balloons + text.
+     *
+     * The background is produced by BackgroundController::buildThemedSvg(),
+     * which is the single source of truth for the themed world map — the
+     * exact same SVG served at /bg and rendered as the page background.
+     */
+    private function buildShareImageImagick(string $score, string $name): string
+    {
+        $theme    = $this->loadTheme();
+        $bgHex    = $theme['color_bg']      ?: '#94e3fe';
         $fontBold = $this->findFont(true);
+
+        $w = 1200;
+        $h = 630;
+
+        // ── 1. Rasterise the exact same themed SVG used by /bg ──────────────
+        $svg = BackgroundController::buildThemedSvg($theme);
+
+        $bgIm = new \Imagick();
+        $bgIm->setBackgroundColor(new \ImagickPixel($bgHex));
+        $bgIm->setResolution(96, 96);
+        $bgIm->readImageBlob($svg);
+        $bgIm->setImageFormat('png');
+        $bgIm->resizeImage($w, $h, \Imagick::FILTER_LANCZOS, 1);
+
+        $im = new \Imagick();
+        $im->newImage($w, $h, new \ImagickPixel($bgHex));
+        $im->compositeImage($bgIm, \Imagick::COMPOSITE_OVER, 0, 0);
+        $bgIm->destroy();
+
+        // ── 2. Balloons — warm/vivid palette that never clashes with green ──
+        $balloonPalette = [
+            'rgba(220,50,50,0.80)',
+            'rgba(255,140,0,0.80)',
+            'rgba(130,50,200,0.80)',
+            'rgba(220,50,180,0.80)',
+            'rgba(50,100,220,0.80)',
+            'rgba(240,200,0,0.80)',
+        ];
+        // Keep balloons out of centre text zone
+        $clearX1 = (int)(($w - 700) / 2);
+        $clearX2 = $clearX1 + 700;
+        $clearY1 = (int)(($h - 360) / 2);
+        $clearY2 = $clearY1 + 360;
+
+        mt_srand(42);
+        $placed  = [];
+        $maxIter = 200;
+        for ($i = 0; $i < 12 && $maxIter > 0; $maxIter--) {
+            $r  = mt_rand(22, 40);
+            $bx = mt_rand($r + 5, $w - $r - 5);
+            $by = mt_rand($r + 5, $h - $r - 5);
+            if ($bx + $r > $clearX1 && $bx - $r < $clearX2
+                && $by + $r > $clearY1 && $by - $r < $clearY2) {
+                continue;
+            }
+            $ok = true;
+            foreach ($placed as [$px, $py, $pr]) {
+                if (sqrt(($bx - $px) ** 2 + ($by - $py) ** 2) < ($r + $pr + 15)) {
+                    $ok = false;
+                    break;
+                }
+            }
+            if (!$ok) { continue; }
+            $placed[] = [$bx, $by, $r];
+            $i++;
+
+            $col = $balloonPalette[($i - 1) % count($balloonPalette)];
+            $bd  = new \ImagickDraw();
+            $bd->setFillColor(new \ImagickPixel($col));
+            $bd->setStrokeWidth(0);
+            $bd->ellipse($bx, $by, $r, (int)($r * 1.15), 0, 360);
+            $im->drawImage($bd);
+            $bd->destroy();
+
+            $sd = new \ImagickDraw();
+            $sd->setStrokeColor(new \ImagickPixel('rgba(0,0,0,0.35)'));
+            $sd->setStrokeWidth(1.5);
+            $sd->line($bx, $by + $r + 2, $bx + mt_rand(-10, 10), $by + $r + mt_rand(25, 55));
+            $im->drawImage($sd);
+            $sd->destroy();
+        }
+
+        // ── 3. Text — large, centred, with drop-shadow for readability ──────
+        $drawText = function (string $text, float $size, string $color, int $yOff) use ($im, $fontBold): void {
+            // Shadow pass
+            $ds = new \ImagickDraw();
+            if ($fontBold) { $ds->setFont($fontBold); }
+            $ds->setFontSize($size);
+            $ds->setFillColor(new \ImagickPixel('rgba(0,0,0,0.55)'));
+            $ds->setGravity(\Imagick::GRAVITY_CENTER);
+            $im->annotateImage($ds, 3, $yOff + 3, 0, $text);
+            $ds->destroy();
+            // Foreground pass
+            $df = new \ImagickDraw();
+            if ($fontBold) { $df->setFont($fontBold); }
+            $df->setFontSize($size);
+            $df->setFillColor(new \ImagickPixel($color));
+            $df->setGravity(\Imagick::GRAVITY_CENTER);
+            $im->annotateImage($df, 0, $yOff, 0, $text);
+            $df->destroy();
+        };
+
+        $drawText('ISO 20022 Address Game', 52, '#ffffff', -160);
+        $drawText($name,                   110, '#ffffff',  -15);
+        $drawText($score . ' pts',          80, '#FFD700',  130);
+
+        $im->setImageFormat('png');
+        $png = $im->getImageBlob();
+        $im->destroy();
+        return $png;
+    }
+
+    /**
+     * GD fallback share image (no Imagick): plain bg + text.
+     */
+    private function buildShareImageGd(string $score, string $name): string
+    {
+        $theme    = $this->loadTheme();
+        $bgRgb    = ThemeModel::hexToRgb($theme['color_bg'])      ?? [172, 249, 233];
+        $emerRgb  = ThemeModel::hexToRgb($theme['color_primary']) ?? [1, 169, 144];
+        $textRgb  = ThemeModel::hexToRgb($theme['color_text'])    ?? [51, 61, 62];
+
+        $w = 1200; $h = 630;
+        $img      = imagecreatetruecolor($w, $h);
+        $bgColor  = imagecolorallocate($img, $bgRgb[0], $bgRgb[1], $bgRgb[2]);
+        $emerald  = imagecolorallocate($img, $emerRgb[0], $emerRgb[1], $emerRgb[2]);
+        $darkGreen = imagecolorallocate($img, $textRgb[0], $textRgb[1], $textRgb[2]);
+        imagefill($img, 0, 0, $bgColor);
+        imagefilledrectangle($img, 0, 0, $w, 12, $emerald);
+
+        $fontBold    = $this->findFont(true);
         $fontRegular = $this->findFont(false);
 
         if ($fontBold && $fontRegular) {
-            // Title - dark green for contrast
-            $this->ttfCentered($img, 48, $fontBold, 'ISO 20022 Address Challenge', $w, 100, $darkGreen);
-
-            // Player name
-            $this->ttfCentered($img, 28, $fontRegular, $name, $w, 165, $darkGreen);
-
-            // Separator line
-            $lineY = 205;
-            imageline($img, 300, $lineY, $w - 300, $lineY, $emerald);
-            imageline($img, 300, $lineY + 1, $w - 300, $lineY + 1, $emerald);
-
-            // HUGE score in dark green
-            $this->ttfCentered($img, 150, $fontBold, (string) $score, $w, 385, $darkGreen);
-
-            // "POINTS" label in emerald
-            $this->ttfCentered($img, 32, $fontBold, 'POINTS', $w, 435, $emerald);
-
-            // Separator line
-            imageline($img, 300, 480, $w - 300, 480, $emerald);
-            imageline($img, 300, 481, $w - 300, 481, $emerald);
-
-            // Challenge CTA in emerald
-            $this->ttfCentered($img, 36, $fontBold, 'Can you beat this score?', $w, 545, $emerald);
-
-            // Footer in dark green
-            $safeHost = $this->getSafeHost();
-            $this->ttfCentered($img, 20, $fontRegular, 'Play now at ' . $safeHost, $w, 600, $darkGreen);
+            $this->ttfCentered($img, 42, $fontBold,    'ISO 20022 Address Game', $w, 130, $emerald);
+            $this->ttfCentered($img, 56, $fontBold,    $name,                    $w, 320, $darkGreen);
+            $this->ttfCentered($img, 52, $fontBold,    $score . ' pts',          $w, 450, $emerald);
         } else {
-            // GD built-in fonts fallback
-            $safeHost = $this->getSafeHost();
-            $this->gdCentered($img, 5, 'ISO 20022 Address Challenge', $w, 70, $darkGreen);
-            $this->gdCentered($img, 4, $name, $w, 130, $darkGreen);
-            imageline($img, 300, 165, $w - 300, 165, $emerald);
-            $this->gdCentered($img, 5, $score . ' POINTS', $w, 300, $darkGreen);
-            imageline($img, 300, 400, $w - 300, 400, $emerald);
-            $this->gdCentered($img, 4, 'Can you beat this score?', $w, 460, $emerald);
-            $this->gdCentered($img, 2, 'Play now at ' . $safeHost, $w, 550, $darkGreen);
+            $this->gdCentered($img, 5, 'ISO 20022 Address Game', $w, 100, $emerald);
+            $this->gdCentered($img, 5, $name,                    $w, 280, $darkGreen);
+            $this->gdCentered($img, 5, $score . ' pts',          $w, 400, $emerald);
         }
 
-        // Render PNG to buffer
         ob_start();
         imagepng($img, null, 6);
-        $pngData = ob_get_clean();
+        $png = ob_get_clean();
         imagedestroy($img);
-
-        header('Content-Type: image/png');
-        header('Cache-Control: public, max-age=86400, immutable');
-        header('Accept-Ranges: bytes');
-
-        // Detect social media crawlers - serve uncompressed for compatibility
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $crawlers = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
-        $isCrawler = false;
-        foreach ($crawlers as $crawler) {
-            if (stripos($userAgent, $crawler) !== false) {
-                $isCrawler = true;
-                break;
-            }
-        }
-
-        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-        if (!$isCrawler && strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
-            $compressed = gzencode($pngData, 6);
-            header('Content-Encoding: gzip');
-            header('Content-Length: ' . strlen($compressed));
-            echo $compressed;
-        } else {
-            header('Content-Length: ' . strlen($pngData));
-            echo $pngData;
-        }
+        return $png;
     }
 
     /**
@@ -226,6 +309,37 @@ class ShareController
         // Detect social media crawlers - serve uncompressed for compatibility
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $crawlers = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
+        $isCrawler = false;
+        foreach ($crawlers as $crawler) {
+            if (stripos($userAgent, $crawler) !== false) {
+                $isCrawler = true;
+                break;
+            }
+        }
+
+        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+        if (!$isCrawler && strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
+            $compressed = gzencode($pngData, 6);
+            header('Content-Encoding: gzip');
+            header('Content-Length: ' . strlen($compressed));
+            echo $compressed;
+        } else {
+            header('Content-Length: ' . strlen($pngData));
+            echo $pngData;
+        }
+    }
+
+    /**
+     * Output a PNG binary blob with correct headers and optional gzip for browsers.
+     */
+    private function outputPng(string $pngData): void
+    {
+        header('Content-Type: image/png');
+        header('Cache-Control: public, max-age=86400, immutable');
+        header('Accept-Ranges: bytes');
+
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $crawlers  = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
         $isCrawler = false;
         foreach ($crawlers as $crawler) {
             if (stripos($userAgent, $crawler) !== false) {
