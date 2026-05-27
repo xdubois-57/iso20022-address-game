@@ -540,6 +540,107 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/get-event-code — Return the current event code (or empty if none).
+     */
+    public function getEventCode(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+        $this->jsonResponse(['event_code' => self::fetchEventCodeStatic() ?? '']);
+    }
+
+    /**
+     * POST /api/admin/set-event-code — Save or clear the event code.
+     * Event codes are hashed with bcrypt (like admin PIN) for secure storage.
+     */
+    public function setEventCode(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $code  = trim($input['event_code'] ?? '');
+
+        $db  = Database::getInstance();
+        $pdo = $db->getPdo();
+
+        if ($code === '') {
+            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code']);
+            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code_timestamp']);
+            // Clear current session rate limiting
+            unset($_SESSION['event_code_attempts']);
+            unset($_SESSION['event_code_lock_until']);
+            unset($_SESSION['event_code_verified_at']);
+            $this->jsonResponse(['success' => true, 'event_code' => '']);
+            return;
+        }
+
+        if (mb_strlen($code) > 64) {
+            $this->jsonResponse(['error' => 'Event code must be 64 characters or less'], 400);
+            return;
+        }
+
+        // Hash the event code with bcrypt (same as admin PIN)
+        $hash = password_hash($code, PASSWORD_BCRYPT);
+        $timestamp = time();
+
+        $pdo->beginTransaction();
+        try {
+            // Save the hashed code
+            $stmt = $pdo->prepare(
+                'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
+                . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+            );
+            $stmt->execute(['event_code', $hash]);
+
+            // Save the timestamp to track when code was last changed
+            $stmt->execute(['event_code_timestamp', (string)$timestamp]);
+
+            $pdo->commit();
+        } catch (\Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        // Clear current session rate limiting (user just set the code, allow immediate use)
+        unset($_SESSION['event_code_attempts']);
+        unset($_SESSION['event_code_lock_until']);
+        // Note: We don't set event_code_verified_at here because the admin should still enter the code
+
+        $this->jsonResponse(['success' => true, 'event_code' => '********']); // Never return the actual code
+    }
+
+    /**
+     * Return the stored event code, or null if none is set.
+     */
+    public static function fetchEventCodeStatic(): ?string
+    {
+        $db  = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
+        $stmt->execute(['event_code']);
+        $row = $stmt->fetch();
+        return ($row && $row['setting_value'] !== '') ? $row['setting_value'] : null;
+    }
+
+    /**
+     * Return the timestamp when event code was last changed, or 0 if never set.
+     */
+    public static function fetchEventCodeTimestampStatic(): int
+    {
+        $db  = Database::getInstance();
+        $pdo = $db->getPdo();
+        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
+        $stmt->execute(['event_code_timestamp']);
+        $row = $stmt->fetch();
+        return ($row && $row['setting_value'] !== '') ? (int)$row['setting_value'] : 0;
+    }
+
+    /**
      * POST /api/admin/get-theme — Return current theme colors.
      */
     public function getTheme(): void

@@ -82,6 +82,17 @@ Each chip must match its specific semantic slot:
 - Global "Stop" button always available for immediate reset
 - Custom overlay modals replace native `alert()` / `confirm()` to maintain fullscreen mode
 
+### Event Code Gate (Optional)
+
+- **Configuration**: Admin sets a plaintext code (max 64 chars) which is hashed with bcrypt on save
+- **Status Check**: `POST game/event-code-status` returns `{required: true/false}` without revealing the code
+- **Verification**: `POST game/verify-event-code` with rate limiting:
+  - 5 failed attempts → 30-second lockout (tracked in session)
+  - `password_verify()` for secure constant-time comparison
+  - Success sets `$_SESSION['event_code_ok'] = true`
+- **Session Persistence**: Once unlocked, the session can access the game until `resetSession()` is called (Stop button or inactivity timeout)
+- **Frontend**: Gate screen uses same `.welcome-card` styling as the main game box; error messages display inline with rate limit feedback
+
 ### Kiosk Mode (Optional)
 - **Toggle**: Admin dashboard includes session-based kiosk mode switch
 - **Fullscreen**: Auto-enters fullscreen when enabled; re-enters if user exits
@@ -123,9 +134,27 @@ Each chip must match its specific semantic slot:
 ```sql
 scenarios: id, json_data, created_at
 leaderboard: id, encrypted_name, score, time_seconds, created_at
-settings: setting_key, setting_value, updated_at
+settings: setting_key, setting_value, updated_at  -- event_code (bcrypt hash), event_code_timestamp (int)
 facts: id, content, created_at
 ```
+
+### 4.3 Session State
+
+| Key | Purpose | Set By | Cleared By |
+|-----|---------|--------|------------|
+| `admin` | Admin authentication | `admin/login` | `admin/logout`, session expiry |
+| `event_code_ok` | Event code unlocked | `game/verify-event-code` | Code change, session expiry |
+| `event_code_verified_at` | Timestamp when verified | `game/verify-event-code` | Code change, admin set/clear |
+| `event_code_attempts` | Failed code attempts | `game/verify-event-code` | Success, code change, lockout expiry |
+| `event_code_lock_until` | Rate limit lockout timestamp | `game/verify-event-code` | Code change, lockout expiry |
+| `csrf_token` | CSRF protection | Session init | Session expiry |
+
+**Session Persistence:** Once verified, the session remains valid across page refreshes until:
+- Admin changes the event code (invalidates all sessions)
+- Session expires
+- User clicks "Stop" (JavaScript state resets, but PHP session persists)
+
+**Rate Limiting Reset:** When admin changes the event code, all rate limiting counters are reset for all users.
 
 ## 5. Security & GDPR
 
@@ -142,7 +171,8 @@ facts: id, content, created_at
 - **Host header validation**: `HTTP_HOST` validated against `[a-zA-Z0-9.-]+(:\d+)?` pattern to prevent injection
 - **Credentials**: `config/credentials.php` excluded from version control, protected by `.htaccess`
 - **Admin PIN**: Stored as bcrypt hash; legacy plaintext PINs auto-upgraded on login
-- **Security logging**: Failed admin logins and CSRF violations logged with remote IP address
+- **Event Code**: Hashed with bcrypt (never in plaintext), rate limited (5 attempts / 30 sec), constant-time comparison via `password_verify()`
+- **Security logging**: Failed admin logins, event code attempts, and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
 

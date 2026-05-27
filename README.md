@@ -35,7 +35,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Dynamic Apple Touch Icon** — Themed PNG icon with color 🎮 emoji that updates automatically with theme changes
 - **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
-- **Kiosk Mode** — Optional fullscreen mode with automatic screen saver (60s inactivity), external link removal
+- **Event Code Access** — Optional access control requiring players to enter a code before playing (bcrypt hashed, rate limited)
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
@@ -124,6 +124,22 @@ Enable **Kiosk Mode** for unattended public displays:
 
 **Note:** Kiosk mode is session-only and resets on page reload.
 
+### Event Code (Optional)
+
+Enable **Event Code** protection to restrict game access to authorized players only:
+
+1. Go to Admin panel
+2. Navigate to "Event Code" section
+3. Enter a code (max 64 characters) and click Save
+4. The game will now prompt for this code on the home screen
+
+**Security Features:**
+- Event codes are hashed with bcrypt (never stored in plaintext)
+- Rate limited: 5 failed attempts trigger a 5-minute lockout
+- Code is masked in admin panel after saving
+- Clearing the input and saving removes the protection
+- Session-persistent: once entered correctly, the player can play until session reset
+
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
 
@@ -152,6 +168,7 @@ For an optimal kiosk experience on iPad, add the app to your home screen and ena
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
+- **Event Code**: Hashed with bcrypt (like admin PIN), rate limited (5 attempts / 5 minutes)
 - **Admin PIN**: Stored as bcrypt hash; legacy plaintext auto-upgraded on login
 - **Prepared statements**: All database queries use parameterised PDO statements
 - **Input validation**: Server-side validation on all inputs (score 0–100, time 0–3600s, name 1–50 chars)

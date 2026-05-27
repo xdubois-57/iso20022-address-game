@@ -284,4 +284,57 @@ class SecurityTest extends TestCase
         $this->assertTrue(password_verify($pin, $hash));
         $this->assertFalse(password_verify('wrong', $hash));
     }
+
+    /* =======================================================
+       Event Code Rate Limiting
+       ======================================================= */
+
+    private const MAX_EVENT_CODE_ATTEMPTS = 5;
+    private const EVENT_CODE_LOCKOUT_SECONDS = 30;
+
+    public function testEventCodeRateLimitAllowsUnderThreshold(): void
+    {
+        $session = ['event_code_attempts' => 3, 'event_code_lock_until' => 0];
+        $locked = ($session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS
+            && time() < $session['event_code_lock_until']);
+        $this->assertFalse($locked);
+    }
+
+    public function testEventCodeRateLimitBlocksAfterMax(): void
+    {
+        $session = [
+            'event_code_attempts' => self::MAX_EVENT_CODE_ATTEMPTS,
+            'event_code_lock_until' => time() + 200,
+        ];
+        $locked = ($session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS
+            && time() < $session['event_code_lock_until']);
+        $this->assertTrue($locked);
+    }
+
+    public function testEventCodeRateLimitResetsAfterExpiry(): void
+    {
+        $session = [
+            'event_code_attempts' => self::MAX_EVENT_CODE_ATTEMPTS,
+            'event_code_lock_until' => time() - 1,
+        ];
+        $lockExpired = (time() >= $session['event_code_lock_until']
+            && $session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS);
+        $this->assertTrue($lockExpired);
+    }
+
+    public function testEventCodeIsHashedNotPlaintext(): void
+    {
+        $code = 'MYSECRETEVENT2026';
+        $hash = password_hash($code, PASSWORD_BCRYPT);
+
+        // Must be bcrypt format
+        $this->assertTrue(str_starts_with($hash, '$2y$') || str_starts_with($hash, '$2b$'));
+
+        // Verification must work
+        $this->assertTrue(password_verify($code, $hash));
+        $this->assertFalse(password_verify('wrong', $hash));
+
+        // Hash must not reveal plaintext
+        $this->assertStringNotContainsString($code, $hash);
+    }
 }

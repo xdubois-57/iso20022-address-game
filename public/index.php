@@ -139,9 +139,11 @@ if ($method === 'POST') {
         'game/check-name' => (new GameController())->checkName(),
         'game/complete' => (new GameController())->complete(),
         'game/deadline' => (new GameController())->getDeadline(),
+        'game/event-code-status' => (new GameController())->eventCodeStatus(),
         'game/facts' => (new GameController())->getFacts(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
+        'game/verify-event-code' => (new GameController())->verifyEventCode(),
 
         // Leaderboard
         'leaderboard/top' => (new LeaderboardController())->getTop(),
@@ -166,6 +168,8 @@ if ($method === 'POST') {
         'admin/delete-fact' => (new AdminController())->deleteFact(),
         'admin/game-stats' => (new AdminController())->getGameStats(),
         'admin/reset-game-counter' => (new AdminController())->resetGameCounter(),
+        'admin/get-event-code' => (new AdminController())->getEventCode(),
+        'admin/set-event-code' => (new AdminController())->setEventCode(),
         'admin/get-theme' => (new AdminController())->getTheme(),
         'admin/save-theme' => (new AdminController())->saveTheme(),
 

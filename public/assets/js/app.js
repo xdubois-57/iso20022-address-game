@@ -56,6 +56,7 @@
     var currentFactIndex = -1;
     const FACT_ROTATION_INTERVAL = 20000;
     var kioskMode = false;
+    var eventCodeUnlocked = false;
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
@@ -339,6 +340,7 @@
         playerName = '';
         lastSubmittedEntryId = null;
         lastSubmittedPage = null;
+        eventCodeUnlocked = false;
         showScreen('game');
         resetScreenSaverTimer();
     }
@@ -453,6 +455,85 @@
         stopDeadlineCountdown();
         stopFactRotation();
 
+        // Check if an event code is required and if session is verified
+        (async function () {
+            var status = await api('game/event-code-status', {});
+            if (status && status.required && !status.verified) {
+                renderEventCodeGate();
+            } else {
+                eventCodeUnlocked = true;
+                renderWelcomeCard();
+            }
+        })();
+    }
+
+    function renderEventCodeGate() {
+        var html = '<section class="game-welcome">';
+        html += '<div id="countdownBanner"></div>';
+        html += '<div class="welcome-card">';
+        html += '<h2>ISO 20022 Address Game</h2>';
+        html += '<p>Please enter the event code to access the game.</p>';
+        html += '<input type="text" id="eventCodeInput" placeholder="Enter event code" maxlength="64" class="name-input" autocomplete="off">';
+        html += '<button class="btn-primary btn-start" id="eventCodeSubmitBtn">Enter</button>';
+        html += '<p class="event-code-error hidden" id="eventCodeError">Invalid event code. Please try again.</p>';
+        html += '</div>';
+        html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
+        html += '</section>';
+        appContainer.innerHTML = html;
+
+        // Fetch deadline and start countdown
+        (async function () {
+            var data = await api('game/deadline', {});
+            if (data && data.deadline) {
+                var banner = document.getElementById('countdownBanner');
+                if (!banner) return;
+                banner.className = 'countdown-banner';
+                var target = new Date(data.deadline);
+                updateCountdown(target, banner);
+                deadlineCountdownInterval = setInterval(function () {
+                    updateCountdown(target, banner);
+                }, 1000);
+            }
+        })();
+
+        // Fetch facts and start rotation
+        (async function () {
+            var data = await api('game/facts', {});
+            if (data && data.facts) {
+                factsCache = data.facts;
+                var factEl = document.getElementById('welcomeFactDisplay');
+                if (factEl && factsCache.length > 0) {
+                    startFactRotation(factEl);
+                }
+            }
+        })();
+
+        var input = document.getElementById('eventCodeInput');
+        document.getElementById('eventCodeSubmitBtn').addEventListener('click', async function () {
+            var code = input.value.trim();
+            if (!code) { input.style.borderColor = 'var(--game-danger)'; input.focus(); return; }
+            input.style.borderColor = '';
+            var resp = await api('game/verify-event-code', { code: code });
+            if (resp && resp.success) {
+                eventCodeUnlocked = true;
+                stopDeadlineCountdown();
+                stopFactRotation();
+                renderWelcomeCard();
+            } else {
+                var errorEl = document.getElementById('eventCodeError');
+                errorEl.textContent = (resp && resp.error) ? resp.error : 'Invalid event code. Please try again.';
+                errorEl.classList.remove('hidden');
+                input.value = '';
+                input.focus();
+            }
+        });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') document.getElementById('eventCodeSubmitBtn').click();
+        });
+        input.focus();
+    }
+
+    function renderWelcomeCard() {
         var html = '<section class="game-welcome">';
         html += '<div id="countdownBanner"></div>';
         html += '<div class="welcome-card">';
@@ -1379,6 +1460,16 @@
         html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
         html += '</div>';
 
+        // Event Code
+        html += '<div class="admin-section"><h3>Event Code</h3>';
+        html += '<p>Set a code that players must enter before accessing the game. Leave blank to disable.</p>';
+        html += '<div class="pin-change-form">';
+        html += '<input type="text" id="eventCodeAdminInput" placeholder="Event code (leave blank to disable)" maxlength="64" autocomplete="off">';
+        html += '<button class="btn-primary" id="saveEventCodeBtn">Save</button>';
+        html += '</div>';
+        html += '<p id="eventCodeStatus" class="deadline-status hidden"></p>';
+        html += '</div>';
+
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
         html += '<div class="pin-change-form">';
@@ -1439,12 +1530,25 @@
         initDropzone();
         loadGameStats();
         loadAdminLeaderboard();
+        loadAdminEventCode();
         loadAdminDeadline();
         loadAdminFacts();
         loadAdminTheme();
     }
 
     var gamesChart = null;
+
+    async function loadAdminEventCode() {
+        var data = await api('admin/get-event-code');
+        if (!data) return;
+        var input = document.getElementById('eventCodeAdminInput');
+        // If a code is set (returns hash prefix), show placeholder; if empty, show empty
+        if (input) {
+            var hasCode = data.event_code && (data.event_code.startsWith('$2y$') || data.event_code.startsWith('$2b$'));
+            input.placeholder = hasCode ? '******** (code is set)' : 'Event code (leave blank to disable)';
+            input.value = ''; // Never pre-fill actual or hashed values
+        }
+    }
 
     async function loadGameStats() {
         var data = await api('admin/game-stats');
@@ -1836,6 +1940,22 @@
             } else {
                 disableKioskMode();
                 if (label) label.textContent = 'Disabled';
+            }
+        });
+
+        document.getElementById('saveEventCodeBtn').addEventListener('click', async function () {
+            var code = document.getElementById('eventCodeAdminInput').value.trim();
+            var data = await api('admin/set-event-code', { event_code: code });
+            if (data && data.success) {
+                var status = document.getElementById('eventCodeStatus');
+                status.textContent = code === '' ? 'Event code disabled.' : 'Event code saved.';
+                status.classList.remove('hidden');
+                // Clear the input for security (code is hashed, never displayed back)
+                if (code !== '') {
+                    document.getElementById('eventCodeAdminInput').value = '';
+                }
+            } else {
+                await showModal(data ? data.error : 'Error saving event code');
             }
         });
 
