@@ -1546,11 +1546,11 @@
         var data = await api('admin/get-event-code');
         if (!data) return;
         var input = document.getElementById('eventCodeAdminInput');
-        // If a code is set (returns hash prefix), show placeholder; if empty, show empty
+        // The server reports only whether a code exists — it no longer sends the
+        // bcrypt hash, so there is nothing here worth masking client-side.
         if (input) {
-            var hasCode = data.event_code && (data.event_code.startsWith('$2y$') || data.event_code.startsWith('$2b$'));
-            input.placeholder = hasCode ? '******** (code is set)' : 'Event code (leave blank to disable)';
-            input.value = ''; // Never pre-fill actual or hashed values
+            input.placeholder = data.has_code ? '******** (code is set)' : 'Event code (leave blank to disable)';
+            input.value = '';
         }
     }
 

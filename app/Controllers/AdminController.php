@@ -27,6 +27,7 @@ use App\Models\ExcelParser;
 use App\Models\ThemeModel;
 use App\Models\HtmlSanitizer;
 use App\Models\SettingsModel;
+use App\Models\RateLimitModel;
 
 class AdminController
 {
@@ -49,20 +50,16 @@ class AdminController
 
     public function login(): void
     {
-        // Rate limiting
-        $attempts = $_SESSION['login_attempts'] ?? 0;
-        $lockUntil = $_SESSION['login_lock_until'] ?? 0;
+        // Rate limiting is keyed on the caller's address rather than the
+        // session: a session-scoped counter reset the moment the client dropped
+        // its cookie, which is no obstacle at all to brute-forcing four digits.
+        $limiter = new RateLimitModel(Database::getInstance()->getPdo());
+        $bucket  = RateLimitModel::bucketFor('admin_login');
 
-        if ($attempts >= self::MAX_LOGIN_ATTEMPTS && time() < $lockUntil) {
-            $remaining = $lockUntil - time();
-            $this->jsonResponse(['error' => "Too many attempts. Try again in {$remaining}s."], 429);
+        $retryAfter = $limiter->retryAfter($bucket);
+        if ($retryAfter > 0) {
+            $this->jsonResponse(['error' => "Too many attempts. Try again in {$retryAfter}s."], 429);
             return;
-        }
-
-        // Reset if lockout expired
-        if (time() >= $lockUntil && $attempts >= self::MAX_LOGIN_ATTEMPTS) {
-            $_SESSION['login_attempts'] = 0;
-            $attempts = 0;
         }
 
         $input = $this->getJsonInput();
@@ -84,17 +81,18 @@ class AdminController
         }
 
         if ($valid) {
-            $_SESSION['login_attempts'] = 0;
-            unset($_SESSION['login_lock_until']);
+            $limiter->clear($bucket);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             $this->jsonResponse(['success' => true]);
         } else {
-            $_SESSION['login_attempts'] = $attempts + 1;
-            if ($attempts + 1 >= self::MAX_LOGIN_ATTEMPTS) {
-                $_SESSION['login_lock_until'] = time() + self::LOCKOUT_SECONDS;
+            $lockedFor = $limiter->recordFailure($bucket, self::MAX_LOGIN_ATTEMPTS, self::LOCKOUT_SECONDS);
+            error_log('SECURITY: Failed admin login attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+
+            if ($lockedFor > 0) {
+                $this->jsonResponse(['error' => "Too many attempts. Try again in {$lockedFor}s."], 429);
+                return;
             }
-            error_log('SECURITY: Failed admin login attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' (attempt ' . ($attempts + 1) . ')');
             $this->jsonResponse(['error' => 'Invalid PIN'], 401);
         }
     }
@@ -560,7 +558,11 @@ class AdminController
             $this->jsonResponse(['error' => 'Unauthorized'], 401);
             return;
         }
-        $this->jsonResponse(['event_code' => self::fetchEventCodeStatic() ?? '']);
+        // Return only whether a code exists. This used to return the stored
+        // bcrypt hash, letting any admin session carry it off for offline
+        // cracking; the masking the README describes was purely cosmetic and
+        // happened in the browser.
+        $this->jsonResponse(['has_code' => self::fetchEventCodeStatic() !== null]);
     }
 
     /**
@@ -587,7 +589,7 @@ class AdminController
             unset($_SESSION['event_code_attempts']);
             unset($_SESSION['event_code_lock_until']);
             unset($_SESSION['event_code_verified_at']);
-            $this->jsonResponse(['success' => true, 'event_code' => '']);
+            $this->jsonResponse(['success' => true, 'has_code' => false]);
             return;
         }
 
@@ -623,7 +625,7 @@ class AdminController
         unset($_SESSION['event_code_lock_until']);
         // Note: We don't set event_code_verified_at here because the admin should still enter the code
 
-        $this->jsonResponse(['success' => true, 'event_code' => '********']); // Never return the actual code
+        $this->jsonResponse(['success' => true, 'has_code' => true]);
     }
 
     /**

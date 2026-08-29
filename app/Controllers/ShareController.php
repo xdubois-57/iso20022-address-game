@@ -553,15 +553,6 @@ class ShareController
         imagestring($img, $font, $x, $y, $text, $color);
     }
 
-    private function getSafeHost(): string
-    {
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
-            return 'localhost';
-        }
-        return $host;
-    }
-
     private function sanitizeName(string $raw): string
     {
         $name = trim(strip_tags($raw));
@@ -571,22 +562,8 @@ class ShareController
         return $name;
     }
 
-    private function sanitizeTime(string $raw): string
-    {
-        if (preg_match('/^\d{1,3}:\d{2}$/', $raw)) {
-            return $raw;
-        }
-        return '0:00';
-    }
-
     private function getBaseUrl(): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // Validate host header to prevent host injection attacks
-        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
-            $host = 'localhost';
-        }
-        return $scheme . '://' . $host;
+        return \App\Support\Url::baseUrl();
     }
 }

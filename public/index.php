@@ -43,6 +43,29 @@ use App\Controllers\ShareController;
 use App\Controllers\BackgroundController;
 use App\Controllers\AppIconController;
 
+// Security headers.
+//
+// These are sent before the share/asset routes below, which exit early: they
+// used to bypass this block entirely, so /share, /share/go, /share/image, /bg
+// and /app-icon were served with no CSP, no X-Frame-Options and no nosniff —
+// share/go being a full HTML page with inline script and share buttons that
+// anyone could frame.
+function sendSecurityHeaders(): void
+{
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self'; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;");
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+    // HSTS: enforce HTTPS for 1 year, include subdomains, allow preload
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+    }
+}
+
+sendSecurityHeaders();
+
 // GET share routes MUST run BEFORE session/CSRF to allow social media crawlers
 $requestUri = strtok($_SERVER['REQUEST_URI'], '?');
 if ($requestUri === '/share/image') {
@@ -84,17 +107,6 @@ session_start();
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-
-// Security headers
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self'; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;");
-header('Referrer-Policy: strict-origin-when-cross-origin');
-header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
-// HSTS: enforce HTTPS for 1 year, include subdomains, allow preload
-if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
-    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
-};
 
 // All API communication is via POST with an X-Action header.
 // GET requests serve the SPA shell or the setup page.

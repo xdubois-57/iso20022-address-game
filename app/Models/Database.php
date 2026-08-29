@@ -236,6 +236,18 @@ class Database
                 played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+
+        // Rate limiting keyed on a hash of the caller's address, so counters
+        // survive a client discarding its session cookie. No address is stored.
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS rate_limits (
+                bucket VARCHAR(191) PRIMARY KEY,
+                attempts INT NOT NULL DEFAULT 0,
+                updated_at INT NOT NULL DEFAULT 0,
+                locked_until INT NOT NULL DEFAULT 0,
+                INDEX idx_locked_until (locked_until)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
     }
 
     private function initSchemaSqlite(): void
@@ -282,6 +294,16 @@ class Database
                 played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ");
+
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS rate_limits (
+                bucket VARCHAR(191) PRIMARY KEY,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                locked_until INTEGER NOT NULL DEFAULT 0
+            )
+        ");
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_locked_until ON rate_limits (locked_until)');
     }
 
     private function seedDefaultFacts(): void

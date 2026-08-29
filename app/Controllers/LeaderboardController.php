@@ -21,6 +21,7 @@ namespace App\Controllers;
 
 use App\Models\Database;
 use App\Models\LeaderboardModel;
+use App\Models\RateLimitModel;
 use Snipe\BanBuilder\CensorWords;
 
 class LeaderboardController
@@ -67,13 +68,12 @@ class LeaderboardController
      */
     public function submit(): void
     {
-        // Rate limiting: max 10 submissions per 5-minute window
-        $now = time();
-        $submissions = $_SESSION['submission_timestamps'] ?? [];
-        $submissions = array_filter($submissions, function ($ts) use ($now) {
-            return ($now - $ts) < self::SUBMISSION_WINDOW;
-        });
-        if (count($submissions) >= self::MAX_SUBMISSIONS) {
+        // Rate limiting: max 10 submissions per 5-minute window, keyed on the
+        // caller's address so dropping the session cookie does not reset it.
+        $limiter = new RateLimitModel(Database::getInstance()->getPdo());
+        $bucket  = RateLimitModel::bucketFor('leaderboard_submit');
+
+        if ($limiter->retryAfter($bucket) > 0) {
             $this->jsonResponse(['error' => 'Too many submissions. Please wait a few minutes.'], 429);
             return;
         }
@@ -105,9 +105,9 @@ class LeaderboardController
 
         $id = $this->leaderboardModel->addEntry($name, $score, $timeSeconds);
 
-        // Record submission timestamp for rate limiting
-        $submissions[] = $now;
-        $_SESSION['submission_timestamps'] = array_values($submissions);
+        // Every successful submission counts toward the window; the limiter
+        // locks the bucket once MAX_SUBMISSIONS is reached.
+        $limiter->recordFailure($bucket, self::MAX_SUBMISSIONS, self::SUBMISSION_WINDOW);
 
         // Compute rank and page for the new entry
         $rank = $this->leaderboardModel->getRankById($id);

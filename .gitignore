@@ -21,8 +21,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# Storage (cleanup timestamps etc.)
-storage/
+# Storage (cleanup timestamps etc.) — keep the directory's access rules tracked
+storage/*
+!storage/.htaccess
 
 # Uploaded files
 uploads/*.xlsx
