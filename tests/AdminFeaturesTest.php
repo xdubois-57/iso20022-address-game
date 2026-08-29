@@ -9,48 +9,21 @@ use PHPUnit\Framework\TestCase;
 use App\Models\Database;
 use App\Controllers\AdminController;
 use App\Controllers\GameController;
+use App\Models\SettingsModel;
+use Tests\Support\UsesInMemoryDatabase;
 
 class AdminFeaturesTest extends TestCase
 {
+    use UsesInMemoryDatabase;
+
     private Database $db;
 
     protected function setUp(): void
     {
+        // Runs against a fresh in-memory SQLite database — never the developer's
+        // configured server. initSchema() seeds the ten default facts for us.
+        $this->bootInMemoryDatabase();
         $this->db = Database::getInstance();
-        $this->db->connect();
-        $pdo = $this->db->getPdo();
-        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        
-        // Drop facts table to ensure clean state, then recreate with defaults
-        $pdo->exec('DROP TABLE IF EXISTS facts');
-        $this->db->initSchema(); // Creates table and inserts default facts
-        
-        // Verify defaults were created
-        $stmt = $pdo->query('SELECT COUNT(*) FROM facts');
-        $count = $stmt->fetchColumn();
-        if ($count == 0) {
-            // If for some reason defaults weren't created, insert them manually
-            $defaultFacts = [
-                'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
-                'Over 70 countries have already adopted ISO 20022 for cross-border payments',
-                'The transition to structured addresses improves payment processing speed by up to 40%',
-                'Unstructured addresses will be phased out starting November 14, 2026',
-                'ISO 20022 enables richer data exchange between financial institutions worldwide',
-                'The new standard supports 207 address formats across all world regions',
-                'Structured addresses reduce payment failures and processing errors significantly',
-                'November 2026 is the deadline for complete migration to ISO 20022 structured addresses',
-                'ISO 20022 provides a common language for financial messaging globally',
-                'The 2026 release ensures interoperability between all payment systems worldwide'
-            ];
-            
-            $insert = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
-            foreach ($defaultFacts as $fact) {
-                $insert->execute([$fact]);
-            }
-        }
-
-        // Clean up for each test
-        $pdo->exec("DELETE FROM settings WHERE setting_key = 'unstructured_deadline'");
 
         $_SESSION['admin'] = true;
     }
@@ -58,6 +31,7 @@ class AdminFeaturesTest extends TestCase
     protected function tearDown(): void
     {
         unset($_SESSION['admin']);
+        $this->shutdownInMemoryDatabase();
     }
 
     /* =======================================================
@@ -294,32 +268,43 @@ class AdminFeaturesTest extends TestCase
 
     public function testSettingsInsertAndRetrieve(): void
     {
-        $pdo = $this->db->getPdo();
-        $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
-        $stmt->execute(['test_key', 'test_value']);
+        $settings = new SettingsModel($this->db->getPdo());
+        $settings->set('test_key', 'test_value');
 
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['test_key']);
-        $this->assertEquals('test_value', $stmt->fetchColumn());
-
-        // Cleanup
-        $pdo->exec("DELETE FROM settings WHERE setting_key = 'test_key'");
+        $this->assertEquals('test_value', $settings->get('test_key'));
     }
 
     public function testSettingsUpdateOnDuplicate(): void
     {
-        $pdo = $this->db->getPdo();
-        $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+        $settings = new SettingsModel($this->db->getPdo());
 
-        $stmt->execute(['test_key2', 'first']);
-        $stmt->execute(['test_key2', 'second']);
+        $settings->set('test_key2', 'first');
+        $settings->set('test_key2', 'second');
 
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['test_key2']);
-        $this->assertEquals('second', $stmt->fetchColumn());
+        $this->assertEquals('second', $settings->get('test_key2'), 'set() must overwrite, not duplicate');
+    }
 
-        // Cleanup
-        $pdo->exec("DELETE FROM settings WHERE setting_key = 'test_key2'");
+    public function testSettingsGetReturnsNullForMissingKey(): void
+    {
+        $settings = new SettingsModel($this->db->getPdo());
+        $this->assertNull($settings->get('never_stored'));
+    }
+
+    public function testSettingsDeleteRemovesKey(): void
+    {
+        $settings = new SettingsModel($this->db->getPdo());
+        $settings->set('doomed', 'value');
+        $settings->delete('doomed');
+
+        $this->assertNull($settings->get('doomed'));
+    }
+
+    public function testSettingsSetManyWritesEveryPair(): void
+    {
+        $settings = new SettingsModel($this->db->getPdo());
+        $settings->setMany(['k1' => 'v1', 'k2' => 'v2']);
+
+        $this->assertEquals(['k1' => 'v1', 'k2' => 'v2'], $settings->getMany(['k1', 'k2']));
     }
 
     /* =======================================================
@@ -328,9 +313,10 @@ class AdminFeaturesTest extends TestCase
 
     public function testFactsTableCreatedByInitSchema(): void
     {
-        $pdo = $this->db->getPdo();
-        $stmt = $pdo->query("SHOW TABLES LIKE 'facts'");
-        $this->assertNotFalse($stmt->fetch(), 'facts table must exist after initSchema');
+        // Portable existence check: querying a missing table raises, so a
+        // successful count proves initSchema created it on this driver.
+        $count = $this->db->getPdo()->query('SELECT COUNT(*) FROM facts')->fetchColumn();
+        $this->assertIsNumeric($count, 'facts table must exist after initSchema');
     }
 
     public function testFetchFactsStaticReturnsDefaultFacts(): void

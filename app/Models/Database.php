@@ -124,7 +124,44 @@ class Database
     }
 
     /**
+     * Inject a PDO connection directly, bypassing credential discovery.
+     *
+     * This is the seam the test suite uses to run against an in-memory SQLite
+     * database instead of the developer's configured MySQL server, so that
+     * `composer test` can never touch — let alone drop tables in — a real
+     * installation. Production code always goes through connect().
+     */
+    public function setPdo(?PDO $pdo): void
+    {
+        $this->pdo = $pdo;
+        $this->config = [];
+    }
+
+    /**
+     * Discard the singleton so each test starts from a clean connection.
+     */
+    public static function resetInstance(): void
+    {
+        self::$instance = null;
+    }
+
+    /**
+     * Name of the PDO driver currently connected ('mysql', 'sqlite', ...).
+     */
+    public function getDriver(): string
+    {
+        if (!$this->pdo) {
+            return '';
+        }
+        return (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    }
+
+    /**
      * Initialize the database schema if tables do not exist.
+     *
+     * The DDL is emitted per driver: MySQL in production, SQLite for the test
+     * suite. Keep the two branches in step — and mirror any change into
+     * scripts/schema.sql, which documents the same schema for manual installs.
      */
     public function initSchema(): void
     {
@@ -132,6 +169,17 @@ class Database
             return;
         }
 
+        if ($this->getDriver() === 'sqlite') {
+            $this->initSchemaSqlite();
+        } else {
+            $this->initSchemaMysql();
+        }
+
+        $this->seedDefaultFacts();
+    }
+
+    private function initSchemaMysql(): void
+    {
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS scenarios (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -188,7 +236,56 @@ class Database
                 played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+    }
 
+    private function initSchemaSqlite(): void
+    {
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS scenarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                json_data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS leaderboard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                encrypted_name TEXT NOT NULL,
+                score INTEGER NOT NULL DEFAULT 0,
+                time_seconds INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_score ON leaderboard (score DESC)');
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_created ON leaderboard (created_at)');
+
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS settings (
+                setting_key VARCHAR(64) PRIMARY KEY,
+                setting_value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS facts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS game_counter (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+    }
+
+    private function seedDefaultFacts(): void
+    {
         // Seed default facts only if the table is empty (first-time setup)
         $count = (int) $this->pdo->query('SELECT COUNT(*) FROM facts')->fetchColumn();
         if ($count === 0) {

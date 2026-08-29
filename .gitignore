@@ -26,3 +26,6 @@ storage/
 
 # Uploaded files
 uploads/*.xlsx
+
+# PHPUnit
+.phpunit.result.cache

@@ -50,10 +50,12 @@ class ThemeModel
     ];
 
     private PDO $pdo;
+    private SettingsModel $settings;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->settings = new SettingsModel($pdo);
     }
 
     /**
@@ -63,14 +65,8 @@ class ThemeModel
      */
     public function get(): array
     {
-        $stmt = $this->pdo->prepare(
-            'SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('
-            . implode(',', array_fill(0, count(self::KEYS), '?'))
-            . ')'
-        );
-        $stmt->execute(self::KEYS);
+        $rows = $this->settings->getMany(self::KEYS);
 
-        $rows = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         $theme = self::DEFAULTS;
         foreach ($rows as $k => $v) {
             if (isset($theme[$k]) && $this->isValidHex($v)) {
@@ -87,15 +83,13 @@ class ThemeModel
      */
     public function save(array $colors): void
     {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-        );
+        $valid = [];
         foreach (self::KEYS as $key) {
             if (isset($colors[$key]) && $this->isValidHex($colors[$key])) {
-                $stmt->execute([$key, strtolower($colors[$key])]);
+                $valid[$key] = strtolower($colors[$key]);
             }
         }
+        $this->settings->setMany($valid);
     }
 
     /**
