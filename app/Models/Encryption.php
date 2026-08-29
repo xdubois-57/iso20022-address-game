@@ -24,17 +24,43 @@ class Encryption
     private const CIPHER_GCM = 'aes-256-gcm';
     private const CIPHER_CTR = 'aes-256-ctr';
     private const TAG_LENGTH = 16;
+
+    /**
+     * Shortest key we accept. Setup generates 64 hex characters; anything much
+     * shorter suggests a hand-edited or truncated credentials file.
+     */
+    private const MIN_KEY_LENGTH = 16;
+
     private string $key;
 
+    /**
+     * @throws \RuntimeException when no usable encryption key is configured.
+     */
     public function __construct(?string $key = null)
     {
-        if ($key !== null) {
-            $this->key = $key;
-        } else {
+        if ($key === null) {
             $credFile = __DIR__ . '/../../config/credentials.php';
             $creds = file_exists($credFile) ? require $credFile : [];
-            $this->key = $creds['encryption']['key'] ?? '';
+            $key = $creds['encryption']['key'] ?? '';
         }
+
+        // Refuse to run without a real key. openssl_encrypt() silently accepts an
+        // empty key and zero-pads it, which used to mean player names were
+        // "encrypted" under an all-zero key with no error anywhere — the exact
+        // failure mode the setup fallback path could produce.
+        if ($key === '' || strlen($key) < self::MIN_KEY_LENGTH) {
+            throw new \RuntimeException(
+                'Encryption key is missing or too short. Set a strong '
+                . "'encryption.key' (at least " . self::MIN_KEY_LENGTH
+                . ' characters) in config/credentials.php.'
+            );
+        }
+
+        // NOTE: the key is used as-is rather than run through a KDF. Hashing it
+        // would strengthen the derivation but would also make every existing
+        // leaderboard row undecryptable, so the raw value is kept for
+        // compatibility and the strength is enforced by the length check above.
+        $this->key = $key;
     }
 
     /**
@@ -43,7 +69,10 @@ class Encryption
      */
     public function encrypt(string $plaintext): string
     {
-        $iv = openssl_random_pseudo_bytes(12);
+        // random_bytes() is a CSPRNG and throws when it cannot produce strong
+        // bytes, unlike openssl_random_pseudo_bytes() whose strength flag was
+        // being ignored here.
+        $iv = random_bytes(12);
         $tag = '';
         $ciphertext = openssl_encrypt(
             $plaintext,
@@ -60,9 +89,15 @@ class Encryption
 
     /**
      * Decrypt a base64-encoded ciphertext string.
-     * Supports both GCM (prefixed with "gcm:") and legacy CTR format.
+     *
+     * Only the authenticated GCM format is accepted by default. The legacy
+     * AES-256-CTR format has no MAC, so anything that decrypts through it is
+     * unauthenticated and malleable; it is opt-in and exists purely for
+     * leaderboard rows written before the GCM migration. Callers handling
+     * attacker-supplied input — share tokens above all — must leave
+     * $allowLegacyCtr false so a forged token cannot select that branch.
      */
-    public function decrypt(string $encoded): string|false
+    public function decrypt(string $encoded, bool $allowLegacyCtr = false): string|false
     {
         $data = base64_decode($encoded, true);
         if ($data === false) {
@@ -72,6 +107,10 @@ class Encryption
         // GCM format: "gcm:" (4 bytes) + IV (12 bytes) + tag (16 bytes) + ciphertext
         if (str_starts_with($data, 'gcm:')) {
             return $this->decryptGcm(substr($data, 4));
+        }
+
+        if (!$allowLegacyCtr) {
+            return false;
         }
 
         // Legacy CTR format: IV (16 bytes) + ciphertext

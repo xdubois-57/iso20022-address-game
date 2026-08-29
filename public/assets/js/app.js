@@ -341,6 +341,10 @@
         lastSubmittedEntryId = null;
         lastSubmittedPage = null;
         eventCodeUnlocked = false;
+        // Clear the unlock on the server too. Resetting only the JavaScript state
+        // left the PHP session authorised, so on a shared kiosk the next player
+        // walked straight past the Event Code gate.
+        api('game/reset-session', {});
         showScreen('game');
         resetScreenSaverTimer();
     }

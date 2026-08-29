@@ -105,12 +105,18 @@ class SetupController
         $credContent .= "    ],\n";
         $credContent .= "];\n";
 
+        // There is deliberately no JSON fallback here. config/db_config.json can
+        // only hold the database block, so falling back to it silently discarded
+        // the generated encryption key and the hashed PIN: player names would
+        // then be encrypted under an empty key, and the admin PIN would quietly
+        // become the hardcoded '0000' rather than the 1234 this response
+        // promises. A install that cannot store its own key must fail loudly.
         if (file_put_contents($credFile, $credContent) === false) {
-            // Fallback: save to JSON config
-            if (!$db->saveJsonConfig($dbConfig)) {
-                $this->jsonResponse(['error' => 'Failed to write config file. Check directory permissions.'], 500);
-                return;
-            }
+            $this->jsonResponse([
+                'error' => 'Could not write config/credentials.php. Grant the web server '
+                    . 'write access to the config/ directory and run setup again.',
+            ], 500);
+            return;
         }
 
         // Initialize schema

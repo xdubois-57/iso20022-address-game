@@ -465,8 +465,16 @@ class ShareController
             $base64 .= str_repeat('=', 4 - $pad);
         }
 
-        $enc = new Encryption();
-        $json = $enc->decrypt($base64);
+        // Share tokens are always minted as GCM, so the legacy unauthenticated
+        // CTR branch stays off: a forged token must not be able to select it.
+        // A missing encryption key makes every token unreadable rather than
+        // taking the page down — these routes are hit by social crawlers.
+        try {
+            $json = (new Encryption())->decrypt($base64);
+        } catch (\RuntimeException $e) {
+            error_log('SHARE: cannot decrypt token — ' . $e->getMessage());
+            return null;
+        }
         if ($json === false) {
             return null;
         }

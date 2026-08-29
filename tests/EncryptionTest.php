@@ -112,27 +112,68 @@ class EncryptionTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testLegacyCtrDecryptionStillWorks(): void
+    /**
+     * Build a value in the pre-GCM AES-256-CTR format (no 'gcm:' prefix).
+     */
+    private function legacyCtrToken(string $plaintext): string
     {
-        // Simulate a legacy CTR-encrypted value (no 'gcm:' prefix)
         $key = 'test_key_for_unit_testing_32bytes!';
-        $iv = openssl_random_pseudo_bytes(16);
-        $ciphertext = openssl_encrypt(
-            'Legacy Name',
-            'aes-256-ctr',
-            $key,
-            OPENSSL_RAW_DATA,
-            $iv
-        );
-        $legacyEncoded = base64_encode($iv . $ciphertext);
+        $iv = random_bytes(16);
+        $ciphertext = openssl_encrypt($plaintext, 'aes-256-ctr', $key, OPENSSL_RAW_DATA, $iv);
 
-        $result = $this->encryption->decrypt($legacyEncoded);
+        return base64_encode($iv . $ciphertext);
+    }
+
+    public function testLegacyCtrDecryptionWorksWhenExplicitlyAllowed(): void
+    {
+        // Leaderboard rows written before the GCM migration must stay readable.
+        $result = $this->encryption->decrypt($this->legacyCtrToken('Legacy Name'), true);
         $this->assertEquals('Legacy Name', $result);
+    }
+
+    public function testLegacyCtrIsRefusedByDefault(): void
+    {
+        // CTR carries no MAC, so it is malleable. Callers that handle
+        // attacker-supplied input must not be able to reach it by accident.
+        $result = $this->encryption->decrypt($this->legacyCtrToken('Legacy Name'));
+        $this->assertFalse($result, 'Unauthenticated CTR must be opt-in, never the default');
+    }
+
+    public function testGcmRoundTripDoesNotNeedTheLegacyFlag(): void
+    {
+        $token = $this->encryption->encrypt('Modern Name');
+
+        $this->assertEquals('Modern Name', $this->encryption->decrypt($token));
+        $this->assertEquals('Modern Name', $this->encryption->decrypt($token, true));
     }
 
     public function testDecryptWithEmptyStringReturnsFalse(): void
     {
         $result = $this->encryption->decrypt('');
         $this->assertFalse($result);
+    }
+
+    /* =======================================================
+       Key validation
+       ======================================================= */
+
+    public function testEmptyKeyIsRejected(): void
+    {
+        // An empty key used to be accepted silently: openssl zero-pads it, so
+        // player names were stored "encrypted" under an all-zero key.
+        $this->expectException(\RuntimeException::class);
+        new Encryption('');
+    }
+
+    public function testShortKeyIsRejected(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        new Encryption('tooshort');
+    }
+
+    public function testKeyOfSufficientLengthIsAccepted(): void
+    {
+        $enc = new Encryption('a-perfectly-adequate-key-value');
+        $this->assertEquals('round trip', $enc->decrypt($enc->encrypt('round trip')));
     }
 }

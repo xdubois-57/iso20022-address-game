@@ -20,6 +20,20 @@
 // Autoload
 require_once __DIR__ . '/../vendor/autoload.php';
 
+/**
+ * Presence of either file marks the install as already configured, which
+ * permanently closes the unauthenticated setup routes. See the setup/ branch
+ * below. db_config.json is included because older installs were configured
+ * through it alone and have no credentials.php to check.
+ */
+const CREDENTIALS_FILE = __DIR__ . '/../config/credentials.php';
+const DB_CONFIG_FILE   = __DIR__ . '/../config/db_config.json';
+
+function isAlreadyConfigured(): bool
+{
+    return file_exists(CREDENTIALS_FILE) || file_exists(DB_CONFIG_FILE);
+}
+
 use App\Models\Database;
 use App\Controllers\GameController;
 use App\Controllers\AdminController;
@@ -93,6 +107,25 @@ if ($method === 'POST') {
 
     // Setup routes work without a DB connection - allowed if DB is down
     if (str_starts_with($action, 'setup/')) {
+        // Setup is unauthenticated and CSRF-exempt by necessity: on a fresh
+        // install there is no session and no database to authenticate against.
+        // That makes "is the database down?" far too weak a gate on its own — a
+        // transient outage would let any anonymous caller repoint the app at
+        // their own server, overwrite config/credentials.php, and take over as
+        // admin, destroying the encryption key (and with it every stored player
+        // name) on the way. So an install that has already been configured keeps
+        // these routes closed no matter what the database is doing.
+        if (isAlreadyConfigured()) {
+            error_log('SECURITY: setup route refused on a configured install from '
+                . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' action=' . $action);
+            jsonError(
+                'Setup is disabled — this installation is already configured. To re-run '
+                . 'setup, remove config/credentials.php and config/db_config.json on the server.',
+                403
+            );
+            exit;
+        }
+
         // Check if we can connect to DB - if not, allow setup
         $db = Database::getInstance();
         if ($db->connect()) {
@@ -134,6 +167,24 @@ if ($method === 'POST') {
         $_SESSION['schema_version'] = $schemaVersion;
     }
 
+    // Event Code gate, enforced here rather than in the browser. Everything that
+    // actually plays the game or records a result is behind it; the two
+    // event-code endpoints themselves must stay reachable so a player can get
+    // through, and admin routes carry their own authentication.
+    $eventCodeGatedActions = [
+        'game/check-name',
+        'game/complete',
+        'game/facts',
+        'game/scenario',
+        'game/validate',
+        'leaderboard/submit',
+        'share/token',
+    ];
+    if (in_array($action, $eventCodeGatedActions, true) && !GameController::isEventCodeSatisfied()) {
+        jsonError('An event code is required to play.', 403);
+        exit;
+    }
+
     match ($action) {
         // Game
         'game/check-name' => (new GameController())->checkName(),
@@ -141,6 +192,7 @@ if ($method === 'POST') {
         'game/deadline' => (new GameController())->getDeadline(),
         'game/event-code-status' => (new GameController())->eventCodeStatus(),
         'game/facts' => (new GameController())->getFacts(),
+        'game/reset-session' => (new GameController())->resetSession(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
         'game/verify-event-code' => (new GameController())->verifyEventCode(),
@@ -181,6 +233,9 @@ if ($method === 'POST') {
 // GET: Try to connect to DB. If it fails, show setup page.
 $db = Database::getInstance();
 if (!$db->connect()) {
+    // On an install that is already configured the setup form would only lead to
+    // a 403, so show the outage for what it is instead of inviting a re-setup.
+    $setupLocked = isAlreadyConfigured();
     require __DIR__ . '/../app/Views/setup.php';
     exit;
 }

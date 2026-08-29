@@ -58,7 +58,7 @@ class LeaderboardModel
 
         return array_map(function ($row) {
             try {
-                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
                 $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
             } catch (\Throwable $e) {
                 // Decryption failed (likely due to key change) - show anonymized
@@ -82,7 +82,7 @@ class LeaderboardModel
 
         return array_map(function ($row) {
             try {
-                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
                 $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
             } catch (\Throwable $e) {
                 $row['player_name'] = '[redacted]';
@@ -113,7 +113,7 @@ class LeaderboardModel
 
         return array_map(function ($row) {
             try {
-                $decrypted = $this->encryption->decrypt($row['encrypted_name']);
+                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
                 $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
             } catch (\Throwable $e) {
                 $row['player_name'] = '[redacted]';

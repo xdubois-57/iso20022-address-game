@@ -444,8 +444,29 @@ class AdminFeaturesTest extends TestCase
         $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
         $stmt->execute([$html]);
 
-        $facts = AdminController::fetchFactsStatic();
-        $this->assertEquals($html, $facts[0]['content']);
+        $content = AdminController::fetchFactsStatic()[0]['content'];
+
+        // Formatting survives; the link is additionally hardened on the way out.
+        $this->assertStringContainsString('<b>Bold</b>', $content);
+        $this->assertStringContainsString('<i>italic</i>', $content);
+        $this->assertStringContainsString('href="https://example.com"', $content);
+        $this->assertStringContainsString('rel="noopener noreferrer"', $content);
+    }
+
+    public function testStoredFactMarkupIsSanitisedOnRead(): void
+    {
+        // A row written before the allowlist existed must not reach the public
+        // welcome screen as executable markup.
+        $pdo = $this->db->getPdo();
+        $pdo->exec('DELETE FROM facts');
+        $stmt = $pdo->prepare('INSERT INTO facts (content) VALUES (?)');
+        $stmt->execute(['Safe <script>alert(1)</script><img src=x onerror=alert(2)> text']);
+
+        $content = AdminController::fetchFactsStatic()[0]['content'];
+
+        $this->assertStringNotContainsString('<script', $content);
+        $this->assertStringNotContainsString('onerror', $content);
+        $this->assertStringContainsString('Safe', $content);
     }
 
     public function testFactContentWithFormattingFitsInLimit(): void

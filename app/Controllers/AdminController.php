@@ -25,6 +25,8 @@ use App\Models\LeaderboardModel;
 use App\Models\GameCounterModel;
 use App\Models\ExcelParser;
 use App\Models\ThemeModel;
+use App\Models\HtmlSanitizer;
+use App\Models\SettingsModel;
 
 class AdminController
 {
@@ -375,9 +377,9 @@ class AdminController
             return;
         }
         $input = $this->getJsonInput();
-        $content = trim($input['content'] ?? '');
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        $content = $this->sanitizeFactContent($input['content'] ?? '');
+        if ($content === '' || mb_strlen($content) > self::MAX_FACT_LENGTH) {
+            $this->jsonResponse(['error' => 'Fact must be 1-' . self::MAX_FACT_LENGTH . ' characters'], 400);
             return;
         }
         $db = Database::getInstance();
@@ -398,13 +400,13 @@ class AdminController
         }
         $input = $this->getJsonInput();
         $id = (int) ($input['id'] ?? 0);
-        $content = trim($input['content'] ?? '');
+        $content = $this->sanitizeFactContent($input['content'] ?? '');
         if ($id <= 0) {
             $this->jsonResponse(['error' => 'Invalid fact ID'], 400);
             return;
         }
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        if ($content === '' || mb_strlen($content) > self::MAX_FACT_LENGTH) {
+            $this->jsonResponse(['error' => 'Fact must be 1-' . self::MAX_FACT_LENGTH . ' characters'], 400);
             return;
         }
         $db = Database::getInstance();
@@ -444,7 +446,17 @@ class AdminController
         $db = Database::getInstance();
         $pdo = $db->getPdo();
         $stmt = $pdo->query('SELECT id, content, created_at FROM facts ORDER BY id DESC');
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $facts = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Sanitise on the way out as well as on the way in, so rows stored
+        // before the allowlist existed cannot reach the public screens as
+        // executable markup.
+        foreach ($facts as &$fact) {
+            $fact['content'] = HtmlSanitizer::sanitize($fact['content'] ?? '');
+        }
+        unset($fact);
+
+        return $facts;
     }
 
     /**
@@ -676,6 +688,23 @@ class AdminController
         $db = Database::getInstance();
         (new ThemeModel($db->getPdo()))->save($colors);
         $this->jsonResponse(['success' => true]);
+    }
+
+    /**
+     * Facts accept a little inline markup, so they are sanitised against an
+     * allowlist rather than escaped: they are rendered with innerHTML on the
+     * public welcome screen, where anything stored runs in every visitor's
+     * browser. The length limit is applied to the sanitised text so that markup
+     * stripped during cleaning does not eat into the author's budget.
+     */
+    private const MAX_FACT_LENGTH = 500;
+
+    private function sanitizeFactContent(mixed $raw): string
+    {
+        if (!is_string($raw)) {
+            return '';
+        }
+        return HtmlSanitizer::sanitize(trim($raw));
     }
 
     /**

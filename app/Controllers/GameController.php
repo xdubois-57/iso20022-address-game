@@ -114,6 +114,53 @@ class GameController
     }
 
     /**
+     * Is this session allowed past the Event Code gate?
+     *
+     * The gate used to live entirely in the browser: the client asked whether a
+     * code was required and then decided for itself whether to draw the prompt,
+     * while $_SESSION['event_code_ok'] was written and never read. Anyone could
+     * call the game endpoints directly, or simply skip the screen from the
+     * console. index.php now consults this before dispatching gated actions.
+     */
+    public static function isEventCodeSatisfied(): bool
+    {
+        $stored = AdminController::fetchEventCodeStatic();
+        if ($stored === null) {
+            return true; // No code configured — the game is open.
+        }
+
+        // Admins are never locked out of their own installation.
+        if (!empty($_SESSION['admin'])) {
+            return true;
+        }
+
+        if (empty($_SESSION['event_code_ok'])) {
+            return false;
+        }
+
+        // A code change invalidates sessions verified against the previous one.
+        $verifiedAt = (int) ($_SESSION['event_code_verified_at'] ?? 0);
+        return $verifiedAt >= AdminController::fetchEventCodeTimestampStatic();
+    }
+
+    /**
+     * POST /api/game/reset-session — Forget this session's Event Code unlock.
+     *
+     * Called when the player presses Stop or the inactivity timer fires. Without
+     * it the PHP session stayed unlocked after the JavaScript state reset, so on
+     * a shared kiosk the next player walked straight past the gate.
+     */
+    public function resetSession(): void
+    {
+        unset(
+            $_SESSION['event_code_ok'],
+            $_SESSION['event_code_verified_at']
+        );
+
+        $this->jsonResponse(['success' => true]);
+    }
+
+    /**
      * POST /api/game/event-code-status — Return whether an event code is currently required.
      * Also checks if the current session has been verified against the current code.
      * Does not reveal the code itself.
