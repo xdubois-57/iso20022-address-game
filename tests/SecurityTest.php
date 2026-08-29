@@ -72,34 +72,19 @@ class SecurityTest extends TestCase
     private const MAX_LOGIN_ATTEMPTS = 5;
     private const LOCKOUT_SECONDS = 300;
 
-    public function testRateLimitAllowsAttemptsUnderThreshold(): void
+    /**
+     * These used to assert against a local array simulating the old
+     * session-based counter, so they described logic the application no longer
+     * runs — and would have kept passing after it was replaced. Rate limiting
+     * itself is covered against the real implementation in RateLimitModelTest;
+     * what remains here is the threshold policy the controllers apply.
+     */
+    public function testLoginLockoutPolicyMatchesDocumentedValues(): void
     {
-        $session = ['login_attempts' => 3, 'login_lock_until' => 0];
-        $locked = ($session['login_attempts'] >= self::MAX_LOGIN_ATTEMPTS
-            && time() < $session['login_lock_until']);
-        $this->assertFalse($locked);
-    }
+        $reflection = new \ReflectionClass(\App\Controllers\AdminController::class);
 
-    public function testRateLimitBlocksAfterMaxAttempts(): void
-    {
-        $session = [
-            'login_attempts' => self::MAX_LOGIN_ATTEMPTS,
-            'login_lock_until' => time() + 200,
-        ];
-        $locked = ($session['login_attempts'] >= self::MAX_LOGIN_ATTEMPTS
-            && time() < $session['login_lock_until']);
-        $this->assertTrue($locked);
-    }
-
-    public function testRateLimitResetsAfterLockoutExpires(): void
-    {
-        $session = [
-            'login_attempts' => self::MAX_LOGIN_ATTEMPTS,
-            'login_lock_until' => time() - 1, // expired
-        ];
-        $lockExpired = (time() >= $session['login_lock_until']
-            && $session['login_attempts'] >= self::MAX_LOGIN_ATTEMPTS);
-        $this->assertTrue($lockExpired); // Should trigger reset
+        $this->assertSame(5, $reflection->getConstant('MAX_LOGIN_ATTEMPTS'));
+        $this->assertSame(300, $reflection->getConstant('LOCKOUT_SECONDS'));
     }
 
     public function testRateLimitIncrementOnFailure(): void
@@ -292,34 +277,14 @@ class SecurityTest extends TestCase
     private const MAX_EVENT_CODE_ATTEMPTS = 5;
     private const EVENT_CODE_LOCKOUT_SECONDS = 30;
 
-    public function testEventCodeRateLimitAllowsUnderThreshold(): void
+    public function testEventCodeLockoutPolicyMatchesDocumentedValues(): void
     {
-        $session = ['event_code_attempts' => 3, 'event_code_lock_until' => 0];
-        $locked = ($session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS
-            && time() < $session['event_code_lock_until']);
-        $this->assertFalse($locked);
-    }
+        // README and DESIGN both state 5 attempts / 30 seconds; they disagreed
+        // with each other and with the code before this was pinned.
+        $reflection = new \ReflectionClass(\App\Controllers\GameController::class);
 
-    public function testEventCodeRateLimitBlocksAfterMax(): void
-    {
-        $session = [
-            'event_code_attempts' => self::MAX_EVENT_CODE_ATTEMPTS,
-            'event_code_lock_until' => time() + 200,
-        ];
-        $locked = ($session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS
-            && time() < $session['event_code_lock_until']);
-        $this->assertTrue($locked);
-    }
-
-    public function testEventCodeRateLimitResetsAfterExpiry(): void
-    {
-        $session = [
-            'event_code_attempts' => self::MAX_EVENT_CODE_ATTEMPTS,
-            'event_code_lock_until' => time() - 1,
-        ];
-        $lockExpired = (time() >= $session['event_code_lock_until']
-            && $session['event_code_attempts'] >= self::MAX_EVENT_CODE_ATTEMPTS);
-        $this->assertTrue($lockExpired);
+        $this->assertSame(5, $reflection->getConstant('MAX_EVENT_CODE_ATTEMPTS'));
+        $this->assertSame(30, $reflection->getConstant('EVENT_CODE_LOCKOUT_SECONDS'));
     }
 
     public function testEventCodeIsHashedNotPlaintext(): void

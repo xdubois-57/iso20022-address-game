@@ -25,6 +25,9 @@ use App\Models\LeaderboardModel;
 use App\Models\GameCounterModel;
 use App\Models\ExcelParser;
 use App\Models\ThemeModel;
+use App\Models\HtmlSanitizer;
+use App\Models\SettingsModel;
+use App\Models\RateLimitModel;
 
 class AdminController
 {
@@ -47,20 +50,16 @@ class AdminController
 
     public function login(): void
     {
-        // Rate limiting
-        $attempts = $_SESSION['login_attempts'] ?? 0;
-        $lockUntil = $_SESSION['login_lock_until'] ?? 0;
+        // Rate limiting is keyed on the caller's address rather than the
+        // session: a session-scoped counter reset the moment the client dropped
+        // its cookie, which is no obstacle at all to brute-forcing four digits.
+        $limiter = new RateLimitModel(Database::getInstance()->getPdo());
+        $bucket  = RateLimitModel::bucketFor('admin_login');
 
-        if ($attempts >= self::MAX_LOGIN_ATTEMPTS && time() < $lockUntil) {
-            $remaining = $lockUntil - time();
-            $this->jsonResponse(['error' => "Too many attempts. Try again in {$remaining}s."], 429);
+        $retryAfter = $limiter->retryAfter($bucket);
+        if ($retryAfter > 0) {
+            $this->jsonResponse(['error' => "Too many attempts. Try again in {$retryAfter}s."], 429);
             return;
-        }
-
-        // Reset if lockout expired
-        if (time() >= $lockUntil && $attempts >= self::MAX_LOGIN_ATTEMPTS) {
-            $_SESSION['login_attempts'] = 0;
-            $attempts = 0;
         }
 
         $input = $this->getJsonInput();
@@ -82,17 +81,18 @@ class AdminController
         }
 
         if ($valid) {
-            $_SESSION['login_attempts'] = 0;
-            unset($_SESSION['login_lock_until']);
+            $limiter->clear($bucket);
             session_regenerate_id(true);
             $_SESSION['admin'] = true;
             $this->jsonResponse(['success' => true]);
         } else {
-            $_SESSION['login_attempts'] = $attempts + 1;
-            if ($attempts + 1 >= self::MAX_LOGIN_ATTEMPTS) {
-                $_SESSION['login_lock_until'] = time() + self::LOCKOUT_SECONDS;
+            $lockedFor = $limiter->recordFailure($bucket, self::MAX_LOGIN_ATTEMPTS, self::LOCKOUT_SECONDS);
+            error_log('SECURITY: Failed admin login attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+
+            if ($lockedFor > 0) {
+                $this->jsonResponse(['error' => "Too many attempts. Try again in {$lockedFor}s."], 429);
+                return;
             }
-            error_log('SECURITY: Failed admin login attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' (attempt ' . ($attempts + 1) . ')');
             $this->jsonResponse(['error' => 'Invalid PIN'], 401);
         }
     }
@@ -176,31 +176,54 @@ class AdminController
             mkdir($uploadDir, 0755, true);
         }
         $tmpPath = $uploadDir . 'upload_' . bin2hex(random_bytes(8)) . '.xlsx';
-        move_uploaded_file($file['tmp_name'], $tmpPath);
-
-        $parser = new ExcelParser();
-        $result = $parser->parse($tmpPath);
-
-        if (!empty($result['errors'])) {
-            unlink($tmpPath);
-            $this->jsonResponse(['errors' => $result['errors']], 422);
+        if (!move_uploaded_file($file['tmp_name'], $tmpPath)) {
+            $this->jsonResponse(['error' => 'Could not store the uploaded file.'], 500);
             return;
         }
 
-        // Replace scenarios
-        $this->scenarioModel->deleteAll();
-        foreach ($result['scenarios'] as $s) {
-            $this->scenarioModel->create($s['json_data']);
+        // try/finally so a parser exception cannot leave the upload on disk.
+        try {
+            $parser = new ExcelParser();
+            $result = $parser->parse($tmpPath);
+
+            if (!empty($result['errors'])) {
+                $this->jsonResponse(['errors' => $result['errors']], 422);
+                return;
+            }
+
+            // Replace scenarios in one transaction. deleteAll() followed by a
+            // loop of inserts meant a failure part-way through left the kiosk
+            // with a partial scenario set — or none at all.
+            $db  = Database::getInstance();
+            $pdo = $db->getPdo();
+
+            $pdo->beginTransaction();
+            try {
+                $this->scenarioModel->deleteAll();
+                foreach ($result['scenarios'] as $scenario) {
+                    $this->scenarioModel->create($scenario['json_data']);
+                }
+                $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('ADMIN: scenario import failed, rolled back — ' . $e->getMessage());
+                $this->jsonResponse(['error' => 'Import failed; the previous scenarios were kept.'], 500);
+                return;
+            }
+
+            $this->jsonResponse([
+                'success' => true,
+                'imported' => [
+                    'scenarios' => count($result['scenarios']),
+                ],
+            ]);
+        } finally {
+            if (is_file($tmpPath)) {
+                unlink($tmpPath);
+            }
         }
-
-        unlink($tmpPath);
-
-        $this->jsonResponse([
-            'success' => true,
-            'imported' => [
-                'scenarios' => count($result['scenarios']),
-            ],
-        ]);
     }
 
     /**
@@ -375,9 +398,9 @@ class AdminController
             return;
         }
         $input = $this->getJsonInput();
-        $content = trim($input['content'] ?? '');
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        $content = $this->sanitizeFactContent($input['content'] ?? '');
+        if ($content === '' || mb_strlen($content) > self::MAX_FACT_LENGTH) {
+            $this->jsonResponse(['error' => 'Fact must be 1-' . self::MAX_FACT_LENGTH . ' characters'], 400);
             return;
         }
         $db = Database::getInstance();
@@ -398,13 +421,13 @@ class AdminController
         }
         $input = $this->getJsonInput();
         $id = (int) ($input['id'] ?? 0);
-        $content = trim($input['content'] ?? '');
+        $content = $this->sanitizeFactContent($input['content'] ?? '');
         if ($id <= 0) {
             $this->jsonResponse(['error' => 'Invalid fact ID'], 400);
             return;
         }
-        if ($content === '' || mb_strlen($content) > 500) {
-            $this->jsonResponse(['error' => 'Fact must be 1-500 characters'], 400);
+        if ($content === '' || mb_strlen($content) > self::MAX_FACT_LENGTH) {
+            $this->jsonResponse(['error' => 'Fact must be 1-' . self::MAX_FACT_LENGTH . ' characters'], 400);
             return;
         }
         $db = Database::getInstance();
@@ -444,7 +467,17 @@ class AdminController
         $db = Database::getInstance();
         $pdo = $db->getPdo();
         $stmt = $pdo->query('SELECT id, content, created_at FROM facts ORDER BY id DESC');
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $facts = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Sanitise on the way out as well as on the way in, so rows stored
+        // before the allowlist existed cannot reach the public screens as
+        // executable markup.
+        foreach ($facts as &$fact) {
+            $fact['content'] = HtmlSanitizer::sanitize($fact['content'] ?? '');
+        }
+        unset($fact);
+
+        return $facts;
     }
 
     /**
@@ -548,7 +581,11 @@ class AdminController
             $this->jsonResponse(['error' => 'Unauthorized'], 401);
             return;
         }
-        $this->jsonResponse(['event_code' => self::fetchEventCodeStatic() ?? '']);
+        // Return only whether a code exists. This used to return the stored
+        // bcrypt hash, letting any admin session carry it off for offline
+        // cracking; the masking the README describes was purely cosmetic and
+        // happened in the browser.
+        $this->jsonResponse(['has_code' => self::fetchEventCodeStatic() !== null]);
     }
 
     /**
@@ -571,11 +608,10 @@ class AdminController
         if ($code === '') {
             $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code']);
             $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code_timestamp']);
-            // Clear current session rate limiting
-            unset($_SESSION['event_code_attempts']);
-            unset($_SESSION['event_code_lock_until']);
+            // Removing the code releases everyone currently locked out.
+            (new RateLimitModel($pdo))->clearScope('event_code');
             unset($_SESSION['event_code_verified_at']);
-            $this->jsonResponse(['success' => true, 'event_code' => '']);
+            $this->jsonResponse(['success' => true, 'has_code' => false]);
             return;
         }
 
@@ -606,12 +642,12 @@ class AdminController
             throw $e;
         }
 
-        // Clear current session rate limiting (user just set the code, allow immediate use)
-        unset($_SESSION['event_code_attempts']);
-        unset($_SESSION['event_code_lock_until']);
+        // A new code releases anyone locked out under the old one, for every
+        // caller rather than just this session.
+        (new RateLimitModel($pdo))->clearScope('event_code');
         // Note: We don't set event_code_verified_at here because the admin should still enter the code
 
-        $this->jsonResponse(['success' => true, 'event_code' => '********']); // Never return the actual code
+        $this->jsonResponse(['success' => true, 'has_code' => true]);
     }
 
     /**
@@ -676,6 +712,23 @@ class AdminController
         $db = Database::getInstance();
         (new ThemeModel($db->getPdo()))->save($colors);
         $this->jsonResponse(['success' => true]);
+    }
+
+    /**
+     * Facts accept a little inline markup, so they are sanitised against an
+     * allowlist rather than escaped: they are rendered with innerHTML on the
+     * public welcome screen, where anything stored runs in every visitor's
+     * browser. The length limit is applied to the sanitised text so that markup
+     * stripped during cleaning does not eat into the author's budget.
+     */
+    private const MAX_FACT_LENGTH = 500;
+
+    private function sanitizeFactContent(mixed $raw): string
+    {
+        if (!is_string($raw)) {
+            return '';
+        }
+        return HtmlSanitizer::sanitize(trim($raw));
     }
 
     /**

@@ -130,18 +130,18 @@ if (!function_exists('getVersionInfo')) {
     <!-- OpenGraph Meta Tags for Social Media Sharing -->
     <meta property="og:title" content="ISO 20022 Address Challenge">
     <meta property="og:description" content="Master international address formatting standards. Test your skills, compete for high scores, and challenge your friends!">
-    <meta property="og:image" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') ?>/share/home-image">
+    <meta property="og:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="image/png">
-    <meta property="og:url" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $_SERVER['REQUEST_URI'] ?>">
+    <meta property="og:url" content="<?= \App\Support\Url::currentUrlHtml() ?>">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="ISO 20022 Address Challenge">
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ISO 20022 Address Challenge">
     <meta name="twitter:description" content="Master international address formatting standards. Test your skills, compete for high scores!">
-    <meta name="twitter:image" content="<?= 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') ?>/share/home-image">
+    <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>
 <body>
@@ -189,9 +189,12 @@ if (!function_exists('getVersionInfo')) {
 
     <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js" integrity="sha384-PwiT+fWTPpIySx6DrH1FKraKo+LvVpOClsjx0TSdMYTKi7BR1hR149f4VHLUUnfA" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js" integrity="sha384-JSZXO0kKYHTylAsDYTb+7Kg2eUyalm19b8Pydcdf8sQ1cCKYZr9lLahoKT9+LFY5" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@fragaria/address-formatter@7.0.0/dist/umd/address-formatter.js" integrity="sha384-yoBDNHqs1jpGFjXefZLTbkgO5JOnP60YFtODfRn8h3nZQ/E/RMS03aCM3Z0iga+v" crossorigin="anonymous"></script>
+    <!-- Served locally: hybrid-mode grading depends on this formatter, and a
+         kiosk on a restricted network would otherwise silently fall back to a
+         single hardcoded layout for every country. -->
+    <script src="<?= assetUrl('assets/js/vendor/address-formatter.js') ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous"></script>
     <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>

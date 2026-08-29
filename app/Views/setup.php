@@ -23,11 +23,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Setup - ISO 20022 Address Game</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css" integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU" crossorigin="anonymous">
     <link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
     <main class="setup-screen">
+        <?php if (!empty($setupLocked)): ?>
+        <article class="setup-card">
+            <header>
+                <h1>Database Unavailable</h1>
+            </header>
+            <p>
+                This installation is already configured, but the database cannot be
+                reached right now. This is usually a temporary outage — the game will
+                come back on its own once the database responds.
+            </p>
+            <p>
+                Setup is intentionally disabled here: re-running it would overwrite the
+                stored encryption key and make every saved player name unreadable. An
+                administrator with server access can re-run setup by removing
+                <code>config/credentials.php</code> and <code>config/db_config.json</code>.
+            </p>
+        </article>
+        <?php else: ?>
         <article class="setup-card">
             <header>
                 <h1>Database Setup</h1>
@@ -72,8 +90,10 @@
 
             <div id="setupStatus" class="setup-status hidden"></div>
         </article>
+        <?php endif; ?>
     </main>
 
+    <?php if (empty($setupLocked)): ?>
     <script>
     /**
      * ISO 20022 Address Structuring Game
@@ -156,5 +176,6 @@
         });
     })();
     </script>
+    <?php endif; ?>
 </body>
 </html>

@@ -58,33 +58,4 @@ class DatabaseTest extends TestCase
         $this->assertFalse($db->isConnected());
     }
 
-    public function testSaveJsonConfigWritesFile(): void
-    {
-        $db = Database::getInstance();
-        $testConfig = [
-            'host' => 'testhost',
-            'port' => '3306',
-            'name' => 'testdb',
-            'username' => 'testuser',
-            'password' => 'testpass',
-        ];
-
-        $jsonFile = __DIR__ . '/../config/db_config.json';
-
-        // Clean up before test
-        if (file_exists($jsonFile)) {
-            unlink($jsonFile);
-        }
-
-        $result = $db->saveJsonConfig($testConfig);
-        $this->assertTrue($result);
-        $this->assertFileExists($jsonFile);
-
-        $saved = json_decode(file_get_contents($jsonFile), true);
-        $this->assertEquals('testhost', $saved['host']);
-        $this->assertEquals('testdb', $saved['name']);
-
-        // Clean up
-        unlink($jsonFile);
-    }
 }

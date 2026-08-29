@@ -152,13 +152,26 @@ class ShareController
         $clearY1 = (int)(($h - 360) / 2);
         $clearY2 = $clearY1 + 360;
 
-        mt_srand(42);
+        // A local, seeded generator so the card stays reproducible. mt_srand(42)
+        // reseeded PHP's *global* RNG for the rest of the request, making every
+        // later mt_rand()/shuffle() call in the process predictable. xorshift32
+        // keeps this self-contained and works on PHP 8.1.
+        $seed = 42;
+        $rand = function (int $min, int $max) use (&$seed): int {
+            $seed ^= ($seed << 13) & 0xFFFFFFFF;
+            $seed ^= $seed >> 17;
+            $seed ^= ($seed << 5) & 0xFFFFFFFF;
+            $seed &= 0xFFFFFFFF;
+
+            return $min + ($seed % ($max - $min + 1));
+        };
+
         $placed  = [];
         $maxIter = 200;
         for ($i = 0; $i < 12 && $maxIter > 0; $maxIter--) {
-            $r  = mt_rand(22, 40);
-            $bx = mt_rand($r + 5, $w - $r - 5);
-            $by = mt_rand($r + 5, $h - $r - 5);
+            $r  = $rand(22, 40);
+            $bx = $rand($r + 5, $w - $r - 5);
+            $by = $rand($r + 5, $h - $r - 5);
             if ($bx + $r > $clearX1 && $bx - $r < $clearX2
                 && $by + $r > $clearY1 && $by - $r < $clearY2) {
                 continue;
@@ -185,7 +198,7 @@ class ShareController
             $sd = new \ImagickDraw();
             $sd->setStrokeColor(new \ImagickPixel('rgba(0,0,0,0.35)'));
             $sd->setStrokeWidth(1.5);
-            $sd->line($bx, $by + $r + 2, $bx + mt_rand(-10, 10), $by + $r + mt_rand(25, 55));
+            $sd->line($bx, $by + $r + 2, $bx + $rand(-10, 10), $by + $r + $rand(25, 55));
             $im->drawImage($sd);
             $sd->destroy();
         }
@@ -302,31 +315,7 @@ class ShareController
         $pngData = ob_get_clean();
         imagedestroy($img);
 
-        header('Content-Type: image/png');
-        header('Cache-Control: public, max-age=86400, immutable');
-        header('Accept-Ranges: bytes');
-
-        // Detect social media crawlers - serve uncompressed for compatibility
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $crawlers = ['linkedin', 'facebook', 'twitter', 'slack', 'discord'];
-        $isCrawler = false;
-        foreach ($crawlers as $crawler) {
-            if (stripos($userAgent, $crawler) !== false) {
-                $isCrawler = true;
-                break;
-            }
-        }
-
-        $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-        if (!$isCrawler && strpos($acceptEncoding, 'gzip') !== false && function_exists('gzencode')) {
-            $compressed = gzencode($pngData, 6);
-            header('Content-Encoding: gzip');
-            header('Content-Length: ' . strlen($compressed));
-            echo $compressed;
-        } else {
-            header('Content-Length: ' . strlen($pngData));
-            echo $pngData;
-        }
+        $this->outputPng($pngData);
     }
 
     /**
@@ -465,8 +454,16 @@ class ShareController
             $base64 .= str_repeat('=', 4 - $pad);
         }
 
-        $enc = new Encryption();
-        $json = $enc->decrypt($base64);
+        // Share tokens are always minted as GCM, so the legacy unauthenticated
+        // CTR branch stays off: a forged token must not be able to select it.
+        // A missing encryption key makes every token unreadable rather than
+        // taking the page down — these routes are hit by social crawlers.
+        try {
+            $json = (new Encryption())->decrypt($base64);
+        } catch (\RuntimeException $e) {
+            error_log('SHARE: cannot decrypt token — ' . $e->getMessage());
+            return null;
+        }
         if ($json === false) {
             return null;
         }
@@ -545,15 +542,6 @@ class ShareController
         imagestring($img, $font, $x, $y, $text, $color);
     }
 
-    private function getSafeHost(): string
-    {
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
-            return 'localhost';
-        }
-        return $host;
-    }
-
     private function sanitizeName(string $raw): string
     {
         $name = trim(strip_tags($raw));
@@ -563,22 +551,8 @@ class ShareController
         return $name;
     }
 
-    private function sanitizeTime(string $raw): string
-    {
-        if (preg_match('/^\d{1,3}:\d{2}$/', $raw)) {
-            return $raw;
-        }
-        return '0:00';
-    }
-
     private function getBaseUrl(): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // Validate host header to prevent host injection attacks
-        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
-            $host = 'localhost';
-        }
-        return $scheme . '://' . $host;
+        return \App\Support\Url::baseUrl();
     }
 }

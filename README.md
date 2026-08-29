@@ -30,7 +30,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
-- **Hall of Fame** — Encrypted leaderboard with composite game score (accuracy × speed bonus), GDPR-compliant 365-day retention
+- **Hall of Fame** — Encrypted leaderboard ranked by a game score that weights accuracy quadratically and rewards speed, GDPR-compliant 365-day retention
 - **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards
 - **Dynamic Apple Touch Icon** — Themed PNG icon with color 🎮 emoji that updates automatically with theme changes
 - **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel
@@ -44,10 +44,15 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 ## Requirements
 
-- PHP >= 8.1
+- PHP >= 8.1, with the `gd` extension (share cards and the app icon). `imagick`
+  is used instead when present and produces richer share images.
 - MySQL 5.7+ or MariaDB 10.3+
 - Composer
 - Apache with mod_rewrite (or equivalent)
+- Outbound HTTPS to `cdn.jsdelivr.net` for PicoCSS, Dropzone, canvas-confetti,
+  Chart.js and the QR code library. The address formatter — which hybrid mode
+  grades against — is bundled locally, so gameplay stays correct on a restricted
+  network even though styling and confetti will not load.
 
 ## Quick Start
 
@@ -135,10 +140,15 @@ Enable **Event Code** protection to restrict game access to authorized players o
 
 **Security Features:**
 - Event codes are hashed with bcrypt (never stored in plaintext)
-- Rate limited: 5 failed attempts trigger a 5-minute lockout
-- Code is masked in admin panel after saving
+- Rate limited: 5 failed attempts trigger a 30-second lockout, counted per
+  client address so discarding the session cookie does not reset it
+- The server never returns the code or its hash — the admin panel only learns
+  whether one is set
+- Enforced server-side: the gameplay, scoring and share endpoints refuse a
+  session that has not entered the code
 - Clearing the input and saving removes the protection
-- Session-persistent: once entered correctly, the player can play until session reset
+- Session-persistent until the player presses Stop or the inactivity timer
+  fires, either of which re-locks the gate for the next player
 
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
@@ -159,20 +169,33 @@ For an optimal kiosk experience on iPad, add the app to your home screen and ena
 |--------|--------|-------|--------|------|------------|
 | Main St | 123 | 10001 | New York | US | Floor 10 |
 
+## Scoring is client-authoritative
+
+The browser computes the round percentage and posts it, and in hybrid mode it
+also derives the country-specific field order the server grades against. The
+server validates ranges and rejects nonsense, but it does not recompute the
+score from first principles, so a determined player can submit a figure they did
+not earn.
+
+This is a deliberate trade-off for an educational kiosk game — the Hall of Fame
+is for fun, not for adjudication. Do not treat it as a competition of record.
+
 ## Security
 
 - **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **CSRF protection**: Token-based validation on all POST requests
-- **Rate limiting**: Admin login locked after 5 failed attempts (5-minute lockout); leaderboard submissions throttled (10 per 5 minutes)
+- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 attempts (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
-- **Event Code**: Hashed with bcrypt (like admin PIN), rate limited (5 attempts / 5 minutes)
+- **Event Code**: Hashed with bcrypt (like admin PIN), rate limited (5 attempts / 30 seconds), and enforced on the server rather than in the browser
 - **Admin PIN**: Stored as bcrypt hash; legacy plaintext auto-upgraded on login
 - **Prepared statements**: All database queries use parameterised PDO statements
-- **Input validation**: Server-side validation on all inputs (score 0–100, time 0–3600s, name 1–50 chars)
-- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output
+- **Input validation**: Server-side bounds on all inputs (score 0–100, time 0–3600s, name 1–50 chars). Note that these are *bounds*, not proof of authenticity — see "Scoring is client-authoritative" below
+- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output. "Did you know?" facts accept a little inline markup and are therefore run through an allowlist sanitiser (`<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>`) on both write and read
+- **Setup lockdown**: The unauthenticated setup routes refuse to run once the installation is configured, whatever the database is doing — a database outage cannot be used to repoint the app or overwrite its encryption key
+- **Authenticated encryption only for untrusted input**: share tokens are accepted in AES-256-GCM form only; the legacy unauthenticated AES-256-CTR format is read for pre-migration leaderboard rows and nothing else
 - **Security logging**: Failed login attempts and CSRF violations logged with IP address
 - **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
 
@@ -195,13 +218,12 @@ This deletes leaderboard entries older than 365 days. A fallback "poor man's cro
 
 ## Deployment
 
-An FTP deployment script is included:
+Deployment is a plain file sync: run `composer install --no-dev`, then upload
+everything except `tests/`, `.git/` and the local config files.
 
-```bash
-./deploy.sh
-```
-
-This script runs `composer install --no-dev`, then syncs files to the production server via `lftp`.
+The maintainers use an FTP script (`deploy.sh`) for this, but it holds
+production credentials and is therefore gitignored — it is **not** part of a
+clone. Write your own, or deploy however suits your host.
 
 ## Credits
 

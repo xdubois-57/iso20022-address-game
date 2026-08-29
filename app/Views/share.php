@@ -6,7 +6,9 @@
  * Variables expected: $ogTitle, $ogDescription, $ogImageUrl, $baseUrl
  */
 $homeUrl = $baseUrl . '/';
-$shareUrl = $baseUrl . $_SERVER['REQUEST_URI'];
+// REQUEST_URI is attacker-supplied; go through the shared sanitiser rather than
+// interpolating it into canonical/og:url directly.
+$shareUrl = \App\Support\Url::currentUrl();
 ?>
 <!doctype html>
 <html lang="en">

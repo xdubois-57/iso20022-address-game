@@ -8,29 +8,23 @@ namespace Tests;
 use PHPUnit\Framework\TestCase;
 use App\Models\Database;
 use App\Models\ThemeModel;
+use Tests\Support\UsesInMemoryDatabase;
 
 class ThemeModelTest extends TestCase
 {
+    use UsesInMemoryDatabase;
+
     private ?\PDO $pdo = null;
 
     protected function setUp(): void
     {
-        $db = Database::getInstance();
-        if (!$db->isConnected() && !$db->connect()) {
-            $this->markTestSkipped('Database not available');
-        }
-        $this->pdo = $db->getPdo();
-        $db->initSchema();
-
-        // Clean theme settings before each test
-        $this->pdo->exec("DELETE FROM settings WHERE setting_key LIKE 'color_%'");
+        // In-memory SQLite: never the developer's configured server.
+        $this->pdo = $this->bootInMemoryDatabase();
     }
 
     protected function tearDown(): void
     {
-        if ($this->pdo) {
-            $this->pdo->exec("DELETE FROM settings WHERE setting_key LIKE 'color_%'");
-        }
+        $this->shutdownInMemoryDatabase();
     }
 
     /* =======================================================

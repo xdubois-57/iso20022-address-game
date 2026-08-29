@@ -22,6 +22,7 @@ namespace App\Controllers;
 use App\Models\Database;
 use App\Models\ScenarioModel;
 use App\Models\GameCounterModel;
+use App\Models\RateLimitModel;
 use App\Controllers\AdminController;
 use Snipe\BanBuilder\CensorWords;
 
@@ -114,6 +115,53 @@ class GameController
     }
 
     /**
+     * Is this session allowed past the Event Code gate?
+     *
+     * The gate used to live entirely in the browser: the client asked whether a
+     * code was required and then decided for itself whether to draw the prompt,
+     * while $_SESSION['event_code_ok'] was written and never read. Anyone could
+     * call the game endpoints directly, or simply skip the screen from the
+     * console. index.php now consults this before dispatching gated actions.
+     */
+    public static function isEventCodeSatisfied(): bool
+    {
+        $stored = AdminController::fetchEventCodeStatic();
+        if ($stored === null) {
+            return true; // No code configured — the game is open.
+        }
+
+        // Admins are never locked out of their own installation.
+        if (!empty($_SESSION['admin'])) {
+            return true;
+        }
+
+        if (empty($_SESSION['event_code_ok'])) {
+            return false;
+        }
+
+        // A code change invalidates sessions verified against the previous one.
+        $verifiedAt = (int) ($_SESSION['event_code_verified_at'] ?? 0);
+        return $verifiedAt >= AdminController::fetchEventCodeTimestampStatic();
+    }
+
+    /**
+     * POST /api/game/reset-session — Forget this session's Event Code unlock.
+     *
+     * Called when the player presses Stop or the inactivity timer fires. Without
+     * it the PHP session stayed unlocked after the JavaScript state reset, so on
+     * a shared kiosk the next player walked straight past the gate.
+     */
+    public function resetSession(): void
+    {
+        unset(
+            $_SESSION['event_code_ok'],
+            $_SESSION['event_code_verified_at']
+        );
+
+        $this->jsonResponse(['success' => true]);
+    }
+
+    /**
      * POST /api/game/event-code-status — Return whether an event code is currently required.
      * Also checks if the current session has been verified against the current code.
      * Does not reveal the code itself.
@@ -135,12 +183,6 @@ class GameController
         // If code was changed after this session was verified, require re-verification
         $verified = $sessionTimestamp >= $currentTimestamp;
 
-        // If code changed, also reset rate limiting for this session
-        if ($sessionTimestamp > 0 && $sessionTimestamp < $currentTimestamp) {
-            $_SESSION['event_code_attempts'] = 0;
-            unset($_SESSION['event_code_lock_until']);
-        }
-
         $this->jsonResponse(['required' => true, 'verified' => $verified]);
     }
 
@@ -155,20 +197,18 @@ class GameController
 
     public function verifyEventCode(): void
     {
-        // Rate limiting check
-        $attempts = $_SESSION['event_code_attempts'] ?? 0;
-        $lockUntil = $_SESSION['event_code_lock_until'] ?? 0;
+        // Keyed on the caller's address, not the session: a session-scoped
+        // counter reset as soon as the client discarded its cookie.
+        $limiter = new RateLimitModel(Database::getInstance()->getPdo());
+        $bucket  = RateLimitModel::bucketFor('event_code');
 
-        if ($attempts >= self::MAX_EVENT_CODE_ATTEMPTS && time() < $lockUntil) {
-            $remaining = $lockUntil - time();
-            $this->jsonResponse(['success' => false, 'error' => "Too many attempts. Try again in {$remaining} seconds."], 429);
+        $retryAfter = $limiter->retryAfter($bucket);
+        if ($retryAfter > 0) {
+            $this->jsonResponse(
+                ['success' => false, 'error' => "Too many attempts. Try again in {$retryAfter} seconds."],
+                429
+            );
             return;
-        }
-
-        // Reset if lockout expired
-        if (time() >= $lockUntil && $attempts >= self::MAX_EVENT_CODE_ATTEMPTS) {
-            $_SESSION['event_code_attempts'] = 0;
-            $attempts = 0;
         }
 
         $input    = $this->getJsonInput();
@@ -184,18 +224,26 @@ class GameController
 
         // Verify against bcrypt hash (constant-time, secure)
         if ($submitted === '' || !password_verify($submitted, $stored)) {
-            $_SESSION['event_code_attempts'] = $attempts + 1;
-            if ($attempts + 1 >= self::MAX_EVENT_CODE_ATTEMPTS) {
-                $_SESSION['event_code_lock_until'] = time() + self::EVENT_CODE_LOCKOUT_SECONDS;
+            $lockedFor = $limiter->recordFailure(
+                $bucket,
+                self::MAX_EVENT_CODE_ATTEMPTS,
+                self::EVENT_CODE_LOCKOUT_SECONDS
+            );
+            error_log('SECURITY: Failed event code attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+
+            if ($lockedFor > 0) {
+                $this->jsonResponse(
+                    ['success' => false, 'error' => "Too many attempts. Try again in {$lockedFor} seconds."],
+                    429
+                );
+                return;
             }
-            error_log('SECURITY: Failed event code attempt from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' (attempt ' . ($attempts + 1) . ')');
             $this->jsonResponse(['success' => false, 'error' => 'Invalid event code'], 401);
             return;
         }
 
         // Success — clear rate limiting, set session flag, and store verification timestamp
-        $_SESSION['event_code_attempts'] = 0;
-        unset($_SESSION['event_code_lock_until']);
+        $limiter->clear($bucket);
         $_SESSION['event_code_ok'] = true;
         $_SESSION['event_code_verified_at'] = AdminController::fetchEventCodeTimestampStatic();
         $this->jsonResponse(['success' => true]);

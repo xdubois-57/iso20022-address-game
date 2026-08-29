@@ -9,17 +9,24 @@ namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 use App\Models\Database;
+use Tests\Support\UsesInMemoryDatabase;
 
 class InitSchemaFactsTest extends TestCase
 {
+    use UsesInMemoryDatabase;
+
     private Database $db;
 
     protected function setUp(): void
     {
+        // In-memory SQLite: never the developer's configured server.
+        $this->bootInMemoryDatabase();
         $this->db = Database::getInstance();
-        if (!$this->db->connect()) {
-            $this->markTestSkipped('Database connection not available');
-        }
+    }
+
+    protected function tearDown(): void
+    {
+        $this->shutdownInMemoryDatabase();
     }
 
     /**
@@ -108,10 +115,12 @@ class InitSchemaFactsTest extends TestCase
         $pdo = $this->db->getPdo();
         $this->db->initSchema();
 
-        $tables = ['scenarios', 'leaderboard', 'settings', 'facts'];
+        // Portable across drivers: counting a missing table raises, so a
+        // numeric result proves the table exists.
+        $tables = ['scenarios', 'leaderboard', 'settings', 'facts', 'game_counter'];
         foreach ($tables as $table) {
-            $stmt = $pdo->query("SHOW TABLES LIKE '$table'");
-            $this->assertNotFalse($stmt->fetch(), "Table '$table' must exist after initSchema");
+            $count = $pdo->query("SELECT COUNT(*) FROM $table")->fetchColumn();
+            $this->assertIsNumeric($count, "Table '$table' must exist after initSchema");
         }
     }
 
