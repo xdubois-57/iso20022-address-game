@@ -207,9 +207,20 @@
             };
             opts.body = JSON.stringify(body || {});
         }
-        const resp = await fetch(API_URL, opts);
-        const data = await resp.json();
-        if (data.setup_required) {
+        // A 500, a proxy error page or a dropped connection all yield something
+        // that is not JSON. resp.json() throws on those, and because every call
+        // site only guards with `if (!data)` the rejection was unhandled and the
+        // UI simply stopped. Fail as null instead, which callers already expect.
+        var data;
+        try {
+            const resp = await fetch(API_URL, opts);
+            data = await resp.json();
+        } catch (e) {
+            console.error('API request failed:', action, e);
+            return null;
+        }
+
+        if (data && data.setup_required) {
             // Database connection failed, redirect to setup page
             window.location.href = 'index.php';
             return null;
@@ -385,6 +396,41 @@
         if (deadlineCountdownInterval) { clearInterval(deadlineCountdownInterval); deadlineCountdownInterval = null; }
     }
 
+    /**
+     * Fetch the deadline and tick the banner once a second.
+     *
+     * This body was duplicated verbatim on the welcome card and the event-code
+     * gate. It also leaked: the interval was assigned inside an async callback
+     * that resolved after the synchronous stopDeadlineCountdown() had already
+     * run, so every re-render — and a kiosk re-renders on each inactivity reset
+     * — stranded another 1 Hz timer writing to a detached node. Clearing
+     * immediately before assigning, and bailing out if the banner has since been
+     * replaced, keeps exactly one timer alive.
+     */
+    function startDeadlineCountdown() {
+        (async function () {
+            var data = await api('game/deadline', {});
+            if (!data || !data.deadline) return;
+
+            var banner = document.getElementById('countdownBanner');
+            if (!banner) return;
+
+            banner.className = 'countdown-banner';
+            var target = new Date(data.deadline);
+            updateCountdown(target, banner);
+
+            stopDeadlineCountdown();
+            deadlineCountdownInterval = setInterval(function () {
+                // The screen may have been swapped out while we were awaiting.
+                if (!document.body.contains(banner)) {
+                    stopDeadlineCountdown();
+                    return;
+                }
+                updateCountdown(target, banner);
+            }, 1000);
+        })();
+    }
+
     function updateCountdown(targetDate, el) {
         var now = new Date();
         var diff = targetDate.getTime() - now.getTime();
@@ -485,20 +531,7 @@
         html += '</section>';
         appContainer.innerHTML = html;
 
-        // Fetch deadline and start countdown
-        (async function () {
-            var data = await api('game/deadline', {});
-            if (data && data.deadline) {
-                var banner = document.getElementById('countdownBanner');
-                if (!banner) return;
-                banner.className = 'countdown-banner';
-                var target = new Date(data.deadline);
-                updateCountdown(target, banner);
-                deadlineCountdownInterval = setInterval(function () {
-                    updateCountdown(target, banner);
-                }, 1000);
-            }
-        })();
+        startDeadlineCountdown();
 
         // Fetch facts and start rotation
         (async function () {
@@ -552,20 +585,7 @@
         html += '</section>';
         appContainer.innerHTML = html;
 
-        // Fetch deadline and start countdown
-        (async function () {
-            var data = await api('game/deadline', {});
-            if (data && data.deadline) {
-                var banner = document.getElementById('countdownBanner');
-                if (!banner) return;
-                banner.className = 'countdown-banner';
-                var target = new Date(data.deadline);
-                updateCountdown(target, banner);
-                deadlineCountdownInterval = setInterval(function () {
-                    updateCountdown(target, banner);
-                }, 1000);
-            }
-        })();
+        startDeadlineCountdown();
 
         // Fetch facts and start rotation
         (async function () {
@@ -1001,6 +1021,29 @@
             mapping: mapping,
         };
 
+        // Locate an address component in the formatted text, matching only on
+        // whole tokens. A plain indexOf let a short building number match digits
+        // inside a postcode or a street name ("10" inside "10115", "8" inside
+        // "8 Mai Straße"), which silently produced the wrong expected order and
+        // then marked a correct answer wrong.
+        function findComponentPosition(haystack, needle) {
+            if (!needle) return -1;
+
+            var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Boundaries are "not a letter, digit or dash" rather than \b, which
+            // mishandles accented characters and values that start or end with
+            // punctuation.
+            var pattern = new RegExp('(^|[^\\p{L}\\p{N}-])' + escaped + '($|[^\\p{L}\\p{N}-])', 'u');
+            var match = pattern.exec(haystack);
+            if (match) {
+                return match.index + match[1].length;
+            }
+
+            // Fall back to a loose match so a component the formatter rendered
+            // differently still lands somewhere sensible rather than at the end.
+            return haystack.indexOf(needle);
+        }
+
         if (selectedGoalType === 'Hybrid' && scenario.address_display) {
             // Derive the country-specific AdrLine field order from the formatted address.
             // Fields that go into AdrLine (all except TwnNm and Ctry).
@@ -1010,12 +1053,11 @@
                 { field: 'AdtlAdrInf', value: scenario.address_display.attention },
                 { field: 'PstCd',    value: scenario.address_display.postcode },
             ];
-            var formattedLines = formatAddressForDisplay(scenario.address_display);
-            // Find each non-empty field's first occurrence position in the formatted text
+            var formattedText = formatAddressForDisplay(scenario.address_display);
             var withPos = adrFields
                 .filter(function (f) { return f.value && f.value.trim() !== ''; })
                 .map(function (f) {
-                    return { field: f.field, pos: formattedLines.indexOf(f.value.trim()) };
+                    return { field: f.field, pos: findComponentPosition(formattedText, f.value.trim()) };
                 });
             // Sort by position in formatted output (fields not found go to end)
             withPos.sort(function (a, b) {
@@ -1149,16 +1191,32 @@
         });
 
         document.getElementById('submitFinalScoreBtn').addEventListener('click', async function () {
+            // Nothing used to stop repeated taps, so an impatient player could
+            // file the same run several times over before the first response
+            // arrived. Disable for the whole round trip and re-enable only if
+            // the submission actually failed.
+            var btn = this;
+            if (btn.disabled) return;
+            btn.disabled = true;
+            var originalLabel = btn.textContent;
+            btn.textContent = 'Submitting…';
+
             var data = await api('leaderboard/submit', {
                 player_name: playerName,
                 score: finalPct,
                 time_seconds: gameElapsedSeconds,
             });
+
             if (data && data.success) {
                 lastSubmittedEntryId = data.entry_id;
                 lastSubmittedPage = data.page || 1;
                 showScreen('leaderboard');
+                return;
             }
+
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+            await showModal((data && data.error) ? data.error : 'Could not submit your score. Please try again.');
         });
 
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {

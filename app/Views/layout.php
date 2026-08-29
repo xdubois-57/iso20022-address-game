@@ -189,7 +189,10 @@ if (!function_exists('getVersionInfo')) {
 
     <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js" integrity="sha384-PwiT+fWTPpIySx6DrH1FKraKo+LvVpOClsjx0TSdMYTKi7BR1hR149f4VHLUUnfA" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js" integrity="sha384-JSZXO0kKYHTylAsDYTb+7Kg2eUyalm19b8Pydcdf8sQ1cCKYZr9lLahoKT9+LFY5" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@fragaria/address-formatter@7.0.0/dist/umd/address-formatter.js" integrity="sha384-yoBDNHqs1jpGFjXefZLTbkgO5JOnP60YFtODfRn8h3nZQ/E/RMS03aCM3Z0iga+v" crossorigin="anonymous"></script>
+    <!-- Served locally: hybrid-mode grading depends on this formatter, and a
+         kiosk on a restricted network would otherwise silently fall back to a
+         single hardcoded layout for every country. -->
+    <script src="<?= assetUrl('assets/js/vendor/address-formatter.js') ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous"></script>
     <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
