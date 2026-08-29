@@ -6,6 +6,7 @@
 namespace Tests;
 
 use PHPUnit\Framework\TestCase;
+use App\Support\Url;
 use App\Models\Encryption;
 
 class ShareControllerTest extends TestCase
@@ -159,59 +160,65 @@ class ShareControllerTest extends TestCase
     }
 
     /* =======================================================
-       Host validation (mirrors ShareController::getSafeHost)
+       Host validation
        ======================================================= */
 
-    private function getSafeHost(string $host): string
+    /**
+     * These used to run against a private copy of the regex kept inside this
+     * test class, so they could pass while the real code drifted. They now
+     * exercise App\Support\Url, which is what the application actually calls.
+     */
+    private function safeHostFor(string $host): string
     {
-        if (!preg_match('/^[a-zA-Z0-9.\-]+(:\d{1,5})?$/', $host)) {
-            return 'localhost';
-        }
-        return $host;
+        $_SERVER['HTTP_HOST'] = $host;
+        return Url::safeHost();
     }
 
     public function testSafeHostAcceptsValidHosts(): void
     {
-        $this->assertEquals('example.com', $this->getSafeHost('example.com'));
-        $this->assertEquals('sub.domain.com', $this->getSafeHost('sub.domain.com'));
-        $this->assertEquals('localhost:8080', $this->getSafeHost('localhost:8080'));
-        $this->assertEquals('192.168.1.1:3000', $this->getSafeHost('192.168.1.1:3000'));
+        $this->assertEquals('example.com', $this->safeHostFor('example.com'));
+        $this->assertEquals('sub.domain.com', $this->safeHostFor('sub.domain.com'));
+        $this->assertEquals('localhost:8080', $this->safeHostFor('localhost:8080'));
+        $this->assertEquals('192.168.1.1:3000', $this->safeHostFor('192.168.1.1:3000'));
     }
 
     public function testSafeHostRejectsInvalidHosts(): void
     {
-        $this->assertEquals('localhost', $this->getSafeHost('evil.com/attack'));
-        $this->assertEquals('localhost', $this->getSafeHost('evil.com attack'));
-        $this->assertEquals('localhost', $this->getSafeHost('<script>'));
-        $this->assertEquals('localhost', $this->getSafeHost(''));
+        $this->assertEquals('localhost', $this->safeHostFor('evil.com/attack'));
+        $this->assertEquals('localhost', $this->safeHostFor('evil.com attack'));
+        $this->assertEquals('localhost', $this->safeHostFor('<script>'));
+        $this->assertEquals('localhost', $this->safeHostFor(''));
     }
 
-    /* =======================================================
-       Time sanitization (mirrors ShareController::sanitizeTime)
-       ======================================================= */
-
-    private function sanitizeTime(string $raw): string
+    public function testCurrentUrlStripsCharactersThatEscapeAnAttribute(): void
     {
-        if (preg_match('/^\d{1,3}:\d{2}$/', $raw)) {
-            return $raw;
-        }
-        return '0:00';
+        // REQUEST_URI is attacker-supplied and lands in og:url / canonical.
+        $_SERVER['HTTP_HOST'] = 'example.com';
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['REQUEST_URI'] = '/share?d=abc"><script>alert(1)</script>';
+
+        $url = Url::currentUrl();
+
+        $this->assertStringNotContainsString('"', $url);
+        $this->assertStringNotContainsString('<', $url);
+        $this->assertStringStartsWith('https://example.com/share', $url);
     }
 
-    public function testSanitizeTimeAcceptsValidFormats(): void
+    public function testCurrentUrlHtmlIsAttributeSafe(): void
     {
-        $this->assertEquals('1:30', $this->sanitizeTime('1:30'));
-        $this->assertEquals('0:00', $this->sanitizeTime('0:00'));
-        $this->assertEquals('999:59', $this->sanitizeTime('999:59'));
-        $this->assertEquals('12:05', $this->sanitizeTime('12:05'));
+        $_SERVER['HTTP_HOST'] = 'example.com';
+        $_SERVER['REQUEST_URI'] = '/share?d=a&b=c';
+
+        $this->assertStringNotContainsString('&b', Url::currentUrlHtml());
+        $this->assertStringContainsString('&amp;b', Url::currentUrlHtml());
     }
 
-    public function testSanitizeTimeRejectsInvalidFormats(): void
+    public function testBaseUrlFallsBackForAnInjectedHostHeader(): void
     {
-        $this->assertEquals('0:00', $this->sanitizeTime('abc'));
-        $this->assertEquals('0:00', $this->sanitizeTime(''));
-        $this->assertEquals('0:00', $this->sanitizeTime('1:2'));
-        $this->assertEquals('0:00', $this->sanitizeTime('1234:00'));
+        $_SERVER['HTTP_HOST'] = 'evil.com"onload="x';
+        unset($_SERVER['HTTPS']);
+
+        $this->assertEquals('http://localhost', Url::baseUrl());
     }
 
     /* =======================================================

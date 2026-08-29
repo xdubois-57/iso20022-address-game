@@ -26,7 +26,6 @@ class Database
 {
     private static ?Database $instance = null;
     private ?PDO $pdo = null;
-    private array $config = [];
 
     private function __construct()
     {
@@ -90,22 +89,11 @@ class Database
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]
             );
-            $this->config = $dbConfig;
             return true;
         } catch (PDOException $e) {
             $this->pdo = null;
             return false;
         }
-    }
-
-    /**
-     * Save DB config to the JSON fallback file.
-     */
-    public function saveJsonConfig(array $dbConfig): bool
-    {
-        $jsonFile = __DIR__ . '/../../config/db_config.json';
-        $json = json_encode($dbConfig, JSON_PRETTY_PRINT);
-        return file_put_contents($jsonFile, $json) !== false;
     }
 
     public function isConnected(): bool
@@ -116,11 +104,6 @@ class Database
     public function getPdo(): ?PDO
     {
         return $this->pdo;
-    }
-
-    public function getConfig(): array
-    {
-        return $this->config;
     }
 
     /**
@@ -134,7 +117,6 @@ class Database
     public function setPdo(?PDO $pdo): void
     {
         $this->pdo = $pdo;
-        $this->config = [];
     }
 
     /**
