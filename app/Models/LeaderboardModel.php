@@ -46,57 +46,32 @@ class LeaderboardModel
     }
 
     /**
-     * Get top N entries, decrypting names for display.
-     */
-    public function getTopEntries(int $limit = 10): array
-    {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY score DESC, time_seconds ASC, created_at ASC LIMIT ?'
-        );
-        $stmt->execute([$limit]);
-        $rows = $stmt->fetchAll();
-
-        return array_map(function ($row) {
-            try {
-                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
-                $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
-            } catch (\Throwable $e) {
-                // Decryption failed (likely due to key change) - show anonymized
-                $row['player_name'] = '[redacted]';
-            }
-            unset($row['encrypted_name']);
-            return $row;
-        }, $rows);
-    }
-
-    /**
-     * Get N most recent entries by creation date.
-     */
-    public function getRecentEntries(int $limit = 5): array
-    {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, encrypted_name, score, time_seconds, created_at FROM leaderboard ORDER BY id DESC LIMIT ?'
-        );
-        $stmt->execute([$limit]);
-        $rows = $stmt->fetchAll();
-
-        return array_map(function ($row) {
-            try {
-                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
-                $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
-            } catch (\Throwable $e) {
-                $row['player_name'] = '[redacted]';
-            }
-            unset($row['encrypted_name']);
-            return $row;
-        }, $rows);
-    }
-
-    /**
      * SQL expression for computing game score (cross-platform MySQL/SQLite).
      * Mirrors JS: Math.round(pct * pct * (1 + 500 / Math.max(1, seconds)) / 10)
      */
     private const GAME_SCORE_EXPR = 'ROUND(score * score * (1.0 + 500.0 / (CASE WHEN time_seconds < 1 THEN 1 ELSE time_seconds END)) / 10.0)';
+
+    /**
+     * Get top N entries by game score, decrypting names for display.
+     *
+     * Ordering used to be by raw accuracy, while the admin screen re-sorted the
+     * rows it received by game score in JavaScript. Past the fetch limit those
+     * two orderings disagree, so a fast-but-imperfect run could outrank
+     * everything displayed and still never appear. The database now applies the
+     * same ordering the Hall of Fame uses.
+     */
+    public function getTopEntries(int $limit = 10): array
+    {
+        $expr = self::GAME_SCORE_EXPR;
+        $stmt = $this->pdo->prepare(
+            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score "
+            . 'FROM leaderboard ORDER BY game_score DESC, time_seconds ASC, created_at ASC LIMIT :limit'
+        );
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $this->hydrate($stmt->fetchAll());
+    }
 
     /**
      * Get paginated entries sorted by game_score, decrypting names for display.
@@ -106,13 +81,32 @@ class LeaderboardModel
         $offset = ($page - 1) * $perPage;
         $expr = self::GAME_SCORE_EXPR;
         $stmt = $this->pdo->prepare(
-            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score FROM leaderboard ORDER BY game_score DESC, time_seconds ASC, created_at ASC LIMIT ? OFFSET ?"
+            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score "
+            . 'FROM leaderboard ORDER BY game_score DESC, time_seconds ASC, created_at ASC '
+            . 'LIMIT :limit OFFSET :offset'
         );
-        $stmt->execute([$perPage, $offset]);
-        $rows = $stmt->fetchAll();
+        // Bound as integers explicitly: with ATTR_EMULATE_PREPARES off, values
+        // passed through execute() are sent as strings, which MySQL rejects in
+        // LIMIT/OFFSET. The SQLite-backed tests would never catch it.
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
+        return $this->hydrate($stmt->fetchAll());
+    }
+
+    /**
+     * Attach a display name to each row and drop the ciphertext.
+     *
+     * Names that cannot be decrypted — typically after a key change — are shown
+     * as [redacted] rather than failing the whole listing.
+     */
+    private function hydrate(array $rows): array
+    {
         return array_map(function ($row) {
             try {
+                // Rows predating the GCM migration are in the legacy CTR format,
+                // so this is the one call site allowed to accept it.
                 $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
                 $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
             } catch (\Throwable $e) {

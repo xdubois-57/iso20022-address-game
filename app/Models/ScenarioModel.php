@@ -44,18 +44,39 @@ class ScenarioModel
     }
 
     /**
+     * Upper bound on client-supplied exclusions, so a caller cannot force an
+     * arbitrarily large IN list. Far above the number of scenarios any real
+     * session plays through.
+     */
+    private const MAX_EXCLUDE_IDS = 500;
+
+    /**
      * Get a random scenario, optionally excluding specific IDs.
      */
     public function getRandom(array $excludeIds = []): ?array
     {
+        // exclude_ids comes straight from the client. array_map('intval', ...)
+        // preserved the original keys, so a JSON object rather than an array
+        // produced string keys against positional placeholders and a PDO error;
+        // nested values raised a warning and silently became 1. Normalise to a
+        // clean, bounded list of positive integers.
+        $excludeIds = array_values(array_unique(array_map(
+            'intval',
+            array_filter($excludeIds, 'is_scalar')
+        )));
+        $excludeIds = array_values(array_filter($excludeIds, fn($id) => $id > 0));
+        $excludeIds = array_slice($excludeIds, 0, self::MAX_EXCLUDE_IDS);
+
         $sql = 'SELECT id, json_data FROM scenarios';
         $params = [];
         if (!empty($excludeIds)) {
             $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
             $sql .= ' WHERE id NOT IN (' . $placeholders . ')';
-            $params = array_map('intval', $excludeIds);
+            $params = $excludeIds;
         }
-        $sql .= ' ORDER BY RAND() LIMIT 1';
+        // RAND() is MySQL's spelling, RANDOM() SQLite's.
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $sql .= $driver === 'sqlite' ? ' ORDER BY RANDOM() LIMIT 1' : ' ORDER BY RAND() LIMIT 1';
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         $row = $stmt->fetch();

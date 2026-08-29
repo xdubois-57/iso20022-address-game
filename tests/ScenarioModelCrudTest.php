@@ -186,4 +186,62 @@ class ScenarioModelCrudTest extends TestCase
         $this->assertGreaterThan(0, $id);
         $this->assertCount(1, $this->model->getAll());
     }
+
+    /* =======================================================
+       exclude_ids comes straight from the client
+       ======================================================= */
+
+    public function testGetRandomExcludesGivenIds(): void
+    {
+        $a = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
+        $b = $this->model->create(['TwnNm' => 'Berlin', 'Ctry' => 'DE']);
+
+        $picked = $this->model->getRandom([$a]);
+
+        $this->assertNotNull($picked);
+        $this->assertEquals($b, $picked['id']);
+    }
+
+    public function testGetRandomAcceptsAssociativeArrayFromJsonObject(): void
+    {
+        // json_decode of {"0":1} yields string keys; array_map preserved them,
+        // so positional placeholders got named keys and PDO threw.
+        $a = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
+        $b = $this->model->create(['TwnNm' => 'Berlin', 'Ctry' => 'DE']);
+
+        $picked = $this->model->getRandom(['x' => $a, 'y' => $a]);
+
+        $this->assertNotNull($picked);
+        $this->assertEquals($b, $picked['id']);
+    }
+
+    public function testGetRandomIgnoresNonScalarEntries(): void
+    {
+        $a = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
+
+        // Nested arrays used to raise a warning and silently become 1.
+        $picked = $this->model->getRandom([['nested'], null, 0, -5]);
+
+        $this->assertNotNull($picked);
+        $this->assertEquals($a, $picked['id']);
+    }
+
+    public function testGetRandomCapsAnOversizedExclusionList(): void
+    {
+        $id = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
+
+        // A caller must not be able to force an unbounded IN list.
+        $huge = range(1000, 3000);
+        $picked = $this->model->getRandom($huge);
+
+        $this->assertNotNull($picked);
+        $this->assertEquals($id, $picked['id']);
+    }
+
+    public function testGetRandomReturnsNullWhenEverythingExcluded(): void
+    {
+        $a = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
+
+        $this->assertNull($this->model->getRandom([$a]));
+    }
 }

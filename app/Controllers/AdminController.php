@@ -176,31 +176,54 @@ class AdminController
             mkdir($uploadDir, 0755, true);
         }
         $tmpPath = $uploadDir . 'upload_' . bin2hex(random_bytes(8)) . '.xlsx';
-        move_uploaded_file($file['tmp_name'], $tmpPath);
-
-        $parser = new ExcelParser();
-        $result = $parser->parse($tmpPath);
-
-        if (!empty($result['errors'])) {
-            unlink($tmpPath);
-            $this->jsonResponse(['errors' => $result['errors']], 422);
+        if (!move_uploaded_file($file['tmp_name'], $tmpPath)) {
+            $this->jsonResponse(['error' => 'Could not store the uploaded file.'], 500);
             return;
         }
 
-        // Replace scenarios
-        $this->scenarioModel->deleteAll();
-        foreach ($result['scenarios'] as $s) {
-            $this->scenarioModel->create($s['json_data']);
+        // try/finally so a parser exception cannot leave the upload on disk.
+        try {
+            $parser = new ExcelParser();
+            $result = $parser->parse($tmpPath);
+
+            if (!empty($result['errors'])) {
+                $this->jsonResponse(['errors' => $result['errors']], 422);
+                return;
+            }
+
+            // Replace scenarios in one transaction. deleteAll() followed by a
+            // loop of inserts meant a failure part-way through left the kiosk
+            // with a partial scenario set — or none at all.
+            $db  = Database::getInstance();
+            $pdo = $db->getPdo();
+
+            $pdo->beginTransaction();
+            try {
+                $this->scenarioModel->deleteAll();
+                foreach ($result['scenarios'] as $scenario) {
+                    $this->scenarioModel->create($scenario['json_data']);
+                }
+                $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('ADMIN: scenario import failed, rolled back — ' . $e->getMessage());
+                $this->jsonResponse(['error' => 'Import failed; the previous scenarios were kept.'], 500);
+                return;
+            }
+
+            $this->jsonResponse([
+                'success' => true,
+                'imported' => [
+                    'scenarios' => count($result['scenarios']),
+                ],
+            ]);
+        } finally {
+            if (is_file($tmpPath)) {
+                unlink($tmpPath);
+            }
         }
-
-        unlink($tmpPath);
-
-        $this->jsonResponse([
-            'success' => true,
-            'imported' => [
-                'scenarios' => count($result['scenarios']),
-            ],
-        ]);
     }
 
     /**

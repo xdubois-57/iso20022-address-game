@@ -29,6 +29,31 @@ require_once __DIR__ . '/../vendor/autoload.php';
 const CREDENTIALS_FILE = __DIR__ . '/../config/credentials.php';
 const DB_CONFIG_FILE   = __DIR__ . '/../config/db_config.json';
 
+/**
+ * Current schema revision. Bump when initSchema() gains a table or column.
+ */
+const SCHEMA_VERSION = 6;
+
+/**
+ * Run initSchema() at most once per session, and again after a version bump.
+ *
+ * The GET and POST paths used to disagree: POST tracked $_SESSION['schema_version']
+ * while GET only set a boolean $_SESSION['schema_ready'], so a visitor who never
+ * issued a POST never picked up a schema change. Both go through here now.
+ */
+function ensureSchema(\App\Models\Database $db): void
+{
+    // Legacy boolean from before versioning: treat as "unknown version".
+    if (isset($_SESSION['schema_ready']) && !isset($_SESSION['schema_version'])) {
+        unset($_SESSION['schema_ready']);
+    }
+
+    if (($_SESSION['schema_version'] ?? 0) < SCHEMA_VERSION) {
+        $db->initSchema();
+        $_SESSION['schema_version'] = SCHEMA_VERSION;
+    }
+}
+
 function isAlreadyConfigured(): bool
 {
     return file_exists(CREDENTIALS_FILE) || file_exists(DB_CONFIG_FILE);
@@ -169,15 +194,7 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'Database unavailable', 'setup_required' => true]);
         exit;
     }
-    // Init schema once per session to avoid repeated DDL (bump version when schema changes)
-    $schemaVersion = 5;
-    if (isset($_SESSION['schema_ready']) && !isset($_SESSION['schema_version'])) {
-        unset($_SESSION['schema_ready']);
-    }
-    if (($_SESSION['schema_version'] ?? 0) < $schemaVersion) {
-        $db->initSchema();
-        $_SESSION['schema_version'] = $schemaVersion;
-    }
+    ensureSchema($db);
 
     // Event Code gate, enforced here rather than in the browser. Everything that
     // actually plays the game or records a result is behind it; the two
@@ -251,11 +268,7 @@ if (!$db->connect()) {
     require __DIR__ . '/../app/Views/setup.php';
     exit;
 }
-// Init schema once per session to avoid repeated DDL
-if (empty($_SESSION['schema_ready'])) {
-    $db->initSchema();
-    $_SESSION['schema_ready'] = true;
-}
+ensureSchema($db);
 
 // Poor man's cron: run GDPR cleanup once per day on visitor traffic
 $cleanupStamp = __DIR__ . '/../storage/last_cleanup.txt';

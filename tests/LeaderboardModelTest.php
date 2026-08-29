@@ -167,41 +167,21 @@ class LeaderboardModelTest extends TestCase
         $this->assertEquals('Charlie', $entries[1]['player_name']);
     }
 
-    public function testGetRecentEntriesReturnsMostRecent(): void
+    public function testGetTopEntriesOrdersByGameScoreNotRawAccuracy(): void
     {
-        $this->model->addEntry('First', 50);
-        $this->model->addEntry('Second', 60);
-        $this->model->addEntry('Third', 70);
+        // gameScore = round(pct^2 * (1 + 500/max(1,s)) / 10)
+        //   slow perfect run: 100% in 600s -> 1833
+        //   fast near-miss:    90% in  10s -> 41310
+        // Raw-accuracy ordering would put Perfectionist first; the game score
+        // the app actually ranks by puts Sprinter well ahead.
+        $this->model->addEntry('Perfectionist', 100, 600);
+        $this->model->addEntry('Sprinter', 90, 10);
 
-        $recent = $this->model->getRecentEntries(2);
-        $this->assertCount(2, $recent);
-        // Most recent first
-        $this->assertEquals('Third', $recent[0]['player_name']);
-        $this->assertEquals('Second', $recent[1]['player_name']);
-    }
+        $entries = $this->model->getTopEntries(10);
 
-    public function testGetRecentEntriesRespectsLimit(): void
-    {
-        for ($i = 0; $i < 10; $i++) {
-            $this->model->addEntry("Player$i", $i * 10);
-        }
-
-        $recent = $this->model->getRecentEntries(5);
-        $this->assertCount(5, $recent);
-    }
-
-    public function testGetRecentEntriesRemovesEncryptedNameField(): void
-    {
-        $this->model->addEntry('Alice', 50);
-        $recent = $this->model->getRecentEntries(5);
-        $this->assertArrayNotHasKey('encrypted_name', $recent[0]);
-        $this->assertArrayHasKey('player_name', $recent[0]);
-    }
-
-    public function testGetRecentEntriesEmptyTable(): void
-    {
-        $recent = $this->model->getRecentEntries(5);
-        $this->assertCount(0, $recent);
+        $this->assertEquals('Sprinter', $entries[0]['player_name']);
+        $this->assertEquals('Perfectionist', $entries[1]['player_name']);
+        $this->assertGreaterThan($entries[1]['game_score'], $entries[0]['game_score']);
     }
 
     /* =======================================================
