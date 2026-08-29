@@ -183,12 +183,6 @@ class GameController
         // If code was changed after this session was verified, require re-verification
         $verified = $sessionTimestamp >= $currentTimestamp;
 
-        // If code changed, also reset rate limiting for this session
-        if ($sessionTimestamp > 0 && $sessionTimestamp < $currentTimestamp) {
-            $_SESSION['event_code_attempts'] = 0;
-            unset($_SESSION['event_code_lock_until']);
-        }
-
         $this->jsonResponse(['required' => true, 'verified' => $verified]);
     }
 

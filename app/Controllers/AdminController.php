@@ -608,9 +608,8 @@ class AdminController
         if ($code === '') {
             $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code']);
             $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code_timestamp']);
-            // Clear current session rate limiting
-            unset($_SESSION['event_code_attempts']);
-            unset($_SESSION['event_code_lock_until']);
+            // Removing the code releases everyone currently locked out.
+            (new RateLimitModel($pdo))->clearScope('event_code');
             unset($_SESSION['event_code_verified_at']);
             $this->jsonResponse(['success' => true, 'has_code' => false]);
             return;
@@ -643,9 +642,9 @@ class AdminController
             throw $e;
         }
 
-        // Clear current session rate limiting (user just set the code, allow immediate use)
-        unset($_SESSION['event_code_attempts']);
-        unset($_SESSION['event_code_lock_until']);
+        // A new code releases anyone locked out under the old one, for every
+        // caller rather than just this session.
+        (new RateLimitModel($pdo))->clearScope('event_code');
         // Note: We don't set event_code_verified_at here because the admin should still enter the code
 
         $this->jsonResponse(['success' => true, 'has_code' => true]);

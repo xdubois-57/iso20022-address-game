@@ -151,6 +151,31 @@ class RateLimitModelTest extends TestCase
         );
     }
 
+    public function testClearScopeReleasesEveryCallerInThatScope(): void
+    {
+        // Changing the event code is documented as resetting rate limiting for
+        // all users, not just the admin who changed it.
+        $first  = RateLimitModel::bucketFor('event_code', '198.51.100.1');
+        $second = RateLimitModel::bucketFor('event_code', '198.51.100.2');
+        $other  = RateLimitModel::bucketFor('admin_login', '198.51.100.1');
+
+        foreach ([$first, $second, $other] as $bucket) {
+            for ($i = 0; $i < 5; $i++) {
+                $this->limiter->recordFailure($bucket, 5, 300);
+            }
+        }
+
+        $this->limiter->clearScope('event_code');
+
+        $this->assertSame(0, $this->limiter->retryAfter($first));
+        $this->assertSame(0, $this->limiter->retryAfter($second));
+        $this->assertGreaterThan(
+            0,
+            $this->limiter->retryAfter($other),
+            'Clearing one scope must not release another'
+        );
+    }
+
     public function testPurgeExpiredRemovesStaleRows(): void
     {
         $this->limiter->recordFailure('admin_login:stale', 5, 300);
