@@ -78,6 +78,38 @@ test.describe('PMPG branding', () => {
         }
     });
 
+    test('the footer logo rides in the layout, so it holds across screens', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.goto('/');
+
+        const footerLogo = page.locator('.game-footer .footer-endorsement img');
+        await expect(footerLogo).toBeVisible();
+        await expect(footerLogo).toHaveAttribute('alt', PMPG_ALT);
+        await expect(page.locator('.footer-endorsement .footer-text')).toHaveText('Supported by');
+        expect(await footerLogo.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+
+        // Asserted on a second screen on purpose. The SPA swaps out
+        // #appContainer and leaves the layout alone, so a logo that survives
+        // a screen change is proven to live in layout.php rather than in one
+        // view — which is the whole claim this test exists to make.
+        await page.click('[data-screen="leaderboard"]');
+        await expect(page.locator('.leaderboard-screen h2')).toHaveText('Hall of Fame');
+        await expect(footerLogo).toBeVisible();
+
+        // And it is not a link, for the same Guided Access reason as the card.
+        await expect(page.locator('.footer-endorsement a')).toHaveCount(0);
+    });
+
+    test('the footer logo steps aside on a phone, the card keeps its own', async ({ page }) => {
+        // Both would otherwise land in the same short viewport, which reads as
+        // repetition. The card's is the one carrying the message, so it stays.
+        await page.setViewportSize({ width: 375, height: 812 });
+        await page.goto('/');
+
+        await expect(page.locator('.welcome-card .card-endorsement img')).toBeVisible();
+        await expect(page.locator('.game-footer .footer-endorsement')).toBeHidden();
+    });
+
     test('the theme reset persists in one click, and only for an authenticated admin', async ({ page, request }) => {
         // The reset is destructive — it discards an admin's saved colours —
         // so the two refusal paths matter as much as the happy one. CSRF is

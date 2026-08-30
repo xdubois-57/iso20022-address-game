@@ -171,7 +171,21 @@ if (!function_exists('getVersionInfo')) {
         <a href="#" data-screen="privacy" class="footer-link">Privacy</a>
         <span class="footer-separator" id="footerGithubSep">&bull;</span>
         <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener" class="footer-link" id="footerGithubLink">GitHub</a>
-        <br/>
+        <!--
+            The endorsement rides in the layout rather than in any single
+            screen, so it holds on every page — not just the welcome card.
+            Deliberately quiet: the card's logo already carries the message,
+            and this footer is busy. assetUrl() gives it the same mtime
+            cache-busting as the rest of the layout's assets.
+
+            Not a link, for the same reason the card's logo is not: a kiosk in
+            Guided Access cannot come back from an outbound navigation.
+        -->
+        <div class="footer-endorsement">
+            <span class="footer-text">Supported by</span>
+            <img src="<?= assetUrl('assets/images/pmpg-logo.png') ?>"
+                 alt="Payments Market Practice Group" width="1095" height="282">
+        </div>
         <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
     </footer>
 

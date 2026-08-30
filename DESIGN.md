@@ -179,6 +179,13 @@ Hall of Fame is for fun rather than adjudication.
   navigation strands the player in a browser they cannot leave
 - `alt="Payments Market Practice Group"` is load-bearing, not decorative: the
   logo *is* the statement of support, so a screen reader must announce it
+- The page footer carries the same `Supported by` + lockup pair at ~24px
+  (`.footer-endorsement`), in `app/Views/layout.php` — so it holds on every
+  screen, not only the welcome card. Hidden below 768px, where both logos
+  would otherwise land in one short viewport; the card keeps its own
+- The `<h1 class="logo">ISO 20022 Address Game</h1>` heading stays text and
+  stays the title. The PMPG lockup does not replace it — the game keeps its
+  own name
 - Served from `public/assets/images/`, never a CDN — the CSP allows
   `img-src 'self' data:` as it stands, and widening it for a logo would trade
   security for nothing

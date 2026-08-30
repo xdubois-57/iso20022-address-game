@@ -197,6 +197,28 @@ html, body {
     font-size: 0.85rem;
 }
 
+/* The endorsement line, above the version line. A block element, so it starts
+   its own row without needing a <br>. */
+.footer-endorsement {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0.4rem 0 0.35rem;
+}
+
+.footer-endorsement .footer-text {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.footer-endorsement img {
+    height: 24px;
+    width: auto;
+}
+
 /* =========================================================
    Main / SPA Container
    ========================================================= */
@@ -1614,6 +1636,14 @@ html, body {
 @media (max-width: 768px) {
     .game-layout {
         grid-template-columns: 1fr;
+    }
+
+    /* One endorsement per screen. On a phone the welcome card and the footer
+       are close enough together that both logos land in the same short
+       viewport, which reads as repetition rather than as branding. The card's
+       is the one that stays — it is the one carrying the message. */
+    .footer-endorsement {
+        display: none;
     }
 
     .hamburger {
