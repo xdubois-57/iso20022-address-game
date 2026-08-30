@@ -24,6 +24,6 @@
     },
     "scripts": {
         "test": "phpunit --configuration phpunit.xml",
-        "serve": "php -S localhost:8000 -t public"
+        "serve": "./scripts/serve.sh"
     }
 }

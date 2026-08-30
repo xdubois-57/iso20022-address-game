@@ -204,24 +204,24 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 ## Running Locally
 
 ```bash
-composer serve      # http://localhost:8000
+composer install
+composer serve            # http://localhost:8000
+composer serve -- 8080    # a specific port
 ```
 
-This is PHP's built-in server pointed at `public/`. It needs a database
-configured first — either follow [Configure Database](#2-configure-database)
-above, or point the app at a throwaway SQLite file, which needs nothing
-installed:
+`scripts/serve.sh` checks the prerequisites and starts PHP's built-in server
+on `public/`. On a clone with **no database configured yet** it provisions a
+local SQLite instance automatically (`storage/dev.sqlite`) and writes a
+gitignored `config/credentials.php` with a generated encryption key and the
+default admin PIN `1234` — so a fresh clone gets a working instance in one
+command. An install that is already configured is never touched.
 
-```bash
-php scripts/e2e-seed-config.php "$(pwd)/storage/dev.sqlite" config/credentials.php
-```
+To use MySQL instead, follow [Configure Database](#2-configure-database) and
+delete `config/credentials.php` first: it takes precedence over
+`config/db_config.json`.
 
-That writes a gitignored `config/credentials.php` with a generated encryption
-key and the default admin PIN (`1234`). Note it takes precedence over
-`config/db_config.json`, so delete it when you want to switch to MySQL.
-
-The built-in server handles one request at a time, so it is fine for
-development but is not representative of production throughput.
+This is a development server only. It handles one request at a time and is
+not hardened — don't expose it beyond localhost.
 
 ## Running Tests
 
