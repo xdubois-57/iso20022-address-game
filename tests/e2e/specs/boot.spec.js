@@ -30,16 +30,32 @@ test.describe('boot', () => {
         await expect(page.locator('#welcomeNameInput')).toBeVisible();
         await expect(page.locator('#startGameBtn')).toBeVisible();
 
-        // public/assets/js/vendor/address-formatter.js (DESIGN.md's documented
-        // bundled @fragaria/address-formatter) is not present in this checkout —
-        // a pre-existing gap unrelated to the auto-update feature this suite
-        // was added for. app.js's formatAddressForDisplay() already falls back
-        // to plain concatenation when window.addressFormatter is undefined
-        // (see public/assets/js/lib/address.js), so gameplay is unaffected;
-        // only this one known, unrelated console error is filtered out here so
-        // the assertion still catches anything new.
-        const unexpected = consoleErrors.filter((e) => !e.includes('address-formatter.js'));
-        expect(unexpected, `console errors: ${unexpected.join('\n')}`).toEqual([]);
+        expect(consoleErrors, `console errors: ${consoleErrors.join('\n')}`).toEqual([]);
+    });
+
+    test('the bundled address formatter loads and drives country-specific layouts', async ({ page }) => {
+        await page.goto('/');
+
+        // Not merely "the file 200s": this is what the bundling is FOR. Hybrid
+        // mode grades against country-specific field order, and without this
+        // library lib/address.js falls back to one hardcoded layout for every
+        // country — which would mark a correct German address wrong, since
+        // German addresses put the house number after the street name.
+        await expect
+            .poll(() => page.evaluate(() => typeof window.addressFormatter))
+            .toBe('object');
+
+        const formatted = await page.evaluate(() => {
+            const addr = { houseNumber: '123', road: 'Main St', city: 'Springfield', postcode: '10001' };
+            const out = {};
+            for (const cc of ['US', 'DE']) {
+                out[cc] = window.addressFormatter.format({ ...addr, countryCode: cc }, { output: 'array' });
+            }
+            return out;
+        });
+
+        expect(formatted.US[0]).toBe('123 Main St');
+        expect(formatted.DE[0]).toBe('Main St 123');
     });
 
     test('nav switches between Play, Hall of Fame and Admin screens', async ({ page }) => {

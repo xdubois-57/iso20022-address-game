@@ -1,5 +1,7 @@
-# Dependencies
-vendor/
+# Dependencies — anchored to the repository root on purpose.
+# Unanchored, `vendor/` also matched public/assets/js/vendor/, which
+# silently excluded the bundled address formatter from every clone.
+/vendor/
 
 # Config with secrets
 config/credentials.php

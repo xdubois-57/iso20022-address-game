@@ -320,6 +320,16 @@ This game was built by **Xavier Dubois** and **Niel Buchan**.
 
 ### Third-party assets
 
+#### Address formatter
+
+[`@fragaria/address-formatter`](https://github.com/fragaria/address-formatter)
+v7.0.0, MIT licensed, bundled verbatim at
+`public/assets/js/vendor/address-formatter.js` (see the README there). It
+supplies the country-specific address layouts hybrid mode grades against, so
+it is committed rather than loaded from a CDN — a kiosk that could not reach
+the network would otherwise use one layout for every country and mark correct
+answers wrong.
+
 #### Background image
 
 Derived from [Simplified World Map.svg](https://commons.wikimedia.org/wiki/File:Simplified_World_Map.svg)
