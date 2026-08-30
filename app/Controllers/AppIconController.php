@@ -38,8 +38,8 @@ class AppIconController
     public function generate(): void
     {
         $theme    = $this->loadTheme();
-        $bg       = $theme['color_bg']      ?: '#94e3fe';
-        $fg       = $theme['color_text']    ?: '#00364a';
+        $bg       = $theme['color_bg']      ?: '#8abed9';
+        $fg       = $theme['color_text']    ?: '#3d345f';
         $font     = __DIR__ . '/../../public/assets/fonts/LiberationSans-Bold.ttf';
         $emojiPng = __DIR__ . '/../../public/assets/images/emoji-controller.png';
 

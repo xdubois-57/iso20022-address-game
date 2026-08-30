@@ -34,12 +34,38 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 ### 2.2 View (UI/UX)
 
 - **Framework**: PicoCSS (semantic HTML, minimal footprint)
-- **Branding** (Color Palette):
-  - Primary: `#00364a` (Dark Teal)
-  - Primary Hover: `#00a3d7` (Bright Blue)
-  - Primary Light: `#caf0fe` (Light Blue)
-  - Background: `#94e3fe` (Sky Blue)
-  - Text/Headers: `#00364a` (Dark Teal)
+- **Branding** (Color Palette) — sampled from the PMPG logo:
+  - Primary: `#3d345f` (PMPG Violet)
+  - Primary Hover: `#2c2646` (Violet, darkened)
+  - Primary Light: `#dceaf3` (Pale Blue)
+  - Background: `#8abed9` (Sunburst Blue)
+  - Text/Headers: `#3d345f` (PMPG Violet)
+
+  Contrast, measured rather than assumed: `#3d345f` on `#8abed9` ≈ 5.7:1 and on
+  white ≈ 12:1; white on `#3d345f` ≈ 12:1 — all above WCAG AA. `color_text` and
+  `color_bg` are used together as body text on the page background, so do not
+  change either without re-checking.
+
+  The palette exists in **three** places and they must agree:
+  `App\Models\ThemeModel::DEFAULTS`, `themeDefaults` in
+  `public/assets/js/app.js`, and the `:root` block in
+  `public/assets/css/app.css`. `tests/ThemeDefaultsSyncTest.php` parses the
+  latter two out of their real source files and fails on any drift — a
+  divergence is otherwise close to invisible.
+
+- **Resetting the theme** — `admin/reset-theme` (`AdminController::resetTheme()`
+  → `ThemeModel::reset()`) **deletes** the five `color_*` rows rather than
+  writing the palette back into them. `get()` starts from `DEFAULTS` and only
+  overrides keys the database holds, so an installation with no rows tracks the
+  defaults exactly as a fresh install does. Writing the hex values back would
+  instead pin the installation to today's palette, and it would then silently
+  ignore every future change of defaults.
+
+  This is the only migration path for an already-deployed installation. One
+  that never saved a theme picks up the PMPG palette on update by itself; one
+  that saved a theme keeps its colours until an admin presses the button.
+  Nothing migrates automatically — overwriting colours an admin deliberately
+  chose is not the update's call.
 - **Animations**: `canvas-confetti` for high-score celebrations
 
 ### 2.3 Controller (Traffic & API)

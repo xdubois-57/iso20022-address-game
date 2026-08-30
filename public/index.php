@@ -303,6 +303,7 @@ if ($method === 'POST') {
         'admin/set-event-code' => (new AdminController())->setEventCode(),
         'admin/get-theme' => (new AdminController())->getTheme(),
         'admin/save-theme' => (new AdminController())->saveTheme(),
+        'admin/reset-theme' => (new AdminController())->resetTheme(),
         'admin/get-update-settings' => (new AdminController())->getUpdateSettings(),
         'admin/save-update-settings' => (new AdminController())->saveUpdateSettings(),
         'admin/generate-webhook-secret' => (new AdminController())->generateWebhookSecret(),

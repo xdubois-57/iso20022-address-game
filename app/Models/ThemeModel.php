@@ -41,12 +41,29 @@ class ThemeModel
         'color_text',
     ];
 
+    /**
+     * The PMPG palette, sampled from the logo.
+     *
+     * Lower-case on purpose: save() lower-cases what it stores, so anything
+     * here in mixed case would compare unequal to the same colour saved
+     * through the admin panel.
+     *
+     * Contrast, checked rather than assumed: #3d345f on #8abed9 is ~5.7:1 and
+     * on white ~12:1; white on #3d345f is ~12:1. All clear WCAG AA. Do not
+     * change these without re-checking, since color_text and color_bg are
+     * used together as body text on the page background.
+     *
+     * Two further copies of this palette must agree with it — `themeDefaults`
+     * in public/assets/js/app.js and the `:root` block in
+     * public/assets/css/app.css. ThemeDefaultsSyncTest fails if the JS one
+     * drifts.
+     */
     private const DEFAULTS = [
-        'color_primary'       => '#00364a',
-        'color_primary_hover' => '#00a3d7',
-        'color_primary_light' => '#caf0fe',
-        'color_bg'            => '#94e3fe',
-        'color_text'          => '#00364a',
+        'color_primary'       => '#3d345f',
+        'color_primary_hover' => '#2c2646',
+        'color_primary_light' => '#dceaf3',
+        'color_bg'            => '#8abed9',
+        'color_text'          => '#3d345f',
     ];
 
     private PDO $pdo;
@@ -90,6 +107,34 @@ class ThemeModel
             }
         }
         $this->settings->setMany($valid);
+    }
+
+    /**
+     * Drop every stored theme colour, returning the theme that now applies.
+     *
+     * Deleting rather than writing DEFAULTS back is the whole point. get()
+     * starts from DEFAULTS and only overrides the keys the database actually
+     * holds, so an installation with no theme rows tracks the defaults exactly
+     * as a fresh install does. Writing the five hex values back would instead
+     * PIN the installation to today's palette: it would look identical
+     * immediately and then silently fail to follow any future change of
+     * defaults, which is the opposite of what an admin asking for "reset"
+     * means.
+     *
+     * This is also the only migration path for an installation that saved a
+     * theme under the previous teal palette — nothing migrates it
+     * automatically, because overwriting colours an admin deliberately chose
+     * is not ours to do.
+     *
+     * @return array<string,string> the theme in force afterwards, i.e. DEFAULTS
+     */
+    public function reset(): array
+    {
+        foreach (self::KEYS as $key) {
+            $this->settings->delete($key);
+        }
+
+        return $this->get();
     }
 
     /**

@@ -1501,7 +1501,7 @@ import * as AdminUpdate from './admin-update.js';
         html += '<div class="theme-color-grid" id="themeColorGrid"><p>Loading...</p></div>';
         html += '<div class="theme-actions">';
         html += '<button class="btn-primary" id="saveThemeBtn">Save Colors</button>';
-        html += '<button class="btn-secondary" id="resetThemeBtn">Reset to Defaults</button>';
+        html += '<button class="btn-secondary" id="resetThemeBtn">Reset to PMPG colours</button>';
         html += '</div>';
         html += '<p class="theme-status" id="themeStatus"></p>';
         html += '</div>';
@@ -1787,12 +1787,16 @@ import * as AdminUpdate from './admin-update.js';
         });
     }
 
+    // Must match App\Models\ThemeModel::DEFAULTS exactly — tests/ThemeDefaultsSyncTest.php
+    // reads this literal out of this file and fails if the two drift. A
+    // divergence would show up as an admin panel whose reset restores
+    // different colours from those a fresh install starts with.
     var themeDefaults = {
-        color_primary:       '#00364a',
-        color_primary_hover: '#00a3d7',
-        color_primary_light: '#caf0fe',
-        color_bg:            '#94e3fe',
-        color_text:          '#00364a'
+        color_primary:       '#3d345f',
+        color_primary_hover: '#2c2646',
+        color_primary_light: '#dceaf3',
+        color_bg:            '#8abed9',
+        color_text:          '#3d345f'
     };
 
     var themeLabels = {
@@ -1853,18 +1857,45 @@ import * as AdminUpdate from './admin-update.js';
             };
         }
 
-        // Reset to defaults button
+        // Reset to PMPG colours.
+        //
+        // One click, and it persists. This used to only fill the form in and
+        // ask for a second click on "Save Colors", which was wrong twice
+        // over: an admin who reset, saw the swatches change and navigated
+        // away had migrated nothing, and the second click wrote the five hex
+        // values as explicit rows — leaving the installation pinned to
+        // today's palette instead of tracking the defaults.
+        //
+        // admin/reset-theme DELETES those rows instead. Behind the app's own
+        // confirmation modal because it discards an admin's customisation
+        // irreversibly.
         var resetBtn = document.getElementById('resetThemeBtn');
         if (resetBtn) {
-            resetBtn.onclick = function () {
+            resetBtn.onclick = async function () {
+                var confirmed = await showConfirm(
+                    'Reset the theme to the PMPG colours? Any custom colours saved for this '
+                    + 'installation will be discarded.'
+                );
+                if (!confirmed) return;
+
+                var status = document.getElementById('themeStatus');
+                var resp = await api('admin/reset-theme', {});
+                if (!resp || !resp.success) {
+                    if (status) { status.textContent = 'Error resetting colors.'; status.style.color = 'var(--game-danger)'; }
+                    return;
+                }
+
+                // Repaint from what the server says now applies, not from the
+                // local copy of the defaults — the server is authoritative.
+                var theme = resp.theme || themeDefaults;
                 Object.keys(themeDefaults).forEach(function (key) {
+                    var value  = theme[key] || themeDefaults[key];
                     var picker = document.getElementById('tc_' + key);
                     var text   = document.getElementById('tc_text_' + key);
-                    if (picker) picker.value = themeDefaults[key];
-                    if (text)   text.value   = themeDefaults[key];
+                    if (picker) picker.value = value;
+                    if (text)   text.value   = value;
                 });
-                var status = document.getElementById('themeStatus');
-                if (status) { status.textContent = 'Defaults restored. Click "Save Colors" to persist.'; status.style.color = 'var(--game-dark-green)'; }
+                if (status) { status.textContent = 'Reset to PMPG colours. Reload to apply.'; status.style.color = 'var(--game-emerald)'; }
             };
         }
     }

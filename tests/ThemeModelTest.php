@@ -53,14 +53,100 @@ class ThemeModelTest extends TestCase
         }
     }
 
-    public function testDefaultsMatchTestSystemColors(): void
+    public function testDefaultsAreThePmpgPalette(): void
     {
         $defaults = ThemeModel::defaults();
-        $this->assertEquals('#00364a', $defaults['color_primary']);
-        $this->assertEquals('#00a3d7', $defaults['color_primary_hover']);
-        $this->assertEquals('#caf0fe', $defaults['color_primary_light']);
-        $this->assertEquals('#94e3fe', $defaults['color_bg']);
-        $this->assertEquals('#00364a', $defaults['color_text']);
+        $this->assertSame('#3d345f', $defaults['color_primary'], 'PMPG violet');
+        $this->assertSame('#2c2646', $defaults['color_primary_hover']);
+        $this->assertSame('#dceaf3', $defaults['color_primary_light']);
+        $this->assertSame('#8abed9', $defaults['color_bg'], 'sunburst blue');
+        $this->assertSame('#3d345f', $defaults['color_text']);
+    }
+
+    /**
+     * Lower-case matters: save() normalises what it stores to lower case, so a
+     * default written in mixed case would not compare equal to the same colour
+     * saved through the admin panel — and the sync test against the JavaScript
+     * copy would need to know which spelling to expect.
+     */
+    public function testDefaultsAreLowerCase(): void
+    {
+        foreach (ThemeModel::defaults() as $key => $value) {
+            $this->assertSame(strtolower($value), $value, "Default $key must be lower-case");
+        }
+    }
+
+    /* =======================================================
+       reset() — the migration path for a deployed installation
+       ======================================================= */
+
+    public function testResetRemovesStoredThemeRows(): void
+    {
+        $model = new ThemeModel($this->pdo);
+        $model->save([
+            'color_primary' => '#111111',
+            'color_bg'      => '#222222',
+        ]);
+        $this->assertSame('#111111', $model->get()['color_primary']);
+
+        $model->reset();
+
+        $rows = $this->pdo
+            ->query("SELECT COUNT(*) FROM settings WHERE setting_key LIKE 'color_%'")
+            ->fetchColumn();
+        $this->assertSame(0, (int) $rows, 'reset() must DELETE the rows, not rewrite them');
+    }
+
+    /**
+     * The exact scenario of an installation deployed under the old teal
+     * palette: it saved a theme once, so it does not follow the new defaults
+     * until an admin presses the button. After that it must be
+     * indistinguishable from a fresh install.
+     */
+    public function testResetRestoresThePmpgDefaultsOnAnInstallationThatSavedATheme(): void
+    {
+        $model = new ThemeModel($this->pdo);
+        $model->save([
+            'color_primary'       => '#00364a',
+            'color_primary_hover' => '#00a3d7',
+            'color_primary_light' => '#caf0fe',
+            'color_bg'            => '#94e3fe',
+            'color_text'          => '#00364a',
+        ]);
+
+        $returned = $model->reset();
+
+        $this->assertSame(ThemeModel::defaults(), $returned, 'reset() returns the theme now in force');
+        $this->assertSame(ThemeModel::defaults(), $model->get(), 'and get() agrees on a later read');
+    }
+
+    public function testResetIsSafeWhenNoThemeWasEverSaved(): void
+    {
+        $model = new ThemeModel($this->pdo);
+
+        $this->assertSame(ThemeModel::defaults(), $model->reset());
+    }
+
+    /**
+     * Deleting rather than rewriting is what keeps an installation tracking
+     * the defaults. Were reset() to write today's palette back as explicit
+     * rows, the installation would look right today and then silently ignore
+     * every future change of defaults — so assert the absence of rows, not
+     * merely the resulting colours.
+     */
+    public function testResetLeavesTheInstallationFollowingDefaultsRatherThanPinned(): void
+    {
+        $model = new ThemeModel($this->pdo);
+        $model->save(['color_primary' => '#abcdef']);
+        $model->reset();
+
+        // Simulate a future change of defaults by writing a row by hand and
+        // confirming get() picks it up — i.e. nothing is shadowing the key.
+        $this->pdo
+            ->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)')
+            ->execute(['color_primary', '#123456']);
+
+        $this->assertSame('#123456', (new ThemeModel($this->pdo))->get()['color_primary']);
     }
 
     /* =======================================================

@@ -113,6 +113,19 @@ Configure your web server's document root to the `public/` directory.
    - **Text** — Dark text and headings
 4. Changes apply immediately and update the Apple Touch Icon automatically
 
+The defaults are the PMPG palette (`#3d345f` violet, `#8abed9` sunburst blue).
+
+**Reset to PMPG colours** discards this installation's saved colours — it
+*deletes* them rather than writing the PMPG values in. That distinction is
+deliberate: an installation with no saved colours follows the application's
+defaults, so it will pick up any future change to them, whereas writing the
+five values in would pin it to today's palette forever. One click and it is
+persisted; reload the page to see it applied.
+
+Upgrading an existing installation: if it never saved a theme, it moves to the
+PMPG palette on its own. If it did, it keeps its colours until an administrator
+presses that button — nothing overwrites a deliberate choice automatically.
+
 ### 6. Kiosk Mode (Optional)
 
 Enable **Kiosk Mode** for unattended public displays:

@@ -97,7 +97,7 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
             width: 100%;
             box-sizing: border-box;
             background: linear-gradient(135deg, #ffd700, #ff8c00);
-            color: #00364a;
+            color: #3d345f;
             padding: 0.75rem 1.5rem;
             border-radius: 8px;
             text-decoration: none;

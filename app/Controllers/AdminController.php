@@ -796,6 +796,29 @@ class AdminController
         $this->jsonResponse(['success' => true]);
     }
 
+    /**
+     * POST /api/admin/reset-theme — Discard every stored theme colour.
+     *
+     * Deletes the rows rather than writing the PMPG palette into them, so the
+     * installation goes back to tracking ThemeModel::DEFAULTS the way a fresh
+     * install does. See ThemeModel::reset() for why that distinction matters.
+     *
+     * Authenticated like its neighbours (get-theme, save-theme): admin session
+     * required here, CSRF token checked by public/index.php before dispatch.
+     * It is destructive — it discards an admin's customisation — so it must
+     * not be reachable by an unauthenticated caller.
+     */
+    public function resetTheme(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $theme = (new ThemeModel(Database::getInstance()->getPdo()))->reset();
+        $this->jsonResponse(['success' => true, 'theme' => $theme]);
+    }
+
     private const UPDATE_CHANNELS = ['release', 'main'];
 
     /**

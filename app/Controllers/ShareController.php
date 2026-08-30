@@ -116,7 +116,7 @@ class ShareController
     private function buildShareImageImagick(string $score, string $name): string
     {
         $theme    = $this->loadTheme();
-        $bgHex    = $theme['color_bg']      ?: '#94e3fe';
+        $bgHex    = $theme['color_bg']      ?: '#8abed9';
         $fontBold = $this->findFont(true);
 
         $w = 1200;

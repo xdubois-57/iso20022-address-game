@@ -21,6 +21,7 @@ namespace Tests;
 
 use App\Controllers\AdminController;
 use App\Models\SettingsModel;
+use App\Models\ThemeModel;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\UsesInMemoryDatabase;
 
@@ -222,6 +223,45 @@ class AdminSettingsEndpointsTest extends TestCase
         $this->assertSame(401, $status);
         $this->assertSame('Unauthorized', $json['error'] ?? null);
         $this->assertNull(AdminController::fetchEventCodeStatic());
+    }
+
+    // -----------------------------------------------------------------
+    // Theme reset
+    // -----------------------------------------------------------------
+
+    public function testResetThemeRefusesAnonymousCaller(): void
+    {
+        (new ThemeModel($this->memoryPdo()))->save(['color_primary' => '#abcdef']);
+
+        [$json, $status] = $this->call('resetTheme', []);
+
+        $this->assertSame(401, $status);
+        $this->assertSame('Unauthorized', $json['error'] ?? null);
+        $this->assertSame(
+            '#abcdef',
+            (new ThemeModel($this->memoryPdo()))->get()['color_primary'],
+            'a refused call must not have deleted anything'
+        );
+    }
+
+    public function testResetThemeDeletesTheStoredThemeAndReturnsTheDefaults(): void
+    {
+        $this->loginAsAdmin();
+        (new ThemeModel($this->memoryPdo()))->save([
+            'color_primary' => '#00364a',
+            'color_bg'      => '#94e3fe',
+        ]);
+
+        [$json, $status] = $this->call('resetTheme', []);
+
+        $this->assertSame(200, $status);
+        $this->assertTrue($json['success']);
+        $this->assertSame(ThemeModel::defaults(), $json['theme'], 'the response carries the theme now in force');
+
+        $rows = $this->memoryPdo()
+            ->query("SELECT COUNT(*) FROM settings WHERE setting_key LIKE 'color_%'")
+            ->fetchColumn();
+        $this->assertSame(0, (int) $rows);
     }
 
     public function testSettingAnEventCodeReleasesAnyoneLockedOutUnderTheOldOne(): void

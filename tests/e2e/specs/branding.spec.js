@@ -35,6 +35,7 @@ async function loginAsAdmin(page) {
     await expect(page.locator('.pin-panel')).toBeVisible();
     await enterPin(page, ADMIN_PIN);
     await expect(page.locator('#eventCodeAdminInput')).toBeVisible();
+    await expect(page.locator('#tc_text_color_primary')).toBeVisible();
 }
 
 /** Set the event code, or clear it by passing an empty string. */
@@ -75,6 +76,55 @@ test.describe('PMPG branding', () => {
             // a leftover event code would gate the whole suite.
             await setEventCode(page, '');
         }
+    });
+
+    test('the theme reset persists in one click, and only for an authenticated admin', async ({ page, request }) => {
+        // The reset is destructive — it discards an admin's saved colours —
+        // so the two refusal paths matter as much as the happy one. CSRF is
+        // enforced by public/index.php rather than by the controller, so it
+        // can only be proved over real HTTP; a PHPUnit test calling the
+        // controller directly would never reach that check.
+        const noToken = await request.post('/', {
+            headers: { 'X-Action': 'admin/reset-theme', 'Content-Type': 'application/json' },
+            data: {},
+        });
+        expect(noToken.status(), 'a POST with no CSRF token must be refused').toBe(403);
+
+        const badToken = await request.post('/', {
+            headers: {
+                'X-Action': 'admin/reset-theme',
+                'X-CSRF-Token': 'not-the-token',
+                'Content-Type': 'application/json',
+            },
+            data: {},
+        });
+        expect(badToken.status(), 'a POST with a wrong CSRF token must be refused').toBe(403);
+
+        // Now the real thing, through the admin UI.
+        await loginAsAdmin(page);
+
+        // Save a custom colour, so the reset has something to undo.
+        await page.fill('#tc_text_color_primary', '#abcdef');
+        await page.click('#saveThemeBtn');
+        await expect(page.locator('#themeStatus')).toContainText('Colors saved');
+
+        // Admin auth is client-side state, so a reload returns to the PIN pad
+        // and has to be re-entered.
+        await loginAsAdmin(page);
+        await expect(page.locator('#tc_text_color_primary')).toHaveValue('#abcdef');
+
+        // One click — through the confirmation modal, since this destroys a
+        // customisation — and it persists. No second "Save Colors" step.
+        await page.click('#resetThemeBtn');
+        await page.click('#confirmOkBtn');
+        await expect(page.locator('#themeStatus')).toContainText('Reset to PMPG colours');
+        await expect(page.locator('#tc_text_color_primary')).toHaveValue('#3d345f');
+
+        // Persisted server-side, not merely repainted in the form: come back
+        // on a fresh page load and the PMPG colour must still be what the
+        // server serves.
+        await loginAsAdmin(page);
+        await expect(page.locator('#tc_text_color_primary')).toHaveValue('#3d345f');
     });
 
     test('clearing the event code leaves the game reachable again', async ({ browser }) => {
