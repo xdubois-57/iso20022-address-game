@@ -49,12 +49,24 @@ const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:'];
  * should keep "text" — but wrong for these, whose contents are code or data
  * rather than prose: unwrapping `<script>alert(1)</script>` would print
  * `alert(1)` on the page as visible text. Harmless, but wrong, and it is what
- * App\Models\HtmlSanitizer does too (verified: it returns '' for both
- * `<script>alert(1)</script>` and `<style>body{}</style>`). The two ends must
- * agree, or the same fact renders differently depending on which sanitiser
- * last touched it.
+ * App\Models\HtmlSanitizer::DROPPED_WITH_CONTENT does too — that list and this
+ * one are the same list, and must stay that way, or the same fact renders
+ * differently depending on which sanitiser last touched it. They did drift
+ * once: the server unwrapped `<iframe>text</iframe>` to "text" while this
+ * dropped it whole, because the tests on both sides only ever used EMPTY
+ * elements, which cannot tell the two behaviours apart. Both suites now
+ * assert the list with content inside.
+ *
+ * NOSCRIPT and EMBED are deliberately absent, because this parser cannot
+ * produce what dropping them would assume. DOMParser runs with scripting
+ * disabled, so it never builds a <noscript> element for this to match — it
+ * parses the contents as ordinary markup and discards the wrapper. And
+ * <embed> is void: `<embed>text</embed>` leaves "text" as a SIBLING, not a
+ * child, so there is nothing inside to drop. Listing either here was dead
+ * code that merely looked like it agreed with the server. Both are still
+ * removed as elements — they are simply not in ALLOWED_TAGS.
  */
-const DROP_WITH_CONTENT = ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'NOSCRIPT', 'TEMPLATE', 'TITLE'];
+const DROP_WITH_CONTENT = ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'TEMPLATE', 'TITLE'];
 
 /**
  * Whether an href is safe to keep — anything that is not an allowlisted

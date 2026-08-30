@@ -20,14 +20,19 @@
 /**
  * GDPR Retention Cleanup Script
  *
- * Deletes leaderboard entries older than 365 days.
+ * Deletes leaderboard entries past their retention period, and rate-limit
+ * rows that no longer hold anyone back. What "past retention" means lives in
+ * App\Models\RetentionCleanup, which the poor man's cron fallback in
+ * public/index.php runs too — so a host with a real cron job and one without
+ * delete exactly the same things.
+ *
  * Schedule via cron: 0 3 * * * php /path/to/scripts/cleanup.php
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Models\Database;
-use App\Models\LeaderboardModel;
+use App\Models\RetentionCleanup;
 
 $db = Database::getInstance();
 if (!$db->connect()) {
@@ -35,8 +40,8 @@ if (!$db->connect()) {
     exit(1);
 }
 
-$leaderboard = new LeaderboardModel($db->getPdo());
-$deleted = $leaderboard->purgeExpired(365);
+$deleted = (new RetentionCleanup($db->getPdo()))->run();
 
 $timestamp = date('Y-m-d H:i:s');
-echo "[CLEANUP] $timestamp — Deleted $deleted expired leaderboard entries.\n";
+echo "[CLEANUP] $timestamp — Deleted {$deleted['leaderboard']} expired leaderboard entries"
+    . " and {$deleted['rate_limits']} spent rate-limit rows.\n";

@@ -46,6 +46,41 @@ class HtmlSanitizer
     private const ALLOWED_SCHEMES = ['http', 'https', 'mailto'];
 
     /**
+     * Elements dropped WITH their contents, rather than unwrapped to text.
+     *
+     * Unwrapping is right for an ordinary disallowed element — `<div>text</div>`
+     * should keep "text" — but wrong for these, whose contents are code or data
+     * rather than prose. Mirrors DROP_WITH_CONTENT in
+     * public/assets/js/lib/sanitize.js, which both files' comments claim as an
+     * invariant; it was not one. libxml discards the contents of <script> and
+     * <style> for us, so those two agreed by accident, but `<iframe>text</iframe>`
+     * came out of the server as "text" and out of the client as nothing at all,
+     * and the same fact rendered differently depending on which sanitiser last
+     * touched it. Listing them here makes the two ends agree by construction.
+     *
+     * Two tags a reader might expect here are deliberately absent, both
+     * because the CLIENT's parser cannot produce what dropping them would
+     * assume, so listing them would recreate the divergence the other way
+     * round:
+     *
+     *   noscript — a browser's DOMParser has scripting disabled, so it never
+     *     builds a <noscript> element at all. It parses the contents as
+     *     ordinary markup and discards the wrapper, keeping that text
+     *     whatever this list says.
+     *   embed — a void element. `<embed>text</embed>` puts "text" AFTER the
+     *     element in a browser (the closing tag is ignored), where libxml
+     *     nests it inside. Unwrapping is identical to dropping for the
+     *     well-formed `<embed src=x>` case, and matches the browser for the
+     *     malformed one.
+     *
+     * Both are still removed as elements — they are simply not in
+     * ALLOWED_TAGS — along with every attribute they carried.
+     */
+    private const DROPPED_WITH_CONTENT = [
+        'script', 'style', 'iframe', 'object', 'template', 'title',
+    ];
+
+    /**
      * Return $html containing only allowed tags and attributes.
      *
      * Disallowed elements are replaced by their text content, so removing a tag
@@ -114,6 +149,13 @@ class HtmlSanitizer
     private static function cleanElement(DOMElement $element): void
     {
         $tag = strtolower($element->tagName);
+
+        // Checked before recursing: there is nothing inside these worth
+        // cleaning, because none of it is kept.
+        if (in_array($tag, self::DROPPED_WITH_CONTENT, true)) {
+            $element->parentNode?->removeChild($element);
+            return;
+        }
 
         // Recurse first so that unwrapping a parent keeps already-cleaned children.
         self::cleanChildren($element);

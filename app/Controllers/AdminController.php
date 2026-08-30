@@ -427,16 +427,15 @@ class AdminController
         $input = $this->getJsonInput();
         $deadline = trim($input['deadline'] ?? '');
 
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare(
-            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-        );
+        // Through SettingsModel, which is where the driver-specific upsert
+        // lives. Writing the MySQL spelling inline here meant this endpoint
+        // — and clearing the deadline with it, since the statement was
+        // prepared before the early return — was a hard error on SQLite.
+        $settings = new SettingsModel(Database::getInstance()->getPdo());
 
         if ($deadline === '') {
             // Clear the deadline
-            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['unstructured_deadline']);
+            $settings->delete('unstructured_deadline');
             $this->jsonResponse(['success' => true, 'deadline' => null]);
             return;
         }
@@ -448,7 +447,7 @@ class AdminController
             return;
         }
 
-        $stmt->execute(['unstructured_deadline', $deadline]);
+        $settings->set('unstructured_deadline', $deadline);
         $this->jsonResponse(['success' => true, 'deadline' => $deadline]);
     }
 
@@ -470,12 +469,7 @@ class AdminController
      */
     public static function fetchDeadlineStatic(): ?string
     {
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['unstructured_deadline']);
-        $row = $stmt->fetch();
-        return $row ? $row['setting_value'] : null;
+        return (new SettingsModel(Database::getInstance()->getPdo()))->get('unstructured_deadline');
     }
 
     private function fetchDeadline(): ?string
@@ -711,10 +705,14 @@ class AdminController
 
         $db  = Database::getInstance();
         $pdo = $db->getPdo();
+        // Same reason as setDeadline(): the upsert dialect belongs to
+        // SettingsModel, and the MySQL spelling written inline here made this
+        // endpoint a hard error on SQLite.
+        $settings = new SettingsModel($pdo);
 
         if ($code === '') {
-            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code']);
-            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['event_code_timestamp']);
+            $settings->delete('event_code');
+            $settings->delete('event_code_timestamp');
             // Removing the code releases everyone currently locked out.
             (new RateLimitModel($pdo))->clearScope('event_code');
             unset($_SESSION['event_code_verified_at']);
@@ -727,27 +725,14 @@ class AdminController
             return;
         }
 
-        // Hash the event code with bcrypt (same as admin PIN)
-        $hash = password_hash($code, PASSWORD_BCRYPT);
-        $timestamp = time();
-
-        $pdo->beginTransaction();
-        try {
-            // Save the hashed code
-            $stmt = $pdo->prepare(
-                'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-                . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-            );
-            $stmt->execute(['event_code', $hash]);
-
-            // Save the timestamp to track when code was last changed
-            $stmt->execute(['event_code_timestamp', (string)$timestamp]);
-
-            $pdo->commit();
-        } catch (\Exception $e) {
-            $pdo->rollBack();
-            throw $e;
-        }
+        // Hash the event code with bcrypt (same as admin PIN), and store it
+        // alongside its timestamp in one transaction — a code without the
+        // matching timestamp would leave every existing session judged
+        // against the previous code. setMany() opens the transaction.
+        $settings->setMany([
+            'event_code' => password_hash($code, PASSWORD_BCRYPT),
+            'event_code_timestamp' => (string) time(),
+        ]);
 
         // A new code releases anyone locked out under the old one, for every
         // caller rather than just this session.
@@ -762,12 +747,7 @@ class AdminController
      */
     public static function fetchEventCodeStatic(): ?string
     {
-        $db  = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['event_code']);
-        $row = $stmt->fetch();
-        return ($row && $row['setting_value'] !== '') ? $row['setting_value'] : null;
+        return (new SettingsModel(Database::getInstance()->getPdo()))->get('event_code');
     }
 
     /**
@@ -775,12 +755,7 @@ class AdminController
      */
     public static function fetchEventCodeTimestampStatic(): int
     {
-        $db  = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['event_code_timestamp']);
-        $row = $stmt->fetch();
-        return ($row && $row['setting_value'] !== '') ? (int)$row['setting_value'] : 0;
+        return (int) ((new SettingsModel(Database::getInstance()->getPdo()))->get('event_code_timestamp') ?? 0);
     }
 
     /**
@@ -1033,16 +1008,11 @@ class AdminController
         }
 
         try {
-            $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-            $stmt->execute(['admin_pin']);
-            $row = $stmt->fetch();
+            return (new SettingsModel($pdo))->get('admin_pin');
         } catch (\Throwable) {
+            // A pre-migration install may not even have the settings table.
             return null;
         }
-
-        $pin = $row['setting_value'] ?? null;
-
-        return (is_string($pin) && $pin !== '') ? $pin : null;
     }
 
     private function deleteLegacyDatabasePin(): void
@@ -1053,7 +1023,7 @@ class AdminController
         }
 
         try {
-            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['admin_pin']);
+            (new SettingsModel($pdo))->delete('admin_pin');
         } catch (\Throwable) {
             // Migration is best effort: the file already holds the PIN, so a
             // surviving row only means this runs again next time.

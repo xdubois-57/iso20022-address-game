@@ -130,9 +130,14 @@ Hall of Fame is for fun rather than adjudication.
 - **Admin Management**: Add, edit, delete facts (max 500 characters, measured
   after sanitisation). A small allowlist of inline markup is permitted —
   `<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>` — and everything else is
-  reduced to its text by `HtmlSanitizer`, on write *and* on read. Facts render
-  through `innerHTML` on public screens, so this is the boundary that keeps an
-  admin-authored fact from executing in every visitor's browser
+  reduced to its text by `HtmlSanitizer`, on write *and* on read — except for
+  elements whose contents are code rather than prose (`<script>`, `<style>`,
+  `<iframe>`, `<object>`, `<template>`, `<title>`), which go entirely.
+  `public/assets/js/lib/sanitize.js` enforces the same allowlist independently
+  in the browser, and the two must agree element for element; both test suites
+  assert the drop list with content inside, which is what catches a drift.
+  Facts render through `innerHTML` on public screens, so this is the boundary
+  that keeps an admin-authored fact from executing in every visitor's browser
 - **Display**: Rotates on welcome screen and screen saver (20s interval)
 - **API**: Public `GET /api/game/facts` endpoint returns all facts
 
@@ -158,22 +163,51 @@ Hall of Fame is for fun rather than adjudication.
 ### 4.2 Database Schema
 
 ```sql
-scenarios: id, json_data, created_at
-leaderboard: id, encrypted_name, score, time_seconds, created_at
-settings: setting_key, setting_value, updated_at  -- event_code (bcrypt hash), event_code_timestamp (int)
-facts: id, content, created_at
+scenarios:    id, json_data, created_at
+leaderboard:  id, encrypted_name, score, time_seconds, created_at
+settings:     setting_key, setting_value, updated_at
+facts:        id, content, created_at
+game_counter: id, played_at                       -- one row per completed game
+rate_limits:  bucket, attempts, updated_at, locked_until
 ```
+
+`App\Models\Database::initSchema()` is the authoritative DDL (MySQL and SQLite
+variants); `scripts/schema.sql` mirrors it for manual installs.
+
+Keys stored in `settings`:
+
+| Key | Value |
+|-----|-------|
+| `event_code` | bcrypt hash of the event code |
+| `event_code_timestamp` | when it was last changed (int), used to invalidate older sessions |
+| `unstructured_deadline` | admin-set countdown target, `YYYY-MM-DDTHH:MM` |
+| `color_primary`, `color_primary_hover`, `color_primary_light`, `color_bg`, `color_text` | theme palette, validated as hex |
+| `update_enabled`, `update_channel`, `update_github_owner`, `update_github_repo` | Automatic Updates configuration |
+| `update_webhook_secret` | 32-byte webhook secret, shown to the admin exactly once |
+| `update_pending` | JSON target queued for `App\Models\Updater` |
+| `update_last_event_*`, `update_last_install_*`, `update_dependencies_changed` | Automatic Updates diagnostics |
+
+Every write to this table goes through `App\Models\SettingsModel`, which is
+where the driver-specific upsert lives — MySQL has no `ON CONFLICT` and SQLite
+no `ON DUPLICATE KEY`. Writing either spelling inline in a controller is how
+`admin/set-deadline` and `admin/set-event-code` came to be hard errors on a
+SQLite-backed instance.
 
 ### 4.3 Session State
 
 | Key | Purpose | Set By | Cleared By |
 |-----|---------|--------|------------|
 | `admin` | Admin authentication | `admin/login` | `admin/logout`, session expiry |
-| `event_code_ok` | Event code unlocked | `game/verify-event-code` | Code change, session expiry |
-| `event_code_verified_at` | Timestamp when verified | `game/verify-event-code` | Code change, admin set/clear |
-| `event_code_attempts` | Failed code attempts | `game/verify-event-code` | Success, code change, lockout expiry |
-| `event_code_lock_until` | Rate limit lockout timestamp | `game/verify-event-code` | Code change, lockout expiry |
+| `event_code_ok` | Event code unlocked | `game/verify-event-code` | `game/reset-session`, session expiry |
+| `event_code_verified_at` | Timestamp when verified | `game/verify-event-code` | `game/reset-session`, session expiry |
 | `csrf_token` | CSRF protection | Session init | Session expiry |
+| `schema_version` | Highest `SCHEMA_VERSION` this session has run `initSchema()` for | `ensureSchema()` in `public/index.php` | Session expiry, `SCHEMA_VERSION` bump |
+
+That is the complete list, apart from `schema_ready` — a boolean written by a
+version that predated `schema_version`, which `ensureSchema()` recognises and
+discards. Failed-attempt counters are **not** among them: they live in the
+`rate_limits` table, keyed on a hash of the caller's address, precisely so that
+discarding the session cookie does not reset them.
 
 **Session Persistence:** Once verified, the session remains valid across page refreshes until:
 - Admin changes the event code (invalidates all sessions, via the stored timestamp)
@@ -191,7 +225,12 @@ facts: id, content, created_at
 - **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **Rate limiting**: Address-keyed and stored in `rate_limits`, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, never the address
 - **Input validation**: Server-side bounds on score (0–100), time_seconds (0–3600), player name (1–50 chars)
-- **Retention**: Auto-deletion of leaderboard entries after 365 days (cron + poor man's cron fallback)
+- **Retention**: `App\Models\RetentionCleanup` deletes leaderboard entries after
+  365 days and rate-limit rows once they lock nobody out and have been idle for
+  24 hours, so hashed addresses are not kept beyond their purpose. Run by
+  `scripts/cleanup.php` (cron) and by the poor man's cron fallback in
+  `public/index.php`, which run the same class so a host with cron and a host
+  without delete exactly the same things
 - **XSS prevention**: `escapeHtml()` on client and `htmlspecialchars()` on server for all dynamic output
 - **Sessions**: Secure PHP sessions with `session_regenerate_id()`, HttpOnly, SameSite=Strict flags
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
@@ -260,6 +299,8 @@ facts: id, content, created_at
 │   ├── Models/         # DB, Encryption, Excel Parsing, HTML sanitisation, rate limiting
 │   │   ├── GitHubWebhook.php        # Decides what a webhook delivery means; queues the install
 │   │   ├── GitHubUrlValidator.php   # GitHub-only host allowlist for download URLs
+│   │   ├── RetentionCleanup.php     # The scheduled deletions, shared by cron and its fallback
+│   │   ├── SettingsModel.php        # The only writer of the settings table; owns the upsert dialect
 │   │   └── Updater.php              # Backup → download → extract → install → rollback
 │   ├── Support/        # Url — request-derived URLs, host validation
 │   └── Views/          # Server-rendered pages only: layout, setup, share, share-go.

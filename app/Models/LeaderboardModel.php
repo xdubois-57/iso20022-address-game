@@ -24,12 +24,28 @@ use PDO;
 class LeaderboardModel
 {
     private PDO $pdo;
-    private Encryption $encryption;
+    private ?Encryption $encryption;
 
     public function __construct(PDO $pdo, ?Encryption $encryption = null)
     {
         $this->pdo = $pdo;
-        $this->encryption = $encryption ?? new Encryption();
+        $this->encryption = $encryption;
+    }
+
+    /**
+     * The cipher, built on first use rather than in the constructor.
+     *
+     * Encryption's constructor throws when no usable key is configured, which
+     * is right for reading or writing a player name — but purgeExpired(),
+     * purgeAll(), deleteEntry() and getTotalCount() touch no names at all.
+     * Constructing it eagerly made every one of them fail on an install whose
+     * key was missing, including the retention cleanup that runs off ordinary
+     * visitor traffic: a lost key turned into an unreachable site rather than
+     * an unreadable leaderboard.
+     */
+    private function encryption(): Encryption
+    {
+        return $this->encryption ??= new Encryption();
     }
 
     /**
@@ -37,7 +53,7 @@ class LeaderboardModel
      */
     public function addEntry(string $playerName, int $score, int $timeSeconds = 0): int
     {
-        $encryptedName = $this->encryption->encrypt($playerName);
+        $encryptedName = $this->encryption()->encrypt($playerName);
         $stmt = $this->pdo->prepare(
             'INSERT INTO leaderboard (encrypted_name, score, time_seconds) VALUES (?, ?, ?)'
         );
@@ -107,7 +123,7 @@ class LeaderboardModel
             try {
                 // Rows predating the GCM migration are in the legacy CTR format,
                 // so this is the one call site allowed to accept it.
-                $decrypted = $this->encryption->decrypt($row['encrypted_name'], true);
+                $decrypted = $this->encryption()->decrypt($row['encrypted_name'], true);
                 $row['player_name'] = $decrypted !== false ? $decrypted : '[redacted]';
             } catch (\Throwable $e) {
                 $row['player_name'] = '[redacted]';
@@ -173,13 +189,36 @@ class LeaderboardModel
 
     /**
      * Delete entries older than 365 days (GDPR retention policy).
+     *
+     * The cutoff is computed by the database rather than by PHP, because
+     * created_at is written by the database (CURRENT_TIMESTAMP) and the two
+     * clocks need not agree — MySQL stamps rows in the session timezone,
+     * SQLite always in UTC. Asking each engine for its own "now" keeps the
+     * comparison in one frame of reference.
+     *
+     * The dialect is spelled out per driver for the same reason the upserts
+     * in SettingsModel and RateLimitModel are: DATE_SUB()/INTERVAL is MySQL
+     * only, and SQLite parses none of it. This ran unguarded until now, so
+     * the poor man's cron in public/index.php fataled on the FIRST page load
+     * of any SQLite-backed instance — `composer serve` on a fresh clone, and
+     * the Playwright harness — serving an empty HTTP 500 instead of the app.
      */
     public function purgeExpired(int $days = 365): int
     {
-        $stmt = $this->pdo->prepare(
-            'DELETE FROM leaderboard WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
-        );
-        $stmt->execute([$days]);
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'sqlite') {
+            $stmt = $this->pdo->prepare(
+                "DELETE FROM leaderboard WHERE created_at < datetime('now', ?)"
+            );
+            $stmt->execute(['-' . $days . ' days']);
+        } else {
+            $stmt = $this->pdo->prepare(
+                'DELETE FROM leaderboard WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)'
+            );
+            $stmt->execute([$days]);
+        }
+
         return $stmt->rowCount();
     }
 }

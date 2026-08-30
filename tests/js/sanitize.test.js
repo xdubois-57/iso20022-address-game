@@ -95,6 +95,43 @@ describe('sanitizeToFragment — script execution is what this exists to stop', 
         expect(clean('<form action="https://evil.test"><input name="a"></form>')).toBe('');
     });
 
+    // Every case below carries CONTENT, unlike the empty elements above.
+    // That distinction is the one these tests exist for: it separates
+    // "dropped with its contents" from "unwrapped to its contents", and it
+    // is where this sanitiser and App\Models\HtmlSanitizer had silently
+    // drifted apart — the server unwrapped `<iframe>text</iframe>` to "text"
+    // while this dropped it whole. The same list is asserted in
+    // tests/HtmlSanitizerTest.php::droppedWithContentProvider; keep the two
+    // in step, or the same fact renders differently on each end.
+    it.each([
+        ['script', '<script>alert(1)</script>'],
+        ['style', '<style>body{display:none}</style>'],
+        ['iframe', '<iframe src="https://evil.test">fallback text</iframe>'],
+        ['object', '<object data="x">fallback text</object>'],
+        ['template', '<template>inert markup</template>'],
+        ['title', '<title>page title</title>'],
+    ])('drops <%s> together with its contents', (_tag, html) => {
+        expect(clean(html)).toBe('');
+    });
+
+    // NOSCRIPT and EMBED are not in that table, because this parser cannot
+    // produce what dropping them would assume: DOMParser has scripting
+    // disabled and never builds a <noscript> element, and <embed> is void so
+    // text after it is a sibling rather than a child. App\Models\HtmlSanitizer
+    // unwraps both for the same reason, so the two ends agree on these.
+    it('keeps noscript text, which the parser has already unwrapped', () => {
+        expect(clean('<noscript>no script here</noscript>')).toBe('no script here');
+    });
+
+    it('removes embed but keeps the text the parser left beside it', () => {
+        expect(clean('<embed src="x">')).toBe('');
+        expect(clean('<embed>text</embed>')).toBe('text');
+    });
+
+    it('does not take the dropped element\'s siblings with it', () => {
+        expect(clean('before<iframe>swallowed</iframe>after')).toBe('beforeafter');
+    });
+
     it('drops style elements and style attributes', () => {
         expect(clean('<style>body{display:none}</style>')).toBe('');
         expect(clean('<b style="position:fixed;inset:0">x</b>')).toBe('<b>x</b>');

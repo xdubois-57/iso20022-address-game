@@ -82,9 +82,54 @@ ISO20022_CONFIG_DIR="$CONFIG_DIR" php -S "127.0.0.1:${PORT}" -t public scripts/e
     > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
+# Readiness probe. The status code matters, not merely "something answered":
+# this request IS the instance's first visit, and the first visit runs work no
+# later one does — schema creation and the once-a-day retention cleanup. A 500
+# there used to be indistinguishable from "not listening yet", so the loop
+# retried, the second request took the cheap path, and the run proceeded
+# green over an instance whose first page load had failed. That is exactly
+# the regression this suite exists to catch, so a response with a bad status
+# now fails the run immediately and prints the server log.
+#
+#   exit 0 → 2xx, ready
+#   exit 1 → could not connect; the server is still starting, so retry
+#   exit 2 → the server answered with a non-2xx status; fail now, not later
+probe_server() {
+    php -r '
+        $url = "http://127.0.0.1:" . $argv[1] . "/";
+        $context = stream_context_create(["http" => ["ignore_errors" => true, "timeout" => 5]]);
+        $body = @file_get_contents($url, false, $context);
+        if ($body === false) { exit(1); }
+        $status = 0;
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match("#^HTTP/\S+\s+(\d+)#", $header, $m)) { $status = (int) $m[1]; }
+        }
+        if ($status >= 200 && $status < 300) { exit(0); }
+        fwrite(STDERR, "first request returned HTTP {$status}\n");
+        exit(2);
+    ' "$PORT" 2>&1
+}
+
 TIMEOUT="${E2E_SERVER_TIMEOUT:-30}"
 DEADLINE=$((SECONDS + TIMEOUT))
-until php -r "exit(@file_get_contents('http://127.0.0.1:${PORT}/') === false ? 1 : 0);" 2>/dev/null; do
+while true; do
+    # `|| PROBE_STATUS=$?` rather than a bare assignment: a non-zero exit from
+    # a command substitution is fatal under `set -e`, and "not listening yet"
+    # is the normal case here, not an error.
+    PROBE_STATUS=0
+    PROBE_OUTPUT="$(probe_server)" || PROBE_STATUS=$?
+
+    if (( PROBE_STATUS == 0 )); then
+        break
+    fi
+
+    if (( PROBE_STATUS == 2 )); then
+        echo "ERROR: the instance's first page load failed — ${PROBE_OUTPUT}" >&2
+        echo "Server log:" >&2
+        cat "$SERVER_LOG" >&2
+        exit 1
+    fi
+
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
         echo "ERROR: PHP server exited early. Log:" >&2
         cat "$SERVER_LOG" >&2

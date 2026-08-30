@@ -267,6 +267,22 @@ class UpdaterTest extends TestCase
         // Make the destination directory read-only so the file write inside it fails.
         chmod($dest, 0555);
 
+        // Root ignores the permission bits entirely, so the write this test
+        // needs to fail simply succeeds and the assertion fails for a reason
+        // that has nothing to do with the Updater. Probe rather than guess at
+        // the user: posix_geteuid() is not always available, and a container
+        // running as a non-root user can still hit this through a mount whose
+        // permissions are not enforced.
+        $probe = @file_put_contents($dest . '/.permission-probe', 'x');
+        if ($probe !== false) {
+            @unlink($dest . '/.permission-probe');
+            chmod($dest, 0755);
+            $this->markTestSkipped(
+                'Filesystem permissions are not enforced for this user (running as root?), '
+                . 'so an unwritable target cannot be simulated.'
+            );
+        }
+
         $updater = new Updater($this->basePath, $this->settings);
         $replaced = [];
 

@@ -144,6 +144,63 @@ class HtmlSanitizerTest extends TestCase
         $this->assertStringNotContainsString('<iframe', $out);
     }
 
+    /**
+     * Elements whose contents are code or data, not prose, go entirely —
+     * unlike an ordinary disallowed tag, which is unwrapped to its text.
+     *
+     * Every case here carries CONTENT, which is the whole point: the older
+     * tests on both sides used empty elements, so they could not tell
+     * "dropped with its contents" from "unwrapped to its contents" and did
+     * not notice that this sanitiser and its client-side counterpart had
+     * drifted apart on exactly that question. The same list is asserted in
+     * tests/js/sanitize.test.js; the two must not diverge, or the same fact
+     * renders differently depending on which sanitiser last touched it.
+     *
+     * @dataProvider droppedWithContentProvider
+     */
+    public function testElementsDroppedWithTheirContents(string $input): void
+    {
+        $this->assertSame('', HtmlSanitizer::sanitize($input));
+    }
+
+    public static function droppedWithContentProvider(): array
+    {
+        return [
+            'script'   => ['<script>alert(1)</script>'],
+            'style'    => ['<style>body{display:none}</style>'],
+            'iframe'   => ['<iframe src="https://evil.example">fallback text</iframe>'],
+            'object'   => ['<object data="x">fallback text</object>'],
+            'template' => ['<template>inert markup</template>'],
+            'title'    => ['<title>page title</title>'],
+        ];
+    }
+
+    /**
+     * <noscript> and <embed> are absent from the list above, and this is why:
+     * in each case the CLIENT's parser cannot produce what dropping them
+     * would assume, so the server unwraps them to keep the two ends saying
+     * the same thing. DOMParser has scripting disabled and never builds a
+     * <noscript> element at all; <embed> is void, so text after it is a
+     * sibling rather than a child. Both are still removed as elements.
+     */
+    public function testNoscriptIsUnwrappedToMatchTheClient(): void
+    {
+        $this->assertSame('no script here', HtmlSanitizer::sanitize('<noscript>no script here</noscript>'));
+    }
+
+    public function testEmbedIsRemovedButNeighbouringTextSurvives(): void
+    {
+        $this->assertSame('', HtmlSanitizer::sanitize('<embed src="x">'));
+        $this->assertSame('text', HtmlSanitizer::sanitize('<embed>text</embed>'));
+    }
+
+    public function testDroppedElementDoesNotTakeItsSiblingsWithIt(): void
+    {
+        $out = HtmlSanitizer::sanitize('before<iframe>swallowed</iframe>after');
+
+        $this->assertSame('beforeafter', $out);
+    }
+
     public function testCommentsAreRemoved(): void
     {
         $out = HtmlSanitizer::sanitize('<!-- hidden -->visible');

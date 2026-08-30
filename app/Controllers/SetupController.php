@@ -82,8 +82,14 @@ class SetupController
         $defaultPin = '1234';
         $hashedPin = password_hash($defaultPin, PASSWORD_BCRYPT);
 
-        // Write credentials.php
-        $credFile = __DIR__ . '/../../config/credentials.php';
+        // Write credentials.php. Resolved through Database::configDir() like
+        // every other reader and writer of this file (Database::connect(),
+        // Encryption, AdminController's PIN read/write, index.php's
+        // isAlreadyConfigured) — a fixed path here meant setup was the one
+        // place that ignored ISO20022_CONFIG_DIR, so running it under the
+        // E2E harness's override would have written over a developer's real
+        // config/credentials.php, encryption key and all.
+        $credFile = Database::configDir() . '/credentials.php';
         $credContent = "<?php\n";
         $credContent .= "/**\n";
         $credContent .= " * ISO 20022 Address Structuring Game\n";

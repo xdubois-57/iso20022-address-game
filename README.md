@@ -185,7 +185,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 
 - **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **CSRF protection**: Token-based validation on all POST requests
-- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 attempts (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes
+- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 attempts (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
@@ -194,7 +194,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
 - **Prepared statements**: All database queries use parameterised PDO statements
 - **Input validation**: Server-side bounds on all inputs (score 0–100, time 0–3600s, name 1–50 chars). Note that these are *bounds*, not proof of authenticity — see "Scoring is client-authoritative" below
-- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output. "Did you know?" facts accept a little inline markup and are therefore run through an allowlist sanitiser (`<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>`) on both write and read
+- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output. "Did you know?" facts accept a little inline markup and are therefore run through an allowlist sanitiser (`<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>`) on both write and read. The browser enforces the same allowlist independently before rendering a fact, so a row written by an older version cannot reach the DOM as markup
 - **Setup lockdown**: The unauthenticated setup routes refuse to run once the installation is configured, whatever the database is doing — a database outage cannot be used to repoint the app or overwrite its encryption key
 - **Authenticated encryption only for untrusted input**: share tokens are accepted in AES-256-GCM form only; the legacy unauthenticated AES-256-CTR format is read for pre-migration leaderboard rows and nothing else
 - **Security logging**: Failed login attempts and CSRF violations logged with IP address
@@ -263,7 +263,16 @@ Schedule the cleanup script to run daily:
 0 3 * * * php /path/to/scripts/cleanup.php
 ```
 
-This deletes leaderboard entries older than 365 days. A fallback "poor man's cron" also runs cleanup automatically once per day on visitor traffic.
+This deletes:
+
+- leaderboard entries older than 365 days, and
+- rate-limit rows that no longer lock anyone out and have been idle for 24
+  hours, so the hashed caller addresses in them are not kept past their purpose.
+
+A fallback "poor man's cron" runs the same job (`App\Models\RetentionCleanup`)
+automatically once per day on visitor traffic, so an install with no cron
+deletes exactly the same things. It is best-effort: a failure there is logged
+and the page is still served.
 
 ## Automatic Updates
 

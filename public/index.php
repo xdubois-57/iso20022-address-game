@@ -324,17 +324,30 @@ if (!$db->connect()) {
 }
 ensureSchema($db);
 
-// Poor man's cron: run GDPR cleanup once per day on visitor traffic
+// Poor man's cron: run the retention cleanup once per day on visitor traffic,
+// for installs with no real cron job (see scripts/cleanup.php, which runs the
+// identical App\Models\RetentionCleanup).
+//
+// Wrapped, because this is housekeeping on the way to rendering a page and
+// must never be what the visitor sees instead of one. It fataled outright
+// until now: LeaderboardModel::purgeExpired() spoke MySQL only, so the very
+// first page load of a SQLite-backed instance died here with an empty 500,
+// and an install that had lost its encryption key did the same. Both are
+// fixed at the source; this stays so that the next such failure degrades to
+// a log line rather than an unreachable site.
 $cleanupStamp = __DIR__ . '/../storage/last_cleanup.txt';
 $cleanupDir = dirname($cleanupStamp);
 if (!is_dir($cleanupDir)) {
     @mkdir($cleanupDir, 0755, true);
 }
 $lastCleanup = @file_get_contents($cleanupStamp);
-if ($lastCleanup === false || (time() - (int)$lastCleanup) > 86400) {
+if ($lastCleanup === false || (time() - (int)$lastCleanup) > \App\Models\RetentionCleanup::INTERVAL_SECONDS) {
     @file_put_contents($cleanupStamp, (string)time());
-    $leaderboard = new \App\Models\LeaderboardModel($db->getPdo());
-    $leaderboard->purgeExpired(365);
+    try {
+        (new \App\Models\RetentionCleanup($db->getPdo()))->run();
+    } catch (\Throwable $cleanupError) {
+        error_log('CLEANUP: retention cleanup failed — ' . $cleanupError->getMessage());
+    }
 }
 
 // GET export route (requires admin session)
