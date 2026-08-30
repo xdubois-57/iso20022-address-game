@@ -201,6 +201,28 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **Webhook signature verification**: `/webhook/github` (see [Automatic Updates](#automatic-updates)) requires a valid HMAC-SHA256 signature over the raw request body; a bad or missing signature is refused (403) and logged, and it is the only route in the app with no CSRF/session requirement — by necessity, since GitHub is a machine caller with neither. Every downloaded artifact URL is checked against a GitHub-only host allowlist, including on every redirect hop
 - **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
 
+## Running Locally
+
+```bash
+composer serve      # http://localhost:8000
+```
+
+This is PHP's built-in server pointed at `public/`. It needs a database
+configured first — either follow [Configure Database](#2-configure-database)
+above, or point the app at a throwaway SQLite file, which needs nothing
+installed:
+
+```bash
+php scripts/e2e-seed-config.php "$(pwd)/storage/dev.sqlite" config/credentials.php
+```
+
+That writes a gitignored `config/credentials.php` with a generated encryption
+key and the default admin PIN (`1234`). Note it takes precedence over
+`config/db_config.json`, so delete it when you want to switch to MySQL.
+
+The built-in server handles one request at a time, so it is fine for
+development but is not representative of production throughput.
+
 ## Running Tests
 
 ```bash
