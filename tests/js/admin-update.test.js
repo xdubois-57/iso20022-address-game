@@ -189,7 +189,16 @@ describe('initAutoUpdateSection — DOM wiring', () => {
 
     it('does nothing (no crash) when the initial load fails', async () => {
         const api = vi.fn().mockResolvedValue(null);
-        await expect(initAutoUpdateSection(container, api)).resolves.not.toThrow();
+
+        // Plainly awaited and then asserted on the DOM, rather than
+        // `expect(promise).resolves.not.toThrow()`: toThrow() expects a
+        // FUNCTION, so applying it to an already-resolved value asserts
+        // nothing about this call and left the promise chain in a state
+        // that leaked into the next test (every subsequent DOM test in this
+        // file failed under Vitest 4 with an empty container).
+        await initAutoUpdateSection(container, api);
+
+        expect(container.innerHTML).toBe('');
     });
 
     it('save button posts the form state and reloads on success', async () => {
