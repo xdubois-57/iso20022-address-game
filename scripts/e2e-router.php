@@ -30,8 +30,13 @@ $docroot = __DIR__ . '/../public';
 $path = urldecode((string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 $file = $docroot . $path;
 
-if ($path !== '/' && is_file($file)) {
-    return false; // Let the built-in server serve it directly.
+// A .php path is never "static", even though is_file() says it exists: the
+// whole API posts to /index.php, and handing that to the built-in server
+// directly would run the front controller OUTSIDE this router — bypassing the
+// coverage bootstrap below, which is why every API-driven controller looked
+// untested while the pretty-URL ones did not.
+if ($path !== '/' && is_file($file) && !str_ends_with(strtolower($path), '.php')) {
+    return false; // A genuine static asset; let the built-in server serve it.
 }
 
 // Coverage is started HERE rather than through auto_prepend_file, which runs

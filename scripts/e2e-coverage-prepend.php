@@ -37,43 +37,42 @@
  * them afterwards.
  */
 
-$autoload = __DIR__ . '/../vendor/autoload.php';
 $outputDir = getenv('E2E_COVERAGE_DIR') ?: '';
 
-if ($outputDir === '' || !is_file($autoload) || !extension_loaded('pcov')) {
+if ($outputDir === '' || !extension_loaded('pcov')) {
     return;
 }
 
-require_once $autoload;
+// Deliberately does NOT build a php-code-coverage object here.
+//
+// The first version did, and serialised one per request through the library's
+// PHP report writer. That writes the whole object graph — including an entry
+// for every file in the filter, covered or not — on every single request, and
+// once the API traffic was routed through here too it made the suite several
+// times slower and pushed tests past their timeouts.
+//
+// pcov's own collect() returns a plain array of file => [line => hit] for the
+// handful of files a request actually touched. Writing that is cheap, and
+// scripts/merge-coverage.php turns it back into real coverage data with
+// RawCodeCoverageData::fromXdebugWithoutPathCoverage(), which is the exact
+// shape pcov already produces.
+\pcov\start();
 
-if (!class_exists(\SebastianBergmann\CodeCoverage\CodeCoverage::class)) {
-    return;
-}
-
-$filter = new \SebastianBergmann\CodeCoverage\Filter();
-$filter->includeDirectory(__DIR__ . '/../app');
-
-try {
-    $driver = (new \SebastianBergmann\CodeCoverage\Driver\Selector())->forLineCoverage($filter);
-} catch (\Throwable) {
-    // No usable driver: let the request proceed uninstrumented rather than
-    // taking the whole end-to-end run down over a coverage concern.
-    return;
-}
-
-$coverage = new \SebastianBergmann\CodeCoverage\CodeCoverage($driver, $filter);
-$coverage->start('e2e-request');
-
-register_shutdown_function(static function () use ($coverage, $outputDir): void {
+register_shutdown_function(static function () use ($outputDir): void {
     try {
-        $coverage->stop();
+        \pcov\stop();
+        $raw = \pcov\collect();
+        if ($raw === []) {
+            return;
+        }
+
         if (!is_dir($outputDir)) {
             @mkdir($outputDir, 0755, true);
         }
-        // Unique per request: pid plus a random suffix, since several
-        // requests can share a pid over the life of the run.
-        $path = $outputDir . '/e2e-' . getmypid() . '-' . bin2hex(random_bytes(6)) . '.cov';
-        (new \SebastianBergmann\CodeCoverage\Report\PHP())->process($coverage, $path);
+        // .raw rather than .cov so the merge step can tell the two producers
+        // apart: PHPUnit writes a serialised CodeCoverage, this writes lines.
+        $path = $outputDir . '/e2e-' . getmypid() . '-' . bin2hex(random_bytes(6)) . '.raw';
+        @file_put_contents($path, serialize($raw));
     } catch (\Throwable) {
         // Never let coverage bookkeeping change the response the browser saw.
     }

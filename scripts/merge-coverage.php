@@ -38,14 +38,20 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use SebastianBergmann\CodeCoverage\CodeCoverage;
+use SebastianBergmann\CodeCoverage\Data\RawCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Report\Clover;
 
 $rawDir = $argv[1] ?? __DIR__ . '/../coverage/php/raw';
 $output = $argv[2] ?? __DIR__ . '/../coverage/php/clover.xml';
 
-$files = glob(rtrim($rawDir, '/') . '/*.cov') ?: [];
-if ($files === []) {
-    fwrite(STDERR, "No .cov files found in {$rawDir}\n");
+// Two producers, two formats: PHPUnit writes a serialised CodeCoverage
+// (.cov), and scripts/e2e-coverage-prepend.php writes raw pcov line data
+// (.raw) because building a full object per HTTP request was far too slow.
+$covFiles = glob(rtrim($rawDir, '/') . '/*.cov') ?: [];
+$rawFiles = glob(rtrim($rawDir, '/') . '/*.raw') ?: [];
+
+if ($covFiles === [] && $rawFiles === []) {
+    fwrite(STDERR, "No coverage files found in {$rawDir}\n");
     exit(1);
 }
 
@@ -54,12 +60,12 @@ $merged = null;
 $loaded = 0;
 $skipped = 0;
 
-foreach ($files as $file) {
+foreach ($covFiles as $file) {
     try {
         $coverage = require $file;
-    } catch (\Throwable $e) {
-        // A request killed mid-write leaves a truncated file. One unusable
-        // fragment out of hundreds must not discard the whole run.
+    } catch (\Throwable) {
+        // A run killed mid-write leaves a truncated file. One unusable
+        // fragment must not discard the whole report.
         $skipped++;
         continue;
     }
@@ -69,12 +75,46 @@ foreach ($files as $file) {
         continue;
     }
 
-    if ($merged === null) {
-        $merged = $coverage;
-    } else {
-        $merged->merge($coverage);
-    }
+    $merged === null ? $merged = $coverage : $merged->merge($coverage);
     $loaded++;
+}
+
+if ($rawFiles !== []) {
+    // Raw files carry only the lines that executed, so something must supply
+    // the denominator — otherwise files no request ever touched would simply
+    // be absent and coverage would read far higher than it is.
+    //
+    // That something is the PHPUnit report loaded above, whose filter already
+    // names every file under app/. Appending into it also sidesteps building a
+    // second CodeCoverage, which would demand a coverage driver in this
+    // process: merging is pure data handling and has no reason to need pcov
+    // installed wherever it runs.
+    if ($merged === null) {
+        fwrite(STDERR,
+            "Found .raw files but no .cov to merge them into.\n" .
+            "Run `composer test:coverage` first: the unit report supplies the\n" .
+            "list of files that were NOT executed, without which the result\n" .
+            "would overstate coverage.\n");
+        exit(1);
+    }
+
+    foreach ($rawFiles as $file) {
+        $raw = @unserialize((string) @file_get_contents($file), ['allowed_classes' => false]);
+        if (!is_array($raw) || $raw === []) {
+            $skipped++;
+            continue;
+        }
+
+        try {
+            $merged->append(
+                RawCodeCoverageData::fromXdebugWithoutPathCoverage($raw),
+                'e2e-' . basename($file)
+            );
+            $loaded++;
+        } catch (\Throwable) {
+            $skipped++;
+        }
+    }
 }
 
 if ($merged === null) {
