@@ -2103,7 +2103,15 @@ import * as AdminUpdate from './admin-update.js';
         var html = '<section class="privacy-screen"><article>';
         html += '<h2>Privacy Notice &amp; GDPR Compliance</h2>';
         html += '<p><em>Last updated: May 2026</em></p>';
-        html += '<p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>. It is developed and maintained as a personal project and is not affiliated with or endorsed by any organisation.</p>';
+        // The PMPG endorses the game; it does not run it. That distinction is
+        // the whole point of this paragraph, and it has to survive editing:
+        // the previous wording ("not affiliated with or endorsed by any
+        // organisation") became false the moment the logo went on the home
+        // screen, and a reader who saw both would trust neither. Note that
+        // section 1 below still names ONLY the authors as data controllers —
+        // the PMPG processes nothing, and naming it there would be an
+        // inaccurate GDPR declaration.
+        html += '<p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>, and is supported by the <strong>Payments Market Practice Group (PMPG)</strong>. It is developed and maintained by its authors; the PMPG endorses it but does not operate it.</p>';
         html += '<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License</a> for more details.</p>';
 
         html += '<h3>1. Data Controller</h3>';

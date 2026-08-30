@@ -156,6 +156,14 @@ Hall of Fame is for fun rather than adjudication.
 - Served from `public/assets/images/`, never a CDN — the CSP allows
   `img-src 'self' data:` as it stands, and widening it for a logo would trade
   security for nothing
+- **The mark is not under the GPL.** The licence covers this project's source;
+  it grants no right to the PMPG's trademarks. A fork must strip the logo
+  assets and the "Supported by" wording — see README § *Third-party assets*
+- The endorsement wording is load-bearing in one more place: the Privacy
+  screen. It says the PMPG *endorses* the game and does not *operate* it,
+  while § 1 Data Controller continues to name only Xavier Dubois and Niel
+  Buchan. The PMPG processes no personal data, and naming it there would be an
+  inaccurate GDPR declaration — do not "tidy" the two paragraphs together
 
 ### Responsive Design
 - Hamburger menu on mobile (≤768px) collapses header navigation

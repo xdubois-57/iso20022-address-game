@@ -22,7 +22,7 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 ## Legal notice
 
-This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained as a personal project and is not affiliated with or endorsed by any organisation.
+This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**, and is supported by the **Payments Market Practice Group (PMPG)**. It is developed and maintained by its authors; the PMPG endorses it but does not operate it.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
 
@@ -331,6 +331,19 @@ entirely and use [Automatic Updates](#automatic-updates) above instead.
 This game was built by **Xavier Dubois** and **Niel Buchan**.
 
 ### Third-party assets
+
+#### PMPG logo
+
+The PMPG name and logo are trademarks of the Payments Market Practice Group,
+used with permission. They are **not** covered by the GPL v3 licence granted
+over this project's source code: a fork receives the code, not the right to use
+the mark. Remove the logo assets and the "Supported by" wording before
+redistributing a modified version.
+
+Concretely, that means `public/assets/images/pmpg-logo.png`,
+`public/assets/images/pmpg-mark.png`, and every "Supported by" block that
+references them — the welcome card, the page footer, the app icon and the
+share card.
 
 #### Address formatter
 
