@@ -56,6 +56,10 @@ case "$BUMP" in
     major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
     minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
     patch) PATCH=$((PATCH + 1)) ;;
+    # Unreachable: $BUMP is validated above. Present so that a future edit
+    # which adds a bump type without updating the guard fails loudly here
+    # rather than silently tagging the version it started from.
+    *) echo "Internal error: unhandled bump type '$BUMP'." >&2; exit 1 ;;
 esac
 
 NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"

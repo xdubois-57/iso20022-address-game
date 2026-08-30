@@ -1117,90 +1117,96 @@ import * as AdminUpdate from './admin-update.js';
         });
 
         if (kioskMode) {
-            // In kiosk mode, generate a QR code linking to /share/go (triggers native share on mobile)
-            (async function () {
-                var tokenData = await api('share/token', {
-                    score: finalGameScore,
-                    name: playerName
-                });
-                if (tokenData && tokenData.token) {
-                    var qrUrl = window.location.origin + '/share/go?d=' + encodeURIComponent(tokenData.token);
-                    var qrContainer = document.getElementById('kioskQrCode');
-                    if (qrContainer && typeof qrcode === 'function') {
-                        var qr = qrcode(0, 'M');
-                        qr.addData(qrUrl);
-                        qr.make();
-                        qrContainer.innerHTML = qr.createSvgTag(4, 0);
-                    }
-                }
-            })();
+            renderKioskShareQr(finalGameScore);
         } else {
-            // Setup sharing buttons based on device capability
-            (async function setupShareButtons() {
-                var tokenData = await api('share/token', {
-                    score: finalGameScore,
-                    name: playerName
-                });
-
-                var shareBtn = document.getElementById('shareScoreBtn');
-                var desktopRow = document.getElementById('desktopShareRow');
-                var linkedinBtn = document.getElementById('linkedinShareBtn');
-                var copyLinkBtn = document.getElementById('copyLinkBtn');
-                var copyLinkStatus = document.getElementById('copyLinkStatus');
-
-                if (!tokenData || !tokenData.token) {
-                    if (shareBtn) shareBtn.style.display = 'none';
-                    return;
-                }
-
-                var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
-                var linkedinUrl = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
-
-                // Mobile: has native share + mobile UA or touch or narrow screen
-                var isMobileDevice = navigator.share && (
-                    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                    window.innerWidth <= 768 ||
-                    ('ontouchstart' in window)
-                );
-
-                if (isMobileDevice) {
-                    // Mobile: native share button only
-                    if (shareBtn) {
-                        shareBtn.style.display = 'inline-block';
-                        shareBtn.addEventListener('click', function () {
-                            navigator.share({
-                                title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
-                                text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me?',
-                                url: shareUrl
-                            }).catch(function () { /* user cancelled */ });
-                        });
-                    }
-                } else {
-                    // Desktop: LinkedIn + Copy Link side by side in grid row
-                    if (shareBtn) shareBtn.style.display = 'none';
-                    if (linkedinBtn) linkedinBtn.href = linkedinUrl;
-                    if (desktopRow) desktopRow.style.display = 'grid';
-                    if (copyLinkBtn) {
-                        copyLinkBtn.addEventListener('click', function () {
-                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(shareUrl).then(function () {
-                                    if (copyLinkStatus) copyLinkStatus.textContent = 'Link copied!';
-                                });
-                            } else {
-                                var ta = document.createElement('textarea');
-                                ta.value = shareUrl;
-                                ta.style.position = 'fixed';
-                                ta.style.left = '-9999px';
-                                document.body.appendChild(ta);
-                                ta.select();
-                                try { document.execCommand('copy'); if (copyLinkStatus) copyLinkStatus.textContent = 'Link copied!'; } catch(e) {}
-                                ta.remove();
-                            }
-                        });
-                    }
-                }
-            })();
+            setupShareButtons(finalGameScore);
         }
+    }
+
+    /**
+     * Kiosk mode has no browser chrome to share from, so the score leaves the
+     * machine as a QR code the player photographs.
+     */
+    async function renderKioskShareQr(finalGameScore) {
+        var tokenData = await api('share/token', { score: finalGameScore, name: playerName });
+        if (!tokenData || !tokenData.token) return;
+
+        var qrContainer = document.getElementById('kioskQrCode');
+        if (!qrContainer || typeof qrcode !== 'function') return;
+
+        var qr = qrcode(0, 'M');
+        qr.addData(window.location.origin + '/share/go?d=' + encodeURIComponent(tokenData.token));
+        qr.make();
+        qrContainer.innerHTML = qr.createSvgTag(4, 0);
+    }
+
+    /**
+     * Extracted from showFinalScore(), which Sonar flagged twice for cognitive
+     * complexity (S3776, 16 and 28 against a limit of 15). The work splits
+     * cleanly in two because the device decides which half runs, and neither
+     * half shares state with the other beyond the share URL.
+     */
+    async function setupShareButtons(finalGameScore) {
+        var tokenData = await api('share/token', { score: finalGameScore, name: playerName });
+
+        var shareBtn = document.getElementById('shareScoreBtn');
+        if (!tokenData || !tokenData.token) {
+            if (shareBtn) shareBtn.style.display = 'none';
+            return;
+        }
+
+        var shareUrl = window.location.origin + '/share?d=' + encodeURIComponent(tokenData.token);
+
+        if (hasNativeShare()) {
+            setupNativeShare(shareBtn, shareUrl, finalGameScore);
+        } else {
+            setupDesktopShare(shareBtn, shareUrl);
+        }
+    }
+
+    /** Native share is only offered where it is actually a better experience. */
+    function hasNativeShare() {
+        return Boolean(navigator.share) && (
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            || window.innerWidth <= 768
+            || ('ontouchstart' in window)
+        );
+    }
+
+    function setupNativeShare(shareBtn, shareUrl, finalGameScore) {
+        if (!shareBtn) return;
+
+        shareBtn.style.display = 'inline-block';
+        shareBtn.addEventListener('click', function () {
+            navigator.share({
+                title: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts!',
+                text: '\uD83C\uDFC6 I scored ' + finalGameScore + ' pts on the ISO 20022 Address Challenge! Can you beat me?',
+                url: shareUrl
+            }).catch(function () { /* user cancelled */ });
+        });
+    }
+
+    function setupDesktopShare(shareBtn, shareUrl) {
+        var desktopRow = document.getElementById('desktopShareRow');
+        var linkedinBtn = document.getElementById('linkedinShareBtn');
+        var copyLinkBtn = document.getElementById('copyLinkBtn');
+        var copyLinkStatus = document.getElementById('copyLinkStatus');
+
+        if (shareBtn) shareBtn.style.display = 'none';
+        if (linkedinBtn) {
+            linkedinBtn.href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
+        }
+        if (desktopRow) desktopRow.style.display = 'grid';
+        if (!copyLinkBtn) return;
+
+        // copyToClipboard() already implements the Clipboard API call and the
+        // textarea+execCommand fallback; this handler used to carry a second
+        // copy of both.
+        copyLinkBtn.addEventListener('click', function () {
+            copyToClipboard(shareUrl).then(function (ok) {
+                if (ok && copyLinkStatus) copyLinkStatus.textContent = 'Link copied!';
+            });
+        });
     }
 
     /* =======================================================

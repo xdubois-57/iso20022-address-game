@@ -26,7 +26,7 @@
  * — but this is the actual curve players see, so it is unit-tested directly.
  */
 export function computeGameScore(pct, seconds) {
-    var accuracyScore = pct * pct; // 0-10000 for 0%-100%
-    var timeMultiplier = 1 + (500 / Math.max(1, seconds)); // Inverse: faster = higher
+    const accuracyScore = pct * pct; // 0-10000 for 0%-100%
+    const timeMultiplier = 1 + (500 / Math.max(1, seconds)); // Inverse: faster = higher
     return Math.round(accuracyScore * timeMultiplier / 10);
 }
