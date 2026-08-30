@@ -6,7 +6,7 @@
     "homepage": "https://github.com/xdubois-57/iso20022-address-game",
     "require": {
         "php": ">=8.1",
-        "phpoffice/phpspreadsheet": "^5.7",
+        "phpoffice/phpspreadsheet": "~5.8.1",
         "snipe/banbuilder": "^2.3"
     },
     "require-dev": {
@@ -24,6 +24,12 @@
     },
     "scripts": {
         "test": "phpunit --configuration phpunit.xml",
-        "serve": "./scripts/serve.sh"
+        "serve": "./scripts/serve.sh",
+        "test:coverage": "phpunit --configuration phpunit.xml --coverage-clover coverage/php/clover.xml"
+    },
+    "config": {
+        "platform": {
+            "php": "8.1"
+        }
     }
 }

@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch makes the first run's result irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The floor the project actually claims to support (composer.json / README),
+  # not just the version that happens to be installed on a developer machine.
+  # This exists because a dependency upgrade once silently raised the real
+  # minimum to 8.2 while both still advertised 8.1.
+  php-tests:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run tests
+        run: composer test
+
+  js-tests:
+    name: JavaScript unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  e2e:
+    name: End-to-end (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    env:
+      # Job level, not step level: a step's own `env:` is not in scope for
+      # that step's `if:`, so guarding on it there would always see ''.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Sonar uses git history to attribute issues to authors and to work
+          # out what is "new code"; a shallow clone makes both wrong.
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          # pcov is markedly faster than Xdebug and is all that is needed to
+          # emit line coverage.
+          coverage: pcov
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+
+      # Both reports must exist in this one workspace before the scan runs:
+      # the paths are declared in sonar-project.properties.
+      - name: PHP coverage (clover)
+        run: composer run test:coverage
+
+      - name: JavaScript coverage (lcov)
+        run: npm run test:coverage
+
+      - name: SonarCloud scan
+        # Skipped rather than failed when the secret is absent, so pull
+        # requests from forks (which cannot read secrets) still run the rest
+        # of CI instead of reporting a red build nobody can fix.
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8

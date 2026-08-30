@@ -26,4 +26,12 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <!-- Scope for code coverage (PHPUnit 10 <source>). Only first-party
+         application code: vendor/ is third-party, scripts/e2e-* are test
+         harness, and public/ is the front controller plus assets. -->
+    <source>
+        <include>
+            <directory suffix=".php">app</directory>
+        </include>
+    </source>
 </phpunit>
