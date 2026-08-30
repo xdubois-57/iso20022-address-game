@@ -427,14 +427,13 @@ class AdminController
         $input = $this->getJsonInput();
         $deadline = trim($input['deadline'] ?? '');
 
-        // Through SettingsModel, which is where the driver-specific upsert
-        // lives. Writing the MySQL spelling inline here meant this endpoint
-        // — and clearing the deadline with it, since the statement was
-        // prepared before the early return — was a hard error on SQLite.
+        // Through SettingsModel rather than a hand-written upsert: the raw
+        // statement here was MySQL-only (ON DUPLICATE KEY), so setting a
+        // deadline threw a syntax error on SQLite — which the end-to-end
+        // instance now runs on. SettingsModel picks the dialect per driver.
         $settings = new SettingsModel(Database::getInstance()->getPdo());
 
         if ($deadline === '') {
-            // Clear the deadline
             $settings->delete('unstructured_deadline');
             $this->jsonResponse(['success' => true, 'deadline' => null]);
             return;
@@ -725,13 +724,19 @@ class AdminController
             return;
         }
 
-        // Hash the event code with bcrypt (same as admin PIN), and store it
-        // alongside its timestamp in one transaction — a code without the
-        // matching timestamp would leave every existing session judged
-        // against the previous code. setMany() opens the transaction.
+        // Hash the event code with bcrypt (same as admin PIN)
+        $hash = password_hash($code, PASSWORD_BCRYPT);
+        $timestamp = time();
+
+        // setMany() writes both keys in one transaction and picks the upsert
+        // dialect per driver; the hand-written statement here was MySQL-only,
+        // so saving an event code threw a syntax error on SQLite. Writing both
+        // together matters beyond the dialect: a code stored without its
+        // matching timestamp would leave every existing session judged against
+        // the previous code.
         $settings->setMany([
-            'event_code' => password_hash($code, PASSWORD_BCRYPT),
-            'event_code_timestamp' => (string) time(),
+            'event_code' => $hash,
+            'event_code_timestamp' => (string) $timestamp,
         ]);
 
         // A new code releases anyone locked out under the old one, for every
@@ -853,7 +858,9 @@ class AdminController
             'webhook_path' => '/webhook/github',
             'last_event_at' => isset($values['update_last_event_at']) ? (int) $values['update_last_event_at'] : null,
             'last_event_result' => $values['update_last_event_result'] ?? null,
-            'last_install_at' => isset($values['update_last_install_at']) ? (int) $values['update_last_install_at'] : null,
+            'last_install_at' => isset($values['update_last_install_at'])
+                ? (int) $values['update_last_install_at']
+                : null,
             'last_install_status' => $values['update_last_install_status'] ?? null,
             'last_install_error' => $values['update_last_install_error'] ?? null,
             'dependencies_changed' => ($values['update_dependencies_changed'] ?? '0') === '1',

@@ -50,7 +50,6 @@ import * as AdminUpdate from './admin-update.js';
        State
        ======================================================= */
     const TOTAL_ROUNDS = 5;
-    let currentScreen = 'game';
     let scenario = null;
     let slotMapping = {};
     let inactivityTimer = null;
@@ -76,7 +75,6 @@ import * as AdminUpdate from './admin-update.js';
     var currentFactIndex = -1;
     const FACT_ROTATION_INTERVAL = 20000;
     var kioskMode = false;
-    var eventCodeUnlocked = false;
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
@@ -154,11 +152,48 @@ import * as AdminUpdate from './admin-update.js';
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
     }
 
+    // Hoisted out of the function that used to nest it: neither closes
+    // over any local state, so redefining findComponentPosition() on every
+    // call bought nothing.
+    function findComponentPosition(haystack, needle) {
+        if (!needle) return -1;
+
+        var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Boundaries are "not a letter, digit or dash" rather than \b, which
+        // mishandles accented characters and values that start or end with
+        // punctuation.
+        var pattern = new RegExp('(^|[^\\p{L}\\p{N}-])' + escaped + '($|[^\\p{L}\\p{N}-])', 'u');
+        var match = pattern.exec(haystack);
+        if (match) {
+            return match.index + match[1].length;
+        }
+
+        // Fall back to a loose match so a component the formatter rendered
+        // differently still lands somewhere sensible rather than at the end.
+        return haystack.indexOf(needle);
+    }
+
+    // Hoisted out of the function that used to nest it: neither closes
+    // over any local state, so redefining isoWeekToDate() on every
+    // call bought nothing.
+    function isoWeekToDate(isoWeek) {
+        // isoWeek: "YYYY-Www"
+        var parts = isoWeek.split('-W');
+        if (parts.length !== 2) return null;
+        var year = parseInt(parts[0], 10);
+        var week = parseInt(parts[1], 10);
+        // ISO week 1 contains the first Thursday of the year; calculate Monday of that week
+        var jan4 = new Date(Date.UTC(year, 0, 4));
+        var dayOfWeek = jan4.getUTCDay() || 7; // Mon=1..Sun=7
+        var monday = new Date(jan4);
+        monday.setUTCDate(jan4.getUTCDate() - (dayOfWeek - 1) + (week - 1) * 7);
+        return monday;
+    }
+
     /* =======================================================
        Screen Router
        ======================================================= */
     function showScreen(name) {
-        currentScreen = name;
         window.scrollTo(0, 0);
         dismissScreenSaver();
         // Update nav active state
@@ -264,7 +299,6 @@ import * as AdminUpdate from './admin-update.js';
         playerName = '';
         lastSubmittedEntryId = null;
         lastSubmittedPage = null;
-        eventCodeUnlocked = false;
         // Clear the unlock on the server too. Resetting only the JavaScript state
         // left the PHP session authorised, so on a shared kiosk the next player
         // walked straight past the Event Code gate.
@@ -420,7 +454,6 @@ import * as AdminUpdate from './admin-update.js';
             if (status && status.required && !status.verified) {
                 renderEventCodeGate();
             } else {
-                eventCodeUnlocked = true;
                 renderWelcomeCard();
             }
         })();
@@ -489,7 +522,6 @@ import * as AdminUpdate from './admin-update.js';
             input.style.borderColor = '';
             var resp = await api('game/verify-event-code', { code: code });
             if (resp && resp.success) {
-                eventCodeUnlocked = true;
                 stopDeadlineCountdown();
                 stopFactRotation();
                 renderWelcomeCard();
@@ -960,24 +992,6 @@ import * as AdminUpdate from './admin-update.js';
         // inside a postcode or a street name ("10" inside "10115", "8" inside
         // "8 Mai Straße"), which silently produced the wrong expected order and
         // then marked a correct answer wrong.
-        function findComponentPosition(haystack, needle) {
-            if (!needle) return -1;
-
-            var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            // Boundaries are "not a letter, digit or dash" rather than \b, which
-            // mishandles accented characters and values that start or end with
-            // punctuation.
-            var pattern = new RegExp('(^|[^\\p{L}\\p{N}-])' + escaped + '($|[^\\p{L}\\p{N}-])', 'u');
-            var match = pattern.exec(haystack);
-            if (match) {
-                return match.index + match[1].length;
-            }
-
-            // Fall back to a loose match so a component the formatter rendered
-            // differently still lands somewhere sensible rather than at the end.
-            return haystack.indexOf(needle);
-        }
-
         if (selectedGoalType === 'Hybrid' && scenario.address_display) {
             // Derive the country-specific AdrLine field order from the formatted address.
             // Fields that go into AdrLine (all except TwnNm and Ctry).
@@ -1124,12 +1138,12 @@ import * as AdminUpdate from './admin-update.js';
             }
         });
 
-        document.getElementById('submitFinalScoreBtn').addEventListener('click', async function () {
+        document.getElementById('submitFinalScoreBtn').addEventListener('click', async function (event) {
             // Nothing used to stop repeated taps, so an impatient player could
             // file the same run several times over before the first response
             // arrived. Disable for the whole round trip and re-enable only if
             // the submission actually failed.
-            var btn = this;
+            var btn = event.currentTarget;
             if (btn.disabled) return;
             btn.disabled = true;
             var originalLabel = btn.textContent;
@@ -1324,7 +1338,7 @@ import * as AdminUpdate from './admin-update.js';
         // Bind pagination clicks
         document.querySelectorAll('.btn-page').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var p = parseInt(this.getAttribute('data-page'));
+                var p = parseInt(this.dataset.page, 10);
                 if (p) {
                     lastSubmittedEntryId = null;
                     lastSubmittedPage = null;
@@ -1576,19 +1590,6 @@ import * as AdminUpdate from './admin-update.js';
         // Pre-compute a month label for each week label (e.g. "2026-W05" → "Feb 2026")
         // Only show the label when the month changes, to get clean monthly markers.
         var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        function isoWeekToDate(isoWeek) {
-            // isoWeek: "YYYY-Www"
-            var parts = isoWeek.split('-W');
-            if (parts.length !== 2) return null;
-            var year = parseInt(parts[0], 10);
-            var week = parseInt(parts[1], 10);
-            // ISO week 1 contains the first Thursday of the year; calculate Monday of that week
-            var jan4 = new Date(Date.UTC(year, 0, 4));
-            var dayOfWeek = jan4.getUTCDay() || 7; // Mon=1..Sun=7
-            var monday = new Date(jan4);
-            monday.setUTCDate(jan4.getUTCDate() - (dayOfWeek - 1) + (week - 1) * 7);
-            return monday;
-        }
         var monthLabels = labels.map(function (lbl) {
             var d = isoWeekToDate(lbl);
             if (!d) return '';
@@ -1811,7 +1812,7 @@ import * as AdminUpdate from './admin-update.js';
         var grid = document.getElementById('themeColorGrid');
         if (!grid) return;
         var data = await api('admin/get-theme');
-        var theme = (data && data.theme) ? data.theme : Object.assign({}, themeDefaults);
+        var theme = (data && data.theme) ? data.theme : { ...themeDefaults };
         var html = '';
         Object.keys(themeLabels).forEach(function (key) {
             var val = theme[key] || themeDefaults[key];
@@ -1848,12 +1849,17 @@ import * as AdminUpdate from './admin-update.js';
                     if (t && /^#[0-9a-fA-F]{6}$/.test(t.value)) colors[key] = t.value;
                 });
                 var resp = await api('admin/save-theme', { theme: colors });
+                // Both branches did the same two things behind the same
+                // `if (status)` guard, which left an `if` as the sole statement
+                // of an `else` (S6660) and the guard written twice.
                 var status = document.getElementById('themeStatus');
-                if (resp && resp.success) {
-                    if (status) { status.textContent = 'Colors saved. Reload the page to apply.'; status.style.color = 'var(--game-emerald)'; }
-                } else {
-                    if (status) { status.textContent = 'Error saving colors.'; status.style.color = 'var(--game-danger)'; }
-                }
+                if (!status) return;
+
+                var saved = Boolean(resp && resp.success);
+                status.textContent = saved
+                    ? 'Colors saved. Reload the page to apply.'
+                    : 'Error saving colors.';
+                status.style.color = saved ? 'var(--game-emerald)' : 'var(--game-danger)';
             };
         }
 
@@ -2094,7 +2100,7 @@ import * as AdminUpdate from './admin-update.js';
         var dzEl = document.getElementById('excelDropzone');
         if (!dzEl) return;
 
-        var dz = new Dropzone(dzEl, {
+        new Dropzone(dzEl, {
             url: API_URL,
             method: 'post',
             paramName: 'file',

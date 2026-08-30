@@ -30,8 +30,9 @@ storage/*
 # Uploaded files
 uploads/*.xlsx
 
-# PHPUnit
-.phpunit.result.cache
+# PHPUnit. The glob also catches the "<name> 2.cache" duplicates macOS
+# creates when a file is copied while something holds the original.
+.phpunit.result*.cache
 
 # Release artifact built by release.sh (attached to the GitHub release, never committed)
 release-*.zip

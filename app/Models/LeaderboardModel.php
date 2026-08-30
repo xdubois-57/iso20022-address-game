@@ -65,7 +65,8 @@ class LeaderboardModel
      * SQL expression for computing game score (cross-platform MySQL/SQLite).
      * Mirrors JS: Math.round(pct * pct * (1 + 500 / Math.max(1, seconds)) / 10)
      */
-    private const GAME_SCORE_EXPR = 'ROUND(score * score * (1.0 + 500.0 / (CASE WHEN time_seconds < 1 THEN 1 ELSE time_seconds END)) / 10.0)';
+    private const GAME_SCORE_EXPR = 'ROUND(score * score * (1.0 + 500.0 / '
+        . '(CASE WHEN time_seconds < 1 THEN 1 ELSE time_seconds END)) / 10.0)';
 
     /**
      * Get top N entries by game score, decrypting names for display.
@@ -155,10 +156,13 @@ class LeaderboardModel
         }
 
         // Build game_score expressions with table aliases
-        $lbExpr = 'ROUND(lb.score * lb.score * (1.0 + 500.0 / (CASE WHEN lb.time_seconds < 1 THEN 1 ELSE lb.time_seconds END)) / 10.0)';
-        $tExpr = 'ROUND(t.score * t.score * (1.0 + 500.0 / (CASE WHEN t.time_seconds < 1 THEN 1 ELSE t.time_seconds END)) / 10.0)';
+        $lbExpr = 'ROUND(lb.score * lb.score * (1.0 + 500.0 / '
+            . '(CASE WHEN lb.time_seconds < 1 THEN 1 ELSE lb.time_seconds END)) / 10.0)';
+        $tExpr = 'ROUND(t.score * t.score * (1.0 + 500.0 / '
+            . '(CASE WHEN t.time_seconds < 1 THEN 1 ELSE t.time_seconds END)) / 10.0)';
 
-        $sql = "SELECT COUNT(*) FROM leaderboard lb, (SELECT score, time_seconds, created_at FROM leaderboard WHERE id = ?) t "
+        $sql = 'SELECT COUNT(*) FROM leaderboard lb, '
+            . '(SELECT score, time_seconds, created_at FROM leaderboard WHERE id = ?) t '
             . "WHERE ($lbExpr > $tExpr) "
             . "OR ($lbExpr = $tExpr AND lb.time_seconds < t.time_seconds) "
             . "OR ($lbExpr = $tExpr AND lb.time_seconds = t.time_seconds AND lb.created_at < t.created_at)";

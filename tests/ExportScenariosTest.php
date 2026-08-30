@@ -69,7 +69,10 @@ class ExportScenariosTest extends TestCase
     public function testExportCreatesValidXlsx(): void
     {
         $scenarios = [
-            ['json_data' => ['StrtNm' => 'Main St', 'BldgNb' => '123', 'PstCd' => '10001', 'TwnNm' => 'New York', 'Ctry' => 'US', 'AdtlAdrInf' => '']],
+            ['json_data' => [
+                'StrtNm' => 'Main St', 'BldgNb' => '123', 'PstCd' => '10001',
+                'TwnNm' => 'New York', 'Ctry' => 'US', 'AdtlAdrInf' => '',
+            ]],
         ];
 
         $filePath = $this->exportScenarios($scenarios);
@@ -102,7 +105,10 @@ class ExportScenariosTest extends TestCase
     public function testExportContainsScenarioData(): void
     {
         $scenarios = [
-            ['json_data' => ['StrtNm' => 'Baker Street', 'BldgNb' => '221B', 'PstCd' => 'NW1 6XE', 'TwnNm' => 'London', 'Ctry' => 'GB', 'AdtlAdrInf' => 'Floor 2']],
+            ['json_data' => [
+                'StrtNm' => 'Baker Street', 'BldgNb' => '221B', 'PstCd' => 'NW1 6XE',
+                'TwnNm' => 'London', 'Ctry' => 'GB', 'AdtlAdrInf' => 'Floor 2',
+            ]],
         ];
 
         $filePath = $this->exportScenarios($scenarios);

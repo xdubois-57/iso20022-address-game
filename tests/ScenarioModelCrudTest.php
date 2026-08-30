@@ -148,7 +148,9 @@ class ScenarioModelCrudTest extends TestCase
         $id1 = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
         $id2 = $this->model->create(['TwnNm' => 'London', 'Ctry' => 'GB']);
 
-        $stmt = $this->pdo->prepare('SELECT id, json_data FROM scenarios WHERE id NOT IN (?) ORDER BY RANDOM() LIMIT 1');
+        $stmt = $this->pdo->prepare(
+            'SELECT id, json_data FROM scenarios WHERE id NOT IN (?) ORDER BY RANDOM() LIMIT 1'
+        );
         $stmt->execute([$id1]);
         $row = $stmt->fetch();
         $this->assertNotFalse($row);
@@ -159,7 +161,9 @@ class ScenarioModelCrudTest extends TestCase
     {
         $id1 = $this->model->create(['TwnNm' => 'Paris', 'Ctry' => 'FR']);
 
-        $stmt = $this->pdo->prepare('SELECT id, json_data FROM scenarios WHERE id NOT IN (?) ORDER BY RANDOM() LIMIT 1');
+        $stmt = $this->pdo->prepare(
+            'SELECT id, json_data FROM scenarios WHERE id NOT IN (?) ORDER BY RANDOM() LIMIT 1'
+        );
         $stmt->execute([$id1]);
         $row = $stmt->fetch();
         $this->assertFalse($row);

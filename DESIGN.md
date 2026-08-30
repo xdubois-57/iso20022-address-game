@@ -320,6 +320,8 @@ discarding the session cookie does not reset them.
 - **Security logging**: Failed admin logins, event code attempts, and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
+- **Client-side HTML sanitisation**: "Did you know?" facts carry admin-authored inline markup, so they are rendered as HTML rather than escaped. `public/assets/js/lib/sanitize.js` applies the same allowlist as `App\Models\HtmlSanitizer` before anything reaches the DOM, parsing with `DOMParser` (an inert document that never runs scripts) and rebuilding from allowed nodes only. The two implementations are deliberately kept in step — same tags, same attributes, same URL schemes, same treatment of `<script>`/`<style>` (dropped with their contents) and of a link whose `href` is rejected (unwrapped, not merely stripped). Sanitising on both ends means a fact written by an older version, or a missed server-side call, still cannot execute in a visitor's browser
+- **CSPRNG for index selection**: `lib/random.js` draws from `crypto.getRandomValues` with rejection sampling rather than `Math.random()`. Which fact appears first is not a secret; the point is that every avoidable finding a scanner raises is one more a reviewer must dismiss before reaching a real one
 - **Webhook signature**: `/webhook/github` requires `hash_equals('sha256=' . hash_hmac('sha256', $body, $secret), $header)` — the only CSRF-exempt, session-free route in the app, and the one place a bad signature is refused with 403 rather than a generic error
 - **Webhook secret**: `bin2hex(random_bytes(32))`, returned to the admin exactly once (in the generate response) and never again — `admin/get-update-settings` reports only whether one is set, same pattern as the event code
 - **Update artifact source**: every download URL — the initial one and every redirect hop — is checked against a GitHub-only host allowlist (`App\Models\GitHubUrlValidator`) before a single byte is fetched
@@ -451,7 +453,10 @@ text, and the PMPG lockup does not replace it.
 │   ├── schema.sql          # Database schema for manual installs
 │   ├── e2e.sh              # Playwright harness: throwaway instance, run, teardown
 │   ├── e2e-router.php      # php -S router standing in for public/.htaccess
-│   └── e2e-seed-config.php # Writes a scratch config/credentials.php for e2e.sh
+│   ├── e2e-seed-config.php # Writes a scratch config/credentials.php for e2e.sh
+│   ├── e2e-coverage-prepend.php # Records PHP coverage per browser request
+│   ├── merge-coverage.php  # Merges unit + browser coverage into one Clover report
+│   └── serve.sh            # composer serve — local development server
 ├── storage/            # Runtime data (last_cleanup timestamp, update.lock, backups/)
 ├── tests/              # PHPUnit tests; DB-backed ones use in-memory SQLite
 │   ├── ThemeDefaultsSyncTest.php  # Fails if the PHP/JS/CSS palettes drift apart
@@ -466,6 +471,8 @@ text, and the PMPG lockup does not replace it.
 ├── package.json        # Dev-only: Vitest + Playwright, never required in production
 ├── phpunit.xml
 ├── vitest.config.js
+├── sonar-project.properties # SonarCloud analysis + coverage scope
+├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
 ├── release.sh          # Tags a release, builds+publishes the update artifact, writes config/version.php
 ├── README.md
 ├── DESIGN.md

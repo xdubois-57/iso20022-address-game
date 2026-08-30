@@ -30,6 +30,14 @@ import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL;
 
+// A coverage run instruments every request that reaches the front controller
+// and writes a .cov file per request, which measurably slows each one. The
+// budgets below are sized for an uninstrumented run, so they are scaled here
+// rather than being permanently loosened — a normal run keeps its tight
+// timings, and a coverage run stops failing for a reason that has nothing to
+// do with the application.
+const TIMEOUT_SCALE = process.env.E2E_COVERAGE === '1' ? 5 : 1;
+
 if (!baseURL) {
     throw new Error(
         'E2E_BASE_URL is not set. Run the end-to-end tests via `npm run e2e` '
@@ -43,8 +51,8 @@ export default defineConfig({
     fullyParallel: false,
     workers: 1,
     retries: 0,
-    timeout: 60_000,
-    expect: { timeout: 15_000 },
+    timeout: 60_000 * TIMEOUT_SCALE,
+    expect: { timeout: 15_000 * TIMEOUT_SCALE },
     // Fails the run if a test is left focused with .only, which would
     // silently reduce a release gate to a subset of itself.
     forbidOnly: !!process.env.CI,
@@ -57,8 +65,8 @@ export default defineConfig({
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
-        actionTimeout: 15_000,
-        navigationTimeout: 30_000,
+        actionTimeout: 15_000 * TIMEOUT_SCALE,
+        navigationTimeout: 30_000 * TIMEOUT_SCALE,
     },
     projects: [
         {

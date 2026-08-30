@@ -286,7 +286,11 @@ class AddressFormatterTest extends TestCase
         ];
 
         foreach ($tests as [$code, $expected]) {
-            $this->assertEquals($expected, $this->callGetCountryName($code), "Country $code should resolve to $expected");
+            $this->assertEquals(
+                $expected,
+                $this->callGetCountryName($code),
+                "Country $code should resolve to $expected",
+            );
         }
     }
 

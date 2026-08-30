@@ -47,7 +47,8 @@ class AdminFeaturesTest extends TestCase
     public function testFetchDeadlineStaticReturnsStoredValue(): void
     {
         $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('unstructured_deadline', '2026-11-14T18:00')");
+        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
+            . "('unstructured_deadline', '2026-11-14T18:00')");
 
         $result = AdminController::fetchDeadlineStatic();
         $this->assertEquals('2026-11-14T18:00', $result);
@@ -56,12 +57,14 @@ class AdminFeaturesTest extends TestCase
     public function testFetchDeadlineStaticReturnsUpdatedValue(): void
     {
         $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('unstructured_deadline', '2026-01-01T00:00')");
+        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
+            . "('unstructured_deadline', '2026-01-01T00:00')");
 
         $this->assertEquals('2026-01-01T00:00', AdminController::fetchDeadlineStatic());
 
         // Update the value
-        $pdo->exec("UPDATE settings SET setting_value = '2027-06-15T12:00' WHERE setting_key = 'unstructured_deadline'");
+        $pdo->exec("UPDATE settings SET setting_value = '2027-06-15T12:00' WHERE "
+            . "setting_key = 'unstructured_deadline'");
 
         $this->assertEquals('2027-06-15T12:00', AdminController::fetchDeadlineStatic());
     }
@@ -69,7 +72,8 @@ class AdminFeaturesTest extends TestCase
     public function testFetchDeadlineStaticReturnsNullAfterDelete(): void
     {
         $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('unstructured_deadline', '2026-11-14T18:00')");
+        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
+            . "('unstructured_deadline', '2026-11-14T18:00')");
         $this->assertNotNull(AdminController::fetchDeadlineStatic());
 
         $pdo->exec("DELETE FROM settings WHERE setting_key = 'unstructured_deadline'");
@@ -98,7 +102,8 @@ class AdminFeaturesTest extends TestCase
     public function testGameControllerUsesCustomWhenDeadlineSet(): void
     {
         $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('unstructured_deadline', '2028-06-15T09:30')");
+        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
+            . "('unstructured_deadline', '2028-06-15T09:30')");
 
         $deadline = AdminController::fetchDeadlineStatic() ?? '2026-11-14T18:00';
         $this->assertEquals('2028-06-15T09:30', $deadline);
@@ -342,7 +347,10 @@ class AdminFeaturesTest extends TestCase
         
         // Verify some expected content exists
         $contents = array_column($facts, 'content');
-        $this->assertContains('ISO 20022 Standard Release 2026 marks the end of unstructured address support globally', $contents);
+        $this->assertContains(
+            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            $contents,
+        );
         $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
@@ -526,7 +534,10 @@ class AdminFeaturesTest extends TestCase
         
         // Check that facts contain expected keywords
         $contents = array_column($facts, 'content');
-        $this->assertContains('ISO 20022 Standard Release 2026 marks the end of unstructured address support globally', $contents);
+        $this->assertContains(
+            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            $contents,
+        );
         $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }

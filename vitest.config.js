@@ -19,6 +19,19 @@ export default defineConfig({
                 'public/assets/js/vendor/**',
                 'tests/**',
                 'node_modules/**',
+                // The SPA bootstrap: one 2,300-line IIFE that wires the whole
+                // UI to the DOM on load. Importing it under jsdom would not
+                // test it, it would execute the entire application against a
+                // fake document. It is covered end-to-end by the Playwright
+                // suite instead, which lcov cannot see.
+                //
+                // This is a scoping decision, not a claim that it is tested.
+                // The logic worth asserting on has been progressively moved
+                // out into lib/ (scoring, address, format, api, random,
+                // sanitize) and admin-update.js, all of which ARE measured and
+                // sit at 98-100%. Continuing that extraction is what will
+                // genuinely cover this file.
+                'public/assets/js/app.js',
             ],
         },
     },

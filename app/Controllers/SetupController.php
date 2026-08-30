@@ -82,13 +82,13 @@ class SetupController
         $defaultPin = '1234';
         $hashedPin = password_hash($defaultPin, PASSWORD_BCRYPT);
 
-        // Write credentials.php. Resolved through Database::configDir() like
-        // every other reader and writer of this file (Database::connect(),
-        // Encryption, AdminController's PIN read/write, index.php's
-        // isAlreadyConfigured) — a fixed path here meant setup was the one
-        // place that ignored ISO20022_CONFIG_DIR, so running it under the
-        // E2E harness's override would have written over a developer's real
-        // config/credentials.php, encryption key and all.
+        // Write credentials.php
+        // Database::configDir(), not a path fixed to this file's location.
+        // This was the last hardcoded config path in the app — the others were
+        // moved when ISO20022_CONFIG_DIR was introduced. Left as it was, any
+        // test that reached this line would overwrite the developer's real
+        // credentials.php, encryption key and all. Production behaviour is
+        // unchanged: unset, configDir() resolves to exactly this directory.
         $credFile = Database::configDir() . '/credentials.php';
         $credContent = "<?php\n";
         $credContent .= "/**\n";
@@ -130,11 +130,20 @@ class SetupController
 
         $this->jsonResponse([
             'success' => true,
-            'message' => 'Configuration saved and database initialized. Default admin PIN is 1234 — change it immediately.',
+            'message' => 'Configuration saved and database initialized. '
+                . 'Default admin PIN is 1234 — change it immediately.',
         ]);
     }
 
-    private function getJsonInput(): array
+    /**
+     * The decoded JSON request body.
+     *
+     * `protected` for the same reason as the other controllers': php://input
+     * cannot be written from inside the process, so this is the only seam
+     * through which setup's validation is testable without a browser.
+     * Production behaviour is unchanged.
+     */
+    protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];

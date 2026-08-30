@@ -339,9 +339,15 @@ class Updater
     // ---------------------------------------------------------------
 
     /**
+     * `protected` so tests can substitute a local archive for the network.
+     * Everything downstream of it — extract, the copy over the live tree, the
+     * version write, and the rollback on failure — is the riskiest code in
+     * the project and could otherwise only be exercised by really fetching a
+     * release from GitHub. Production behaviour is unchanged.
+     *
      * @throws \RuntimeException
      */
-    private function download(string $url, string $destPath): void
+    protected function download(string $url, string $destPath): void
     {
         if (!GitHubUrlValidator::isAllowed($url)) {
             throw new \RuntimeException('Update source refused: must be an https GitHub URL.');

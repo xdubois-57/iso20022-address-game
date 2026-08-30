@@ -198,7 +198,8 @@ class ShareController
         $rawToken = $_GET['d'];
         $shareUrl = $baseUrl . '/share?d=' . urlencode($rawToken);
         $shareTitle = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts!';
-        $shareText = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s'] . ' pts on the ISO 20022 Address Challenge! Can you beat me?';
+        $shareText = "\xF0\x9F\x8F\x86 " . $data['n'] . ' scored ' . $data['s']
+            . ' pts on the ISO 20022 Address Challenge! Can you beat me?';
         $shareScore = $data['s'];
         $shareName  = $data['n'];
 
@@ -383,7 +384,8 @@ class ShareController
         $emerRgb  = ThemeModel::hexToRgb($theme['color_primary']) ?? [1, 169, 144];
         $textRgb  = ThemeModel::hexToRgb($theme['color_text'])    ?? [51, 61, 62];
 
-        $w = 1200; $h = 630;
+        $w = 1200;
+        $h = 630;
         $img      = imagecreatetruecolor($w, $h);
         $bgColor  = imagecolorallocate($img, $bgRgb[0], $bgRgb[1], $bgRgb[2]);
         $emerald  = imagecolorallocate($img, $emerRgb[0], $emerRgb[1], $emerRgb[2]);
@@ -607,14 +609,17 @@ class ShareController
             $r    = mt_rand(25, 45);
             $zone = $i % 4;
             if ($zone === 0) {
-                $cx = mt_rand(30, 120);        $cy = mt_rand(50, $h - 50);
+                $cx = mt_rand(30, 120);
+                $cy = mt_rand(50, $h - 50);
             } elseif ($zone === 1) {
-                $cx = mt_rand($w - 120, $w - 30); $cy = mt_rand(50, $h - 50);
+                $cx = mt_rand($w - 120, $w - 30);
+                $cy = mt_rand(50, $h - 50);
             } elseif ($zone === 2) {
                 $cx = (mt_rand(0, 1) === 0) ? mt_rand(30, 200) : mt_rand($w - 200, $w - 30);
                 $cy = mt_rand(30, 120);
             } else {
-                $cx = mt_rand(150, $w - 150);  $cy = mt_rand($h - 120, $h - 30);
+                $cx = mt_rand(150, $w - 150);
+                $cy = mt_rand($h - 120, $h - 30);
             }
             // Zone 3 above scatters balloons along the bottom edge, which is
             // exactly where the endorsement strip now sits — so this canvas
