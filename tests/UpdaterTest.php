@@ -97,6 +97,63 @@ class UpdaterTest extends TestCase
         $this->assertNull($this->settings->get('update_pending'));
     }
 
+    /**
+     * Regression: finish() used to delete `update_pending` unconditionally.
+     *
+     * A push arriving while an install is running queues a NEW target — the
+     * webhook writes it, finds the lock held, returns 'in_progress', and
+     * relies on someone picking it up afterwards. The finishing install then
+     * deleted that newer target along with its own, so the newer commit was
+     * never installed and nothing recorded that it had been dropped.
+     */
+    public function testFinishLeavesANewerQueuedTargetAlone(): void
+    {
+        $installed = json_encode([
+            'source_type' => 'branch',
+            'download_url' => 'https://api.github.com/repos/x/y/zipball/aaa',
+            'version_to' => 'dev-aaaaaaa',
+            'commit' => 'aaaaaaa',
+            'queued_at' => time(),
+        ]);
+        $superseding = json_encode([
+            'source_type' => 'branch',
+            'download_url' => 'https://api.github.com/repos/x/y/zipball/bbb',
+            'version_to' => 'dev-bbbbbbb',
+            'commit' => 'bbbbbbb',
+            'queued_at' => time(),
+        ]);
+
+        $updater = new Updater($this->basePath, $this->settings);
+
+        // Stand in for "a second push landed while this install was running".
+        $this->settings->set('update_pending', $superseding);
+        $this->invokePrivate($updater, 'finish', ['completed', null, $installed]);
+
+        $this->assertSame(
+            $superseding,
+            $this->settings->get('update_pending'),
+            'the newer target must survive so the next run installs it'
+        );
+    }
+
+    public function testFinishClearsThePendingTargetItActuallyInstalled(): void
+    {
+        $installed = json_encode([
+            'source_type' => 'release',
+            'download_url' => 'https://api.github.com/repos/x/y/zipball/v1.0.0',
+            'version_to' => 'v1.0.0',
+            'commit' => 'abc1234',
+            'queued_at' => time(),
+        ]);
+        $this->settings->set('update_pending', $installed);
+
+        $updater = new Updater($this->basePath, $this->settings);
+        $this->invokePrivate($updater, 'finish', ['completed', null, $installed]);
+
+        $this->assertNull($this->settings->get('update_pending'));
+        $this->assertSame('completed', $this->settings->get('update_last_install_status'));
+    }
+
     public function testRunReturnsInProgressWhenLockIsHeld(): void
     {
         $this->settings->set('update_pending', json_encode([
@@ -269,6 +326,62 @@ class UpdaterTest extends TestCase
         foreach ($names as $name) {
             $this->assertStringStartsNotWith('storage/', $name);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // writeVersionFile() — a string from the webhook becomes executable PHP
+    // -----------------------------------------------------------------
+
+    private function writeAndLoadVersion(string $tag, string $commit): array
+    {
+        mkdir($this->basePath . '/config', 0755, true);
+        $updater = new Updater($this->basePath, $this->settings);
+        $this->invokePrivate($updater, 'writeVersionFile', [$tag, $commit]);
+
+        $path = $this->basePath . '/config/version.php';
+        $this->assertFileExists($path);
+
+        // include() rather than a string comparison: the point of this file
+        // is that PHP can parse it, so parsing it is the assertion.
+        return include $path;
+    }
+
+    public function testWriteVersionFileRoundTripsAnOrdinaryTag(): void
+    {
+        $this->assertSame(
+            ['tag' => 'v1.2.3', 'commit' => 'abc1234'],
+            $this->writeAndLoadVersion('v1.2.3', 'abc1234')
+        );
+    }
+
+    /**
+     * The tag comes from the webhook payload and is written into a PHP file
+     * that the app include()s on every page load, so a quote in it must stay
+     * data rather than becoming code.
+     *
+     * @dataProvider hostileVersionStringProvider
+     */
+    public function testWriteVersionFileNeverLetsATagBecomeCode(string $tag): void
+    {
+        $loaded = $this->writeAndLoadVersion($tag, 'abc1234');
+
+        $this->assertSame($tag, $loaded['tag'], 'the tag must survive verbatim as a string');
+        $this->assertSame('abc1234', $loaded['commit']);
+        $this->assertFalse(defined('ISO20022_UPDATER_PWNED'), 'injected code must never have executed');
+    }
+
+    public static function hostileVersionStringProvider(): array
+    {
+        return [
+            'single quote' => ["v1.0'"],
+            'quote and semicolon' => ["v1.0'; define('ISO20022_UPDATER_PWNED', true); //"],
+            'escaped quote attempt' => ["v1.0\\'"],
+            'trailing backslash' => ['v1.0\\'],
+            'double quote' => ['v1.0"'],
+            'dollar interpolation' => ['v1.0${x}'],
+            'newline' => ["v1.0\nrandom"],
+            'null byte' => ["v1.0\0evil"],
+        ];
     }
 
     // -----------------------------------------------------------------

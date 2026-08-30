@@ -144,8 +144,27 @@ if ($requestUri === '/webhook/github' && $_SERVER['REQUEST_METHOD'] === 'POST') 
         echo json_encode(['status' => 'db_unavailable']);
         exit;
     }
-    ensureSchema($webhookDb);
-    (new WebhookController())->github();
+
+    // Deliberately NOT ensureSchema() here. That helper caches "schema is
+    // current" in $_SESSION, and this branch runs before session_start() —
+    // so the cache never hit and initSchema() (six CREATE TABLE statements,
+    // two ALTERs and a COUNT) ran on every single request, BEFORE the
+    // signature was checked. That handed any unauthenticated caller a
+    // cheap way to make the server do real database work on demand.
+    //
+    // Nothing is lost by skipping it: a webhook only reaches anything
+    // meaningful once an admin has generated a secret through the panel,
+    // which is impossible on an install whose schema was never created.
+    // A genuinely missing table therefore means a broken install, and is
+    // answered as 503 (which GitHub retries) rather than a fatal.
+    try {
+        (new WebhookController())->github();
+    } catch (\PDOException $e) {
+        error_log('Webhook aborted, database error: ' . $e->getMessage());
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['status' => 'db_unavailable']);
+    }
     exit;
 }
 
@@ -325,36 +344,68 @@ if ($action === 'admin/export') {
     exit;
 }
 
-// Serve the SPA shell
-ob_start();
-require __DIR__ . '/../app/Views/layout.php';
-$page = ob_get_clean();
-header('Content-Length: ' . strlen($page));
-echo $page;
-
-// Poor man's cron, continued: a webhook-triggered install that is still
-// `update_pending` a couple of minutes after being queued means the process
-// that was supposed to run it (App\Controllers\WebhookController::
-// runInstallAfterResponse()) never finished — killed by a host's request
-// time limit, a crashed worker, whatever. Rather than leave it stranded,
-// the next visitor's page load (this one) picks it up, after their own
-// response has already been sent so it costs them nothing. Updater's own
-// flock() means this is safe to attempt even if an install actually is
-// still running elsewhere — it just reports 'in_progress' and returns.
-$pendingJson = (new SettingsModel($db->getPdo()))->get('update_pending');
-if ($pendingJson !== null) {
+/**
+ * Poor man's cron, continued: a webhook-triggered install still sitting in
+ * `update_pending` a couple of minutes after it was queued means the process
+ * that should have run it (App\Controllers\WebhookController::
+ * runInstallAfterResponse()) never finished — killed by a host's request time
+ * limit, a crashed worker, whatever. Rather than leave it stranded, the next
+ * visitor's page load picks it up, after their own response has been sent so
+ * it costs them nothing.
+ *
+ * Decided BEFORE the page is rendered, because the deferred path has to
+ * buffer the page to send an explicit Content-Length, and that header must
+ * not be set on ordinary requests: it counts uncompressed bytes, so on a
+ * server with mod_deflate or zlib.output_compression enabled it contradicts
+ * the compressed body actually sent and truncates the page. The common case
+ * (nothing pending) therefore renders exactly as it always did — streamed,
+ * no buffering, no Content-Length.
+ */
+function staleInstallIsPending(\App\Models\Database $db): bool
+{
+    $pendingJson = (new SettingsModel($db->getPdo()))->get('update_pending');
+    if ($pendingJson === null) {
+        return false;
+    }
     $pending = json_decode($pendingJson, true);
     $queuedAt = is_array($pending) ? (int) ($pending['queued_at'] ?? 0) : 0;
-    if ($queuedAt > 0 && (time() - $queuedAt) > 120) {
-        ignore_user_abort(true);
-        set_time_limit(180);
-        if (function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request();
-        } else {
-            flush();
-        }
-        (new Updater(dirname(__DIR__), new SettingsModel($db->getPdo())))->run();
+
+    return $queuedAt > 0 && (time() - $queuedAt) > 120;
+}
+
+$runPendingInstall = staleInstallIsPending($db);
+
+// Serve the SPA shell
+if (!$runPendingInstall) {
+    require __DIR__ . '/../app/Views/layout.php';
+} else {
+    ob_start();
+    require __DIR__ . '/../app/Views/layout.php';
+    $page = ob_get_clean();
+
+    ignore_user_abort(true);
+    set_time_limit(180);
+
+    if (function_exists('fastcgi_finish_request')) {
+        // PHP-FPM: the response is closed for us, so no Content-Length of
+        // our own is needed (and none is set, keeping compression intact).
+        echo $page;
+        fastcgi_finish_request();
+    } else {
+        // Other SAPIs: the client only knows the response is complete once
+        // the byte count matches, so Content-Length is what stops the
+        // browser waiting on the install below. Compression is disabled for
+        // this one response so that count stays truthful.
+        @ini_set('zlib.output_compression', '0');
+        header('Content-Encoding: identity');
+        header('Content-Length: ' . strlen($page));
+        echo $page;
+        flush();
     }
+
+    // Updater's own flock() makes this safe even if an install really is
+    // still running elsewhere — it just reports 'in_progress' and returns.
+    (new Updater(dirname(__DIR__), new SettingsModel($db->getPdo())))->run();
 }
 
 // Helper

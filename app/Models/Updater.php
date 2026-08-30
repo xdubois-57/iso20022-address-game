@@ -87,36 +87,68 @@ class Updater
      */
     public function run(): array
     {
-        $pendingJson = $this->settings->get('update_pending');
-        if ($pendingJson === null) {
-            return ['status' => 'noop'];
-        }
-        $pending = json_decode($pendingJson, true);
-        if (!is_array($pending) || empty($pending['download_url']) || empty($pending['version_to'])) {
-            // Corrupt/unreadable — nothing sane to retry, so drop it rather
-            // than loop forever on a target that can never install.
-            $this->settings->delete('update_pending');
-            return ['status' => 'failed', 'error' => 'Pending update record was invalid.'];
-        }
-
         if (!$this->acquireLock()) {
             return ['status' => 'in_progress'];
         }
 
         try {
-            return $this->install($pending);
+            // Read the target only once the lock is held. Reading it first
+            // would mean installing whatever was queued at the moment this
+            // request happened to look, which is not necessarily what is
+            // queued now — the lock is what makes this read authoritative.
+            $pendingJson = $this->settings->get('update_pending');
+            if ($pendingJson === null) {
+                return ['status' => 'noop'];
+            }
+
+            $pending = json_decode($pendingJson, true);
+            if (!is_array($pending) || empty($pending['download_url']) || empty($pending['version_to'])) {
+                // Corrupt/unreadable — nothing sane to retry, so drop it
+                // rather than loop forever on a target that can never install.
+                $this->clearPendingIfUnchanged($pendingJson);
+                return ['status' => 'failed', 'error' => 'Pending update record was invalid.'];
+            }
+
+            return $this->install($pending, $pendingJson);
         } finally {
             $this->releaseLock();
         }
     }
 
     /**
+     * Clears `update_pending`, but ONLY if it still holds the target that was
+     * just acted on.
+     *
+     * This used to delete unconditionally, which silently dropped work: a
+     * push arriving while an install was running queues a NEW target (the
+     * webhook writes it, finds the lock held, and returns 'in_progress'
+     * expecting someone to pick it up later), and the finishing install then
+     * deleted that newer target along with its own. The newer commit was
+     * never installed — it waited for an unrelated later push or a manual
+     * "Install now" to dislodge it.
+     *
+     * The read-then-delete is not atomic, but the two orderings it can lose
+     * to are both benign: either the newer target survives and installs next
+     * (correct), or it is written between the read and the delete and is lost
+     * exactly as before — a window of microseconds rather than the whole
+     * duration of a multi-second download and copy.
+     */
+    private function clearPendingIfUnchanged(string $actedOnJson): void
+    {
+        if ($this->settings->get('update_pending') === $actedOnJson) {
+            $this->settings->delete('update_pending');
+        }
+    }
+
+    /**
      * @param array<string, mixed> $pending
+     * @param string $pendingJson the exact stored value $pending was decoded
+     *        from, so finish() can clear it only if it is still the current
+     *        target — see clearPendingIfUnchanged()
      * @return array{status: string, error?: string}
      */
-    private function install(array $pending): array
+    private function install(array $pending, string $pendingJson): array
     {
-        $sourceType = (string) ($pending['source_type'] ?? 'release');
         $downloadUrl = (string) $pending['download_url'];
         $versionTo = (string) $pending['version_to'];
         $commit = (string) ($pending['commit'] ?? '') ?: substr(sha1($versionTo), 0, 7);
@@ -131,7 +163,7 @@ class Updater
         } catch (\Throwable $e) {
             // Nothing was touched yet — no rollback needed, just report it.
             $this->removeDirectory($tempDir);
-            $this->finish('failed', 'Safety backup failed: ' . $e->getMessage());
+            $this->finish('failed', 'Safety backup failed: ' . $e->getMessage(), $pendingJson);
             return ['status' => 'failed', 'error' => $e->getMessage()];
         }
 
@@ -155,7 +187,7 @@ class Updater
             $this->settings->set('update_dependencies_changed', $newComposerLock !== $oldComposerLock ? '1' : '0');
 
             $this->pruneOldBackups();
-            $this->finish('completed', null);
+            $this->finish('completed', null, $pendingJson);
             return ['status' => 'completed', 'version' => $versionTo];
         } catch (\Throwable $e) {
             $rolledBack = false;
@@ -164,27 +196,31 @@ class Updater
                     $this->restoreBackup($backupPath);
                     $rolledBack = true;
                 } catch (\Throwable $restoreError) {
-                    $this->finish('failed', 'Install failed AND automatic rollback failed: '
-                        . $e->getMessage() . ' / ' . $restoreError->getMessage());
+                    $this->finish(
+                        'failed',
+                        'Install failed AND automatic rollback failed: '
+                            . $e->getMessage() . ' / ' . $restoreError->getMessage(),
+                        $pendingJson
+                    );
                     return ['status' => 'failed', 'error' => $e->getMessage()];
                 }
             }
             $status = $rolledBack ? 'rolled_back' : 'failed';
-            $this->finish($status, $e->getMessage());
+            $this->finish($status, $e->getMessage(), $pendingJson);
             return ['status' => $status, 'error' => $e->getMessage()];
         } finally {
             $this->removeDirectory($tempDir);
         }
     }
 
-    private function finish(string $status, ?string $error): void
+    private function finish(string $status, ?string $error, string $pendingJson): void
     {
         $this->settings->setMany([
             'update_last_install_at' => (string) time(),
             'update_last_install_status' => $status,
             'update_last_install_error' => $error ?? '',
         ]);
-        $this->settings->delete('update_pending');
+        $this->clearPendingIfUnchanged($pendingJson);
     }
 
     // ---------------------------------------------------------------
@@ -521,12 +557,23 @@ class Updater
         }
     }
 
+    /**
+     * $tag comes from the webhook payload's release tag_name — i.e. from
+     * outside — and this writes it into a PHP file the application then
+     * include()s on every page load (getVersionInfo() in app/Views/layout.php).
+     * That makes it the one place in the updater where a string turns into
+     * executable code, so it goes through var_export() rather than
+     * addslashes(): var_export emits a correctly quoted PHP literal for any
+     * input, where addslashes only escapes a fixed set of characters and is
+     * not a PHP-literal encoder. The repository gate in GitHubWebhook should
+     * already keep hostile tags out; this makes the outcome safe even if it
+     * ever does not.
+     */
     private function writeVersionFile(string $tag, string $commit): void
     {
-        $escapedTag = addslashes($tag);
-        $escapedCommit = addslashes($commit);
         $contents = "<?php\n// Written by App\\Models\\Updater — do not edit manually\nreturn [\n"
-            . "    'tag' => '{$escapedTag}',\n    'commit' => '{$escapedCommit}',\n];\n";
+            . '    ' . var_export('tag', true) . ' => ' . var_export($tag, true) . ",\n"
+            . '    ' . var_export('commit', true) . ' => ' . var_export($commit, true) . ",\n];\n";
         file_put_contents($this->basePath . '/config/version.php', $contents);
     }
 

@@ -841,6 +841,15 @@ class AdminController
             return;
         }
 
+        // Unlike the webhook path, this one answers the caller only once the
+        // install is done, so it needs the same headroom that path grants
+        // itself: a default 30s max_execution_time is not enough for a
+        // multi-megabyte download plus a full file-tree copy, and the admin
+        // closing the tab mid-install must not abort a half-applied update
+        // and leave the site on a mixed tree.
+        ignore_user_abort(true);
+        set_time_limit(300);
+
         $result = (new Updater(dirname(__DIR__, 2), $settings))->run();
         $this->jsonResponse(['success' => $result['status'] === 'completed', 'result' => $result]);
     }
@@ -906,7 +915,16 @@ class AdminController
         return '0000';
     }
 
-    private function getJsonInput(): array
+    /**
+     * The decoded JSON request body.
+     *
+     * `protected` rather than `private` purely so tests can supply a body:
+     * php://input is not writable from inside the process, so this is the
+     * only seam through which the request-body validation on these endpoints
+     * (the channel allowlist, the required owner/repo) can be exercised
+     * without a browser. Production behaviour is unchanged.
+     */
+    protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];
