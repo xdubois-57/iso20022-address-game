@@ -15,6 +15,153 @@ use App\Models\ThemeModel;
 
 class ShareController
 {
+    /* =========================================================
+       Share card composition
+       ========================================================= */
+
+    /** The card is 1200×630 — the size LinkedIn, Facebook and X all expect. */
+    private const CARD_W = 1200;
+    private const CARD_H = 630;
+
+    /**
+     * Balloon colours, tuned to the PMPG palette. The previous set was warm
+     * and vivid to sit against the old teal; against #3d345f violet and
+     * #8abed9 blue it read as clutter. These are the brand's own violets and
+     * sunburst blues plus two warm accents, so the card stays festive without
+     * fighting the logo it now carries.
+     */
+    private const BALLOON_PALETTE = [
+        'rgba(93,79,140,0.80)',
+        'rgba(240,180,60,0.80)',
+        'rgba(58,124,165,0.80)',
+        'rgba(214,110,120,0.80)',
+        'rgba(44,38,70,0.80)',
+        'rgba(126,178,209,0.80)',
+    ];
+
+    /** Fixed so the card for a given score is byte-identical on every render. */
+    private const BALLOON_SEED = 42;
+    private const BALLOON_COUNT = 12;
+
+    /** Endorsement strip geometry. */
+    private const ENDORSE_LOGO_W = 260;
+    private const ENDORSE_LOGO_BOTTOM_MARGIN = 28;
+    private const ENDORSE_LABEL_OFFSET = 205;
+
+    /** Logo height, from the asset's own 1095×282 aspect ratio. */
+    private static function endorseLogoHeight(): int
+    {
+        return (int) round(self::ENDORSE_LOGO_W * 282 / 1095);
+    }
+
+    private static function endorseLogoTop(int $h): int
+    {
+        return $h - self::ENDORSE_LOGO_BOTTOM_MARGIN - self::endorseLogoHeight();
+    }
+
+    /**
+     * Rectangles no balloon may overlap: the centre text block, and the
+     * endorsement strip at the foot of the card.
+     *
+     * The endorsement zone is the reason this became a list. There was one
+     * hardcoded rectangle before, and dropping a logo onto the card without
+     * extending the exclusion would have let a balloon land on the PMPG mark
+     * on some seeds — the sort of defect that only shows up on somebody
+     * else's LinkedIn feed.
+     *
+     * @return list<array{0:int,1:int,2:int,3:int}> [x1, y1, x2, y2]
+     */
+    private static function exclusionZones(int $w, int $h): array
+    {
+        $logoTop = self::endorseLogoTop($h);
+
+        return [
+            // Centre text: title, player name, score.
+            [
+                (int) (($w - 700) / 2),
+                (int) (($h - 360) / 2),
+                (int) (($w - 700) / 2) + 700,
+                (int) (($h - 360) / 2) + 360,
+            ],
+            // "Supported by" + the lockup, with room around them.
+            [
+                (int) (($w - self::ENDORSE_LOGO_W) / 2) - 40,
+                $logoTop - 60,
+                (int) (($w + self::ENDORSE_LOGO_W) / 2) + 40,
+                $h,
+            ],
+        ];
+    }
+
+    /**
+     * Decide where the balloons go, without drawing anything.
+     *
+     * Extracted from the drawing code so the placement rules can be tested
+     * across many seeds — the layout is deterministic per seed, so testing
+     * one seed would only prove that one arrangement happens to be fine.
+     * Being pure, it needs neither Imagick nor an HTTP request.
+     *
+     * The generator is a local xorshift32 rather than mt_srand(): seeding the
+     * global RNG here would have made every later mt_rand()/shuffle() in the
+     * request predictable.
+     *
+     * @param  list<array{0:int,1:int,2:int,3:int}> $zones
+     * @return list<array{0:int,1:int,2:int,3:int,4:int}> [x, y, radius, tailDx, tailDy]
+     */
+    public static function planBalloons(
+        int $seed,
+        int $w,
+        int $h,
+        array $zones,
+        int $count = self::BALLOON_COUNT
+    ): array {
+        $state = $seed;
+        $rand = function (int $min, int $max) use (&$state): int {
+            $state ^= ($state << 13) & 0xFFFFFFFF;
+            $state ^= $state >> 17;
+            $state ^= ($state << 5) & 0xFFFFFFFF;
+            $state &= 0xFFFFFFFF;
+
+            return $min + ($state % ($max - $min + 1));
+        };
+
+        $placed  = [];
+        $maxIter = 200;
+
+        while (count($placed) < $count && $maxIter-- > 0) {
+            $r  = $rand(22, 40);
+            $bx = $rand($r + 5, $w - $r - 5);
+            $by = $rand($r + 5, $h - $r - 5);
+
+            $blocked = false;
+            foreach ($zones as [$zx1, $zy1, $zx2, $zy2]) {
+                if ($bx + $r > $zx1 && $bx - $r < $zx2 && $by + $r > $zy1 && $by - $r < $zy2) {
+                    $blocked = true;
+                    break;
+                }
+            }
+            if ($blocked) {
+                continue;
+            }
+
+            foreach ($placed as [$px, $py, $pr]) {
+                if (sqrt(($bx - $px) ** 2 + ($by - $py) ** 2) < ($r + $pr + 15)) {
+                    $blocked = true;
+                    break;
+                }
+            }
+            if ($blocked) {
+                continue;
+            }
+
+            // Tail offsets drawn here too, so the sequence of random draws —
+            // and therefore the whole layout — stays identical to before.
+            $placed[] = [$bx, $by, $r, $rand(-10, 10), $rand(25, 55)];
+        }
+
+        return $placed;
+    }
+
     /**
      * POST /api/share/token — Encrypt score data into an opaque share token.
      */
@@ -137,57 +284,11 @@ class ShareController
         $im->compositeImage($bgIm, \Imagick::COMPOSITE_OVER, 0, 0);
         $bgIm->destroy();
 
-        // ── 2. Balloons — warm/vivid palette that never clashes with green ──
-        $balloonPalette = [
-            'rgba(220,50,50,0.80)',
-            'rgba(255,140,0,0.80)',
-            'rgba(130,50,200,0.80)',
-            'rgba(220,50,180,0.80)',
-            'rgba(50,100,220,0.80)',
-            'rgba(240,200,0,0.80)',
-        ];
-        // Keep balloons out of centre text zone
-        $clearX1 = (int)(($w - 700) / 2);
-        $clearX2 = $clearX1 + 700;
-        $clearY1 = (int)(($h - 360) / 2);
-        $clearY2 = $clearY1 + 360;
+        // ── 2. Balloons, placed clear of everything that must stay legible ──
+        $balloons = self::planBalloons(self::BALLOON_SEED, $w, $h, self::exclusionZones($w, $h));
 
-        // A local, seeded generator so the card stays reproducible. mt_srand(42)
-        // reseeded PHP's *global* RNG for the rest of the request, making every
-        // later mt_rand()/shuffle() call in the process predictable. xorshift32
-        // keeps this self-contained and works on PHP 8.1.
-        $seed = 42;
-        $rand = function (int $min, int $max) use (&$seed): int {
-            $seed ^= ($seed << 13) & 0xFFFFFFFF;
-            $seed ^= $seed >> 17;
-            $seed ^= ($seed << 5) & 0xFFFFFFFF;
-            $seed &= 0xFFFFFFFF;
-
-            return $min + ($seed % ($max - $min + 1));
-        };
-
-        $placed  = [];
-        $maxIter = 200;
-        for ($i = 0; $i < 12 && $maxIter > 0; $maxIter--) {
-            $r  = $rand(22, 40);
-            $bx = $rand($r + 5, $w - $r - 5);
-            $by = $rand($r + 5, $h - $r - 5);
-            if ($bx + $r > $clearX1 && $bx - $r < $clearX2
-                && $by + $r > $clearY1 && $by - $r < $clearY2) {
-                continue;
-            }
-            $ok = true;
-            foreach ($placed as [$px, $py, $pr]) {
-                if (sqrt(($bx - $px) ** 2 + ($by - $py) ** 2) < ($r + $pr + 15)) {
-                    $ok = false;
-                    break;
-                }
-            }
-            if (!$ok) { continue; }
-            $placed[] = [$bx, $by, $r];
-            $i++;
-
-            $col = $balloonPalette[($i - 1) % count($balloonPalette)];
+        foreach ($balloons as $i => [$bx, $by, $r, $tailDx, $tailDy]) {
+            $col = self::BALLOON_PALETTE[$i % count(self::BALLOON_PALETTE)];
             $bd  = new \ImagickDraw();
             $bd->setFillColor(new \ImagickPixel($col));
             $bd->setStrokeWidth(0);
@@ -198,7 +299,7 @@ class ShareController
             $sd = new \ImagickDraw();
             $sd->setStrokeColor(new \ImagickPixel('rgba(0,0,0,0.35)'));
             $sd->setStrokeWidth(1.5);
-            $sd->line($bx, $by + $r + 2, $bx + $rand(-10, 10), $by + $r + $rand(25, 55));
+            $sd->line($bx, $by + $r + 2, $bx + $tailDx, $by + $r + $tailDy);
             $im->drawImage($sd);
             $sd->destroy();
         }
@@ -226,6 +327,45 @@ class ShareController
         $drawText('ISO 20022 Address Game', 52, '#ffffff', -160);
         $drawText($name,                   110, '#ffffff',  -15);
         $drawText($score . ' pts',          80, '#FFD700',  130);
+
+        // ── 4. Endorsement strip at the foot of the card ────────────────────
+        // This is the most public surface the branding has: a LinkedIn post
+        // shows this image to people who will never open the game.
+        $drawText('Supported by', 22, '#ffffff', self::ENDORSE_LABEL_OFFSET);
+
+        $logoPath = __DIR__ . '/../../public/assets/images/pmpg-logo.png';
+        if (is_file($logoPath)) {
+            $logo = new \Imagick($logoPath);
+            $logo->resizeImage(self::ENDORSE_LOGO_W, self::endorseLogoHeight(), \Imagick::FILTER_LANCZOS, 1);
+            // White-on-transparent would vanish against the pale map, so the
+            // lockup keeps its own colours and gets a light plate behind it.
+            $plate = new \ImagickDraw();
+            // Opaque, like the app icon's disc. A translucent plate looked
+            // softer but the GD path cannot match it: GD composites the
+            // rounded rectangle from overlapping shapes, and a semi-
+            // transparent fill blends twice where they meet, leaving visible
+            // seams at the corners. Both paths draw the same solid plate.
+            $plate->setFillColor(new \ImagickPixel('#ffffff'));
+            $plate->setStrokeWidth(0);
+            $plate->roundRectangle(
+                (int) (($w - self::ENDORSE_LOGO_W) / 2) - 18,
+                self::endorseLogoTop($h) - 12,
+                (int) (($w + self::ENDORSE_LOGO_W) / 2) + 18,
+                self::endorseLogoTop($h) + self::endorseLogoHeight() + 12,
+                10,
+                10
+            );
+            $im->drawImage($plate);
+            $plate->destroy();
+
+            $im->compositeImage(
+                $logo,
+                \Imagick::COMPOSITE_OVER,
+                (int) (($w - self::ENDORSE_LOGO_W) / 2),
+                self::endorseLogoTop($h)
+            );
+            $logo->destroy();
+        }
 
         $im->setImageFormat('png');
         $png = $im->getImageBlob();
@@ -264,11 +404,84 @@ class ShareController
             $this->gdCentered($img, 5, $score . ' pts',          $w, 400, $emerald);
         }
 
+        // The endorsement, on this path too. A host without Imagick posting
+        // share cards with no PMPG logo would be exactly the sort of
+        // half-applied rebrand the icon iteration guarded against.
+        $this->drawEndorsementGd($img, $w, $h, $fontBold, $darkGreen);
+
         ob_start();
         imagepng($img, null, 6);
         $png = ob_get_clean();
         imagedestroy($img);
         return $png;
+    }
+
+    /**
+     * Filled rounded rectangle. GD has no primitive for one, and a square
+     * plate under the logo reads as a sticker rather than as part of the
+     * card — Imagick's roundRectangle() is what this matches.
+     *
+     * @param \GdImage $img
+     */
+    private function roundedRectangleGd($img, int $x1, int $y1, int $x2, int $y2, int $radius, int $color): void
+    {
+        $d = $radius * 2;
+
+        // Body: a tall rectangle and a wide one, which together leave only the
+        // four corners to fill.
+        imagefilledrectangle($img, $x1 + $radius, $y1, $x2 - $radius, $y2, $color);
+        imagefilledrectangle($img, $x1, $y1 + $radius, $x2, $y2 - $radius, $color);
+
+        imagefilledellipse($img, $x1 + $radius, $y1 + $radius, $d, $d, $color);
+        imagefilledellipse($img, $x2 - $radius, $y1 + $radius, $d, $d, $color);
+        imagefilledellipse($img, $x1 + $radius, $y2 - $radius, $d, $d, $color);
+        imagefilledellipse($img, $x2 - $radius, $y2 - $radius, $d, $d, $color);
+    }
+
+    /**
+     * Draw "Supported by" and the PMPG lockup at the foot of a GD canvas.
+     *
+     * Shared by the score card and the home card so the two cannot drift.
+     *
+     * @param \GdImage $img
+     */
+    private function drawEndorsementGd($img, int $w, int $h, ?string $fontBold, int $textColor): void
+    {
+        $logoW   = self::ENDORSE_LOGO_W;
+        $logoH   = self::endorseLogoHeight();
+        $logoTop = self::endorseLogoTop($h);
+        $logoX   = (int) (($w - $logoW) / 2);
+
+        // A light plate, matching the Imagick path: the lockup keeps its own
+        // colours, and the sunburst's palest petals would otherwise be lost
+        // against the background — the same reason the app icon has a disc.
+        $plate = imagecolorallocate($img, 255, 255, 255);
+        $this->roundedRectangleGd(
+            $img,
+            $logoX - 18,
+            $logoTop - 12,
+            $logoX + $logoW + 18,
+            $logoTop + $logoH + 12,
+            10,
+            $plate
+        );
+
+        if ($fontBold) {
+            $this->ttfCentered($img, 20, $fontBold, 'Supported by', $w, $logoTop - 26, $textColor);
+        }
+
+        $logoPath = __DIR__ . '/../../public/assets/images/pmpg-logo.png';
+        if (!is_file($logoPath)) {
+            return;
+        }
+        $logo = @imagecreatefrompng($logoPath);
+        if ($logo === false) {
+            return;
+        }
+
+        imagealphablending($img, true);
+        imagecopyresampled($img, $logo, $logoX, $logoTop, 0, 0, $logoW, $logoH, imagesx($logo), imagesy($logo));
+        imagedestroy($logo);
     }
 
     /**
@@ -308,6 +521,8 @@ class ShareController
             imageline($img, 300, 310, $w - 300, 310, $emerald);
             $this->gdCentered($img, 5, 'Play Now!', $w, 390, $emerald);
         }
+
+        $this->drawEndorsementGd($img, $w, $h, $fontBold, $darkGreen);
 
         // Render PNG to buffer
         ob_start();
@@ -401,8 +616,24 @@ class ShareController
             } else {
                 $cx = mt_rand(150, $w - 150);  $cy = mt_rand($h - 120, $h - 30);
             }
+            // Zone 3 above scatters balloons along the bottom edge, which is
+            // exactly where the endorsement strip now sits — so this canvas
+            // needs the same exclusion the score card uses, or a balloon will
+            // land on the PMPG logo. Unlike the score card this draw is not
+            // seeded, so it would collide only sometimes: worse to debug, not
+            // better.
             $overlap = false;
+            foreach (self::exclusionZones($w, $h) as [$zx1, $zy1, $zx2, $zy2]) {
+                if ($cx + $r > $zx1 && $cx - $r < $zx2 && $cy + $r > $zy1 && $cy - $r < $zy2) {
+                    $overlap = true;
+                    $i--;
+                    break;
+                }
+            }
             foreach ($balloons as $b) {
+                if ($overlap) {
+                    break;
+                }
                 if (sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2)) < ($r + $b['r'] + 20)) {
                     $overlap = true;
                     $i--;

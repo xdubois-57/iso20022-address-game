@@ -127,20 +127,23 @@ if (!function_exists('getVersionInfo')) {
     <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
     <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
     <meta name="author" content="ISO 20022 Address Game">
-    <!-- OpenGraph Meta Tags for Social Media Sharing -->
+    <!-- OpenGraph Meta Tags for Social Media Sharing.
+         Titles stay short: LinkedIn truncates around 70 characters and the
+         PMPG mention is worth nothing if it lands past the ellipsis, so it
+         rides in og:site_name and the description rather than the title. -->
     <meta property="og:title" content="ISO 20022 Address Challenge">
-    <meta property="og:description" content="Master international address formatting standards. Test your skills, compete for high scores, and challenge your friends!">
+    <meta property="og:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group. Test your skills and challenge your friends!">
     <meta property="og:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="image/png">
     <meta property="og:url" content="<?= \App\Support\Url::currentUrlHtml() ?>">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="ISO 20022 Address Challenge">
+    <meta property="og:site_name" content="ISO 20022 Address Challenge — supported by the PMPG">
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ISO 20022 Address Challenge">
-    <meta name="twitter:description" content="Master international address formatting standards. Test your skills, compete for high scores!">
+    <meta name="twitter:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group.">
     <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>

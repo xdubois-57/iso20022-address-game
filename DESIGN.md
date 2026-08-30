@@ -108,8 +108,21 @@ Hall of Fame is for fun rather than adjudication.
 ### Social Sharing
 - Players can share their score via an encrypted URL token (AES-256-GCM)
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
-- Dynamic 1200×630 PNG share card generated server-side with GD library
+- Dynamic 1200×630 PNG share card generated server-side (Imagick, GD fallback)
 - Share card features theme-branded colors with decorative balloons
+- The card closes with `Supported by` and the PMPG lockup on a white plate.
+  This is the branding's most public surface — a LinkedIn post shows it to
+  people who never open the game — so both render paths draw it
+- **Balloons are kept off it.** `ShareController::exclusionZones()` reserves
+  the centre text block *and* the endorsement strip, and
+  `planBalloons()` — extracted from the drawing code precisely so it can be
+  tested — honours both. The layout is deterministic per seed, so
+  `tests/ShareCardLayoutTest.php` checks 300 seeds rather than the one the
+  application uses; without the endorsement zone, seed 4 alone puts a balloon
+  on the logo
+- `og:site_name` and the descriptions name the PMPG. Titles stay short —
+  LinkedIn truncates around 70 characters, and an endorsement past the
+  ellipsis is worth nothing
 - Gzip-encoded image responses for Facebook crawler compatibility
 - **Mobile**: Native share button (navigator.share) with clipboard fallback
 - **Kiosk Mode**: QR code displayed for scanning and sharing on mobile devices
