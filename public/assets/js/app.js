@@ -19,6 +19,8 @@
 import { computeGameScore } from './lib/scoring.js';
 import { formatAddressForDisplay, isAdrLineSlot } from './lib/address.js';
 import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts } from './lib/format.js';
+import { setSanitizedHtml } from './lib/sanitize.js';
+import { randomIndex } from './lib/random.js';
 import { createApi } from './lib/api.js';
 import * as AdminUpdate from './admin-update.js';
 
@@ -358,7 +360,7 @@ import * as AdminUpdate from './admin-update.js';
     function nextFact() {
         if (factsCache.length === 0) return null;
         if (currentFactIndex < 0) {
-            currentFactIndex = Math.floor(Math.random() * factsCache.length);
+            currentFactIndex = randomIndex(factsCache.length);
         } else {
             currentFactIndex = (currentFactIndex + 1) % factsCache.length;
         }
@@ -367,9 +369,17 @@ import * as AdminUpdate from './admin-update.js';
 
     function renderFactInto(el) {
         var fact = nextFact();
-        if (!fact) { el.innerHTML = ''; return; }
-        var content = kioskMode ? stripLinks(fact.content) : fact.content;
-        el.innerHTML = '<h2>Did you know?</h2><p>' + content + '</p>';
+        if (!fact) { el.replaceChildren(); return; }
+
+        // The heading is ours, so it is built as a real element; only the
+        // fact body is untrusted, and it goes through the same allowlist the
+        // server applies (lib/sanitize.js) instead of into innerHTML.
+        var heading = document.createElement('h2');
+        heading.textContent = 'Did you know?';
+        var body = document.createElement('p');
+        setSanitizedHtml(body, kioskMode ? stripLinks(fact.content) : fact.content);
+
+        el.replaceChildren(heading, body);
     }
 
     function startFactRotation(el) {
@@ -1840,7 +1850,7 @@ import * as AdminUpdate from './admin-update.js';
         var html = '<ul class="facts-list">';
         data.facts.forEach(function (fact) {
             html += '<li class="fact-item" data-fact-id="' + fact.id + '">';
-            html += '<div class="fact-content-display" id="factDisplay' + fact.id + '">' + fact.content + '</div>';
+            html += '<div class="fact-content-display" id="factDisplay' + fact.id + '"></div>';
             html += '<div class="fact-actions">';
             html += '<button class="btn-edit-fact" data-id="' + fact.id + '" title="Edit">Edit</button>';
             html += '<button class="btn-delete-fact" data-id="' + fact.id + '" title="Delete">Del</button>';
@@ -1849,6 +1859,14 @@ import * as AdminUpdate from './admin-update.js';
         });
         html += '</ul>';
         container.innerHTML = html;
+
+        // Fact bodies are admin-authored and may carry inline markup, so they
+        // are never concatenated into the string above — they are filled in
+        // here through the same allowlist the server applies.
+        data.facts.forEach(function (fact) {
+            var target = document.getElementById('factDisplay' + fact.id);
+            if (target) setSanitizedHtml(target, fact.content);
+        });
 
         container.querySelectorAll('.btn-delete-fact').forEach(function (btn) {
             btn.addEventListener('click', async function () {

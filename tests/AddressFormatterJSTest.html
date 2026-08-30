@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Address Formatter Tests</title>
-    <script src="https://unpkg.com/@fragaria/address-formatter@7.0.0/dist/umd/address-formatter.js"></script>
+    <!-- The bundled copy, not a CDN. Sonar flagged the unpkg URL for having no
+         integrity/crossorigin attributes (Web:S5725), and pinning a hash would
+         only have papered over the real oddity: this page was testing a
+         DIFFERENT build of the library than the application ships. It now
+         exercises exactly the file in public/assets/js/vendor/, so the test and
+         production agree by construction and no integrity check is needed for a
+         same-origin file. -->
+    <script src="../public/assets/js/vendor/address-formatter.js"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
         h1 { color: #333; }
