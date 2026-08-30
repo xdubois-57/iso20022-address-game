@@ -26,30 +26,49 @@ use App\Models\ThemeModel;
  * GET /app-icon — Serve a themed PNG apple-touch-icon (180×180).
  *
  * iOS requires PNG for apple-touch-icon; SVG is not supported.
- * Generates the image using Imagick:
+ * The image is composed as:
  *   - Rounded-rect background in theme color_bg
- *   - Color emoji PNG (emoji-controller.png) composited on top
+ *   - A white disc
+ *   - The PMPG sunburst (pmpg-mark.png) composited on the disc
  *   - "ISO 20022" label in theme color_text using the bundled bold font
+ *
+ * The white disc is not decoration. The sunburst's lower petals fade to near
+ * white, and the default background is now #8abed9 — a mid blue — so placed
+ * straight onto it the mark loses its bottom half and reads as a broken ring.
+ * Rendered both ways at 180px and compared before choosing; the disc is what
+ * keeps the mark legible at icon size, and it holds for any background colour
+ * an admin might pick, which a tuned background would not.
+ *
+ * TWO rendering paths, Imagick and a GD fallback, and they must stay in step:
+ * an installation without Imagick that kept rendering the old icon would be a
+ * silent half-rebrand.
  *
  * Cache-busted via ?v= in layout.php whenever the theme changes.
  */
 class AppIconController
 {
+    /** Rendered size of the icon, and of the mark and disc within it. */
+    private const ICON_SIZE = 180;
+    private const MARK_SIZE = 100;
+    private const MARK_TOP  = 18;
+    /** Disc diameter: the mark plus a small margin, so no petal touches the edge. */
+    private const DISC_SIZE = 116;
+
     public function generate(): void
     {
         $theme    = $this->loadTheme();
         $bg       = $theme['color_bg']      ?: '#8abed9';
         $fg       = $theme['color_text']    ?: '#3d345f';
         $font     = __DIR__ . '/../../public/assets/fonts/LiberationSans-Bold.ttf';
-        $emojiPng = __DIR__ . '/../../public/assets/images/emoji-controller.png';
+        $markPng  = __DIR__ . '/../../public/assets/images/pmpg-mark.png';
 
-        $size = 180;
+        $size = self::ICON_SIZE;
 
         // ShareController guards this; this route did not, so on a host without
         // Imagick the apple-touch-icon was a fatal 500 rather than a missing
         // icon. Fall back to GD, which every PHP build here already relies on.
         if (!extension_loaded('imagick')) {
-            $this->generateWithGd($size, $bg, $fg, $font, $emojiPng);
+            $this->generateWithGd($size, $bg, $fg, $font, $markPng);
             return;
         }
 
@@ -63,14 +82,30 @@ class AppIconController
         $d->roundRectangle(0, 0, $size - 1, $size - 1, 22, 22);
         $im->drawImage($d);
 
-        // Composite the color emoji PNG centered in upper portion
-        if (file_exists($emojiPng)) {
-            $emoji = new \Imagick($emojiPng);
-            $emoji->scaleImage(100, 100);
-            $ex = (int)(($size - 100) / 2);  // horizontally centered
-            $ey = 18;                          // top padding
-            $im->compositeImage($emoji, \Imagick::COMPOSITE_OVER, $ex, $ey);
-            $emoji->destroy();
+        // White disc, then the sunburst on top of it. See the class docblock
+        // for why the disc is load-bearing rather than decorative.
+        $centreX = (int) ($size / 2);
+        $centreY = self::MARK_TOP + (int) (self::MARK_SIZE / 2);
+        $radius  = (int) (self::DISC_SIZE / 2);
+
+        $disc = new \ImagickDraw();
+        $disc->setFillColor(new \ImagickPixel('white'));
+        $disc->setStrokeWidth(0);
+        // Imagick's circle() takes a centre and a point ON the perimeter.
+        $disc->circle($centreX, $centreY, $centreX, $centreY - $radius);
+        $im->drawImage($disc);
+        $disc->destroy();
+
+        if (file_exists($markPng)) {
+            $mark = new \Imagick($markPng);
+            $mark->scaleImage(self::MARK_SIZE, self::MARK_SIZE);
+            $im->compositeImage(
+                $mark,
+                \Imagick::COMPOSITE_OVER,
+                (int) (($size - self::MARK_SIZE) / 2),
+                self::MARK_TOP
+            );
+            $mark->destroy();
         }
 
         // "ISO 20022" label
@@ -93,10 +128,11 @@ class AppIconController
     /**
      * GD rendering of the same icon, for hosts without Imagick.
      *
-     * GD cannot composite a colour emoji font, so the bundled emoji PNG is
-     * scaled in the same way and the label drawn with the bundled TTF.
+     * Kept deliberately in step with the Imagick path above — same disc, same
+     * mark, same geometry. An installation without Imagick that kept the old
+     * icon would be a half-applied rebrand that nobody would notice.
      */
-    private function generateWithGd(int $size, string $bg, string $fg, string $font, string $emojiPng): void
+    private function generateWithGd(int $size, string $bg, string $fg, string $font, string $markPng): void
     {
         if (!function_exists('imagecreatetruecolor')) {
             // Neither imaging extension: a missing icon is not worth a 500.
@@ -106,8 +142,8 @@ class AppIconController
             return;
         }
 
-        $bgRgb = ThemeModel::hexToRgb($bg) ?? [148, 227, 254];
-        $fgRgb = ThemeModel::hexToRgb($fg) ?? [0, 54, 74];
+        $bgRgb = ThemeModel::hexToRgb($bg) ?? [138, 190, 217];
+        $fgRgb = ThemeModel::hexToRgb($fg) ?? [61, 52, 95];
 
         $img = imagecreatetruecolor($size, $size);
         imagealphablending($img, true);
@@ -115,22 +151,33 @@ class AppIconController
 
         imagefill($img, 0, 0, imagecolorallocate($img, $bgRgb[0], $bgRgb[1], $bgRgb[2]));
 
-        if (is_file($emojiPng)) {
-            $emoji = @imagecreatefrompng($emojiPng);
-            if ($emoji !== false) {
+        $centreX = (int) ($size / 2);
+        $centreY = self::MARK_TOP + (int) (self::MARK_SIZE / 2);
+        imagefilledellipse(
+            $img,
+            $centreX,
+            $centreY,
+            self::DISC_SIZE,
+            self::DISC_SIZE,
+            imagecolorallocate($img, 255, 255, 255)
+        );
+
+        if (is_file($markPng)) {
+            $mark = @imagecreatefrompng($markPng);
+            if ($mark !== false) {
                 imagecopyresampled(
                     $img,
-                    $emoji,
-                    (int) (($size - 100) / 2),
-                    18,
+                    $mark,
+                    (int) (($size - self::MARK_SIZE) / 2),
+                    self::MARK_TOP,
                     0,
                     0,
-                    100,
-                    100,
-                    imagesx($emoji),
-                    imagesy($emoji)
+                    self::MARK_SIZE,
+                    self::MARK_SIZE,
+                    imagesx($mark),
+                    imagesy($mark)
                 );
-                imagedestroy($emoji);
+                imagedestroy($mark);
             }
         }
 

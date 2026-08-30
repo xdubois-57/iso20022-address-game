@@ -186,6 +186,13 @@ Hall of Fame is for fun rather than adjudication.
 - The `<h1 class="logo">ISO 20022 Address Game</h1>` heading stays text and
   stays the title. The PMPG lockup does not replace it — the game keeps its
   own name
+- The apple-touch-icon (`AppIconController`) composites `pmpg-mark.png` — the
+  sunburst alone — on a **white disc** over the themed ground. The disc is not
+  decoration: the sunburst's lower petals fade to near white and vanish
+  against `#8abed9`, and it holds for any background an admin might choose.
+  Both render paths, Imagick and the GD fallback, draw the same thing; a host
+  without Imagick still serving the old icon would be a half-applied rebrand.
+  `emoji-controller.png` stays in the repo so reverting is a one-line change
 - Served from `public/assets/images/`, never a CDN — the CSP allows
   `img-src 'self' data:` as it stands, and widening it for a logo would trade
   security for nothing
@@ -349,7 +356,7 @@ discarding the session cookie does not reset them.
 ├── app/
 │   ├── .htaccess       # Denies direct web access
 │   ├── Controllers/    # API Logic
-│   │   ├── AppIconController.php    # Dynamic Apple Touch Icon (Imagick, GD fallback)
+│   │   ├── AppIconController.php    # Apple Touch Icon: themed ground + PMPG sunburst on a white disc (Imagick, GD fallback)
 │   │   ├── BackgroundController.php # Themed Background SVG
 │   │   ├── WebhookController.php    # POST /webhook/github — signature-verified, session-free
 │   │   └── ...
