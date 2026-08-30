@@ -33,6 +33,14 @@
 # Configuration (all optional):
 #   E2E_PORT               Fixed HTTP port. Default: a free port chosen at run time.
 #   E2E_SERVER_TIMEOUT     Seconds to wait for the server to answer. Default 30.
+#   E2E_COVERAGE           1 to record PHP line coverage of everything the
+#                          browser makes the application execute, written as
+#                          .cov files into E2E_COVERAGE_DIR for
+#                          scripts/merge-coverage.php. Needs pcov loaded. Off
+#                          by default: it slows every request down, which a
+#                          developer running the suite for its result should
+#                          not pay for.
+#   E2E_COVERAGE_DIR       Where those files go. Default coverage/php/raw.
 
 set -euo pipefail
 
@@ -78,7 +86,34 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-ISO20022_CONFIG_DIR="$CONFIG_DIR" php -S "127.0.0.1:${PORT}" -t public scripts/e2e-router.php \
+# Coverage is opt-in and instruments the server through auto_prepend_file, so
+# the application itself needs no knowledge of it (see
+# scripts/e2e-coverage-prepend.php).
+SERVER_PHP_ARGS=()
+if [[ "${E2E_COVERAGE:-0}" == "1" ]]; then
+    # E2E_PCOV_EXTENSION is for machines where pcov is built but not enabled in
+    # php.ini. On CI it is unset: setup-php's `coverage: pcov` loads it globally.
+    if [[ -n "${E2E_PCOV_EXTENSION:-}" ]]; then
+        SERVER_PHP_ARGS+=(-d "extension=$E2E_PCOV_EXTENSION")
+    fi
+
+    # Fail loudly. Recording coverage that silently captures nothing is worse
+    # than not asking for it: the merge step still succeeds on the unit data
+    # alone and the resulting number looks like a real measurement.
+    if ! php ${SERVER_PHP_ARGS[@]+"${SERVER_PHP_ARGS[@]}"} -r 'exit(extension_loaded("pcov") ? 0 : 1);' 2>/dev/null; then
+        echo "ERROR: E2E_COVERAGE=1 but the pcov extension is not loaded." >&2
+        echo "       Install it (pecl install pcov) or point E2E_PCOV_EXTENSION at pcov.so." >&2
+        exit 1
+    fi
+
+    E2E_COVERAGE_DIR="${E2E_COVERAGE_DIR:-$PROJECT_ROOT/coverage/php/raw}"
+    mkdir -p "$E2E_COVERAGE_DIR"
+    export E2E_COVERAGE_DIR
+    SERVER_PHP_ARGS+=(-d pcov.enabled=1 -d "pcov.directory=$PROJECT_ROOT/app")
+    echo "Recording PHP coverage into $E2E_COVERAGE_DIR"
+fi
+
+ISO20022_CONFIG_DIR="$CONFIG_DIR" php ${SERVER_PHP_ARGS[@]+"${SERVER_PHP_ARGS[@]}"} -S "127.0.0.1:${PORT}" -t public scripts/e2e-router.php \
     > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 

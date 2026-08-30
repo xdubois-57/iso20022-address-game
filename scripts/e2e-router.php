@@ -34,4 +34,14 @@ if ($path !== '/' && is_file($file)) {
     return false; // Let the built-in server serve it directly.
 }
 
+// Coverage is started HERE rather than through auto_prepend_file, which runs
+// for every request including each CSS, JS and image the page pulls in. Those
+// are served by the branch above and execute no application code, so
+// instrumenting them produced ~19 near-empty .cov files per page load and
+// slowed the run enough to time the suite out. Only requests that actually
+// reach the front controller are measured.
+if (getenv('E2E_COVERAGE_DIR')) {
+    require __DIR__ . '/e2e-coverage-prepend.php';
+}
+
 require $docroot . '/index.php';
