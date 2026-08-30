@@ -1365,6 +1365,40 @@ html, body {
 }
 
 /* =========================================================
+   "Supported by PMPG" — closes both .welcome-card renders
+   (renderWelcomeCard and renderEventCodeGate in app.js)
+   ========================================================= */
+.card-endorsement {
+    margin-top: 1.75rem;
+    padding-top: 1.1rem;
+    /* A hairline rather than a themed rule: this separates the game's own
+       content from a third party's mark, and should read as a quiet divider
+       rather than as another accent. Fixed hex on purpose — it must stay
+       neutral against a white card whatever the admin sets the theme to. */
+    border-top: 1px solid #EDEBF2;
+}
+
+.card-endorsement .endorsement-label {
+    display: block;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8E8AA0;
+    margin: 0 0 0.55rem;
+}
+
+.card-endorsement img {
+    /* max-width, not width: on a 375px screen the card's padding leaves less
+       than 172px, and a fixed width would push the card wider than the
+       viewport. */
+    width: 172px;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* =========================================================
    Game Header Bar (round + timer + player)
    ========================================================= */
 .game-header-bar {

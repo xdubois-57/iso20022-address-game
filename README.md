@@ -28,6 +28,9 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 ## Features
 
+- **Supported by the PMPG** — The [Payments Market Practice Group](https://www.swift.com/about-us/community/swift-advisory-groups/payments-market-practice-group)
+  endorses the game; its lockup appears on the welcome card. The game remains the
+  work of its authors — see [Legal notice](#legal-notice)
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
 - **Hall of Fame** — Encrypted leaderboard ranked by a game score that weights accuracy quadratically and rewards speed, GDPR-compliant 365-day retention

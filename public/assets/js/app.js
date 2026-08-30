@@ -34,6 +34,18 @@ import * as AdminUpdate from './admin-update.js';
     const COUNTDOWN_SECONDS = 10;
     const API_URL = 'index.php';
 
+    /**
+     * The PMPG lockup, served locally so the CSP (`img-src 'self' data:`)
+     * needs no widening for it.
+     *
+     * The `?v=` is pinned by hand rather than derived from the file's mtime:
+     * assetUrl() in layout.php can stat a file because it runs in PHP, and
+     * these strings are built in the browser where nothing can. A trademark
+     * lockup does not change, so a constant is the honest mechanism — bump
+     * this literal on the day the asset is ever replaced.
+     */
+    const PMPG_LOGO_SRC = 'assets/images/pmpg-logo.png?v=1';
+
     /* =======================================================
        State
        ======================================================= */
@@ -414,6 +426,33 @@ import * as AdminUpdate from './admin-update.js';
         })();
     }
 
+    /**
+     * The "Supported by PMPG" block that closes every .welcome-card.
+     *
+     * Shared rather than duplicated because there are two welcome cards, and
+     * the second one matters as much as the first: when an event code is
+     * configured, renderEventCodeGate() is the FIRST screen a player sees, so
+     * a block that only lived in renderWelcomeCard() would be invisible at
+     * exactly the events this game is built for.
+     *
+     * Wholly static markup — no interpolation, so no escapeHtml() call to
+     * make here. Anything dynamic added alongside it still needs one.
+     *
+     * The logo is deliberately not a link. A kiosk runs in Guided Access,
+     * where an outbound navigation strands the player in a browser they
+     * cannot leave.
+     *
+     * The alt text is not decorative: the logo *is* the statement of support,
+     * so a screen reader has to announce it rather than skip it.
+     */
+    function endorsementHtml() {
+        return '<div class="card-endorsement">'
+            + '<span class="endorsement-label">Supported by</span>'
+            + '<img src="' + PMPG_LOGO_SRC + '" alt="Payments Market Practice Group" '
+            + 'width="1095" height="282">'
+            + '</div>';
+    }
+
     function renderEventCodeGate() {
         var html = '<section class="game-welcome">';
         html += '<div id="countdownBanner"></div>';
@@ -423,6 +462,7 @@ import * as AdminUpdate from './admin-update.js';
         html += '<input type="text" id="eventCodeInput" placeholder="Enter event code" maxlength="64" class="name-input" autocomplete="off">';
         html += '<button class="btn-primary btn-start" id="eventCodeSubmitBtn">Enter</button>';
         html += '<p class="event-code-error hidden" id="eventCodeError">Invalid event code. Please try again.</p>';
+        html += endorsementHtml();
         html += '</div>';
         html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
         html += '</section>';
@@ -477,6 +517,7 @@ import * as AdminUpdate from './admin-update.js';
         if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
+        html += endorsementHtml();
         html += '</div>';
         html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
         html += '</section>';

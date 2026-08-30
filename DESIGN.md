@@ -141,6 +141,22 @@ Hall of Fame is for fun rather than adjudication.
 - **Display**: Rotates on welcome screen and screen saver (20s interval)
 - **API**: Public `GET /api/game/facts` endpoint returns all facts
 
+### PMPG Endorsement
+- The white welcome card closes with a `Supported by` label and the PMPG
+  lockup, above a hairline rule (`.card-endorsement` in `app.css`)
+- Rendered by `endorsementHtml()` in `app.js`, called from **both**
+  `.welcome-card` renders — `renderWelcomeCard()` and `renderEventCodeGate()`.
+  The gate is the first screen a player sees whenever an event code is set, so
+  a block present on only one of them would be missing at exactly the events
+  this game is run at
+- The logo is **not** a link. A kiosk runs in Guided Access, where an outbound
+  navigation strands the player in a browser they cannot leave
+- `alt="Payments Market Practice Group"` is load-bearing, not decorative: the
+  logo *is* the statement of support, so a screen reader must announce it
+- Served from `public/assets/images/`, never a CDN — the CSP allows
+  `img-src 'self' data:` as it stands, and widening it for a logo would trade
+  security for nothing
+
 ### Responsive Design
 - Hamburger menu on mobile (≤768px) collapses header navigation
 - Grid layout adapts to single-column on smaller screens

@@ -58,6 +58,28 @@ test.describe('boot', () => {
         expect(formatted.DE[0]).toBe('Main St 123');
     });
 
+    test('the welcome card carries the PMPG logo with a meaningful alt', async ({ page }) => {
+        await page.goto('/');
+
+        const logo = page.locator('.welcome-card .card-endorsement img');
+        await expect(logo).toBeVisible();
+
+        // The alt is asserted rather than merely checked non-empty: the logo
+        // is what states the endorsement, so a screen reader has to announce
+        // it. An empty alt would hide the support from exactly the users who
+        // cannot see the image.
+        await expect(logo).toHaveAttribute('alt', 'Payments Market Practice Group');
+        await expect(page.locator('.welcome-card .endorsement-label')).toHaveText('Supported by');
+
+        // Not a link: a kiosk in Guided Access cannot come back from an
+        // outbound navigation.
+        await expect(page.locator('.welcome-card .card-endorsement a')).toHaveCount(0);
+
+        // The asset actually resolves. toBeVisible() passes on a broken image,
+        // so decode the natural width instead — 0 means it never loaded.
+        expect(await logo.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+    });
+
     test('nav switches between Play, Hall of Fame and Admin screens', async ({ page }) => {
         await page.goto('/');
 
