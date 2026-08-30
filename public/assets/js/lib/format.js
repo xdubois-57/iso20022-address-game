@@ -41,6 +41,11 @@ export function formatDate(dateStr) {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** Two-digit zero padding for the countdown's hour/minute/second fields. */
+function pad(n) {
+    return n < 10 ? '0' + n : '' + n;
+}
+
 /**
  * The arithmetic half of the deadline countdown banner, split out from the
  * DOM-writing updateCountdown() in app.js so the maths (day/hour/minute/
@@ -61,8 +66,6 @@ export function countdownParts(targetDate, now) {
     var hours = Math.floor((totalSeconds % 86400) / 3600);
     var minutes = Math.floor((totalSeconds % 3600) / 60);
     var seconds = totalSeconds % 60;
-
-    function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
     return { expired: false, days: days, hours: pad(hours), minutes: pad(minutes), seconds: pad(seconds) };
 }

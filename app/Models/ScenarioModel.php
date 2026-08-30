@@ -138,7 +138,12 @@ class ScenarioModel
      * @param array|null $adrFieldOrder Country-specific field order derived from the formatted
      *                                  address (sent by the client). Falls back to HYBRID_FIELD_ORDER.
      */
-    public function validateAnswer(array $scenario, array $userMapping, string $goalType = 'Structured', ?array $adrFieldOrder = null): array
+    public function validateAnswer(
+        array $scenario,
+        array $userMapping,
+        string $goalType = 'Structured',
+        ?array $adrFieldOrder = null
+    ): array
     {
         $correct = $scenario['json_data'];
         $errors = [];

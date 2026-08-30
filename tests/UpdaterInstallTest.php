@@ -57,7 +57,10 @@ class UpdaterInstallTest extends TestCase
 
         // The "currently installed" tree.
         file_put_contents($this->basePath . '/app/Existing.php', "<?php // version 1\n");
-        file_put_contents($this->basePath . '/config/version.php', "<?php return ['tag' => 'v0.0.1', 'commit' => 'aaaaaaa'];\n");
+        file_put_contents(
+            $this->basePath . '/config/version.php',
+            "<?php return ['tag' => 'v0.0.1', 'commit' => 'aaaaaaa'];\n"
+        );
         file_put_contents($this->basePath . '/config/credentials.php', "<?php return ['secret' => 'do not touch'];\n");
         file_put_contents($this->basePath . '/composer.lock', '{"packages":[]}');
         file_put_contents($this->basePath . '/storage/live-data.txt', 'must survive');

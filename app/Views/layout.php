@@ -50,8 +50,12 @@ if (!function_exists('getVersionInfo')) {
         }
         // Fallback: read from git directly (dev environment)
         $rootDir = __DIR__ . '/../../';
-        $tag = trim(shell_exec("cd " . escapeshellarg($rootDir) . " && git tag -l 'v*' --sort=-v:refname 2>/dev/null | head -1") ?? '');
-        $commit = trim(shell_exec("cd " . escapeshellarg($rootDir) . " && git rev-parse --short HEAD 2>/dev/null") ?? '');
+        $inRepo = 'cd ' . escapeshellarg($rootDir) . ' && ';
+        $tagCmd = $inRepo . "git tag -l 'v*' --sort=-v:refname 2>/dev/null | head -1";
+        $commitCmd = $inRepo . 'git rev-parse --short HEAD 2>/dev/null';
+
+        $tag = trim(shell_exec($tagCmd) ?? '');
+        $commit = trim(shell_exec($commitCmd) ?? '');
         return ['tag' => $tag ?: 'dev', 'commit' => $commit ?: 'unknown'];
     }
 }
@@ -62,8 +66,14 @@ if (!function_exists('getVersionInfo')) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ISO 20022 Address Game</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css" integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css" integrity="sha384-hKRH7ZmTc4+t+iae668SDRfEsjc7HT3VrEMKuSwiDUK4pNQXd/v9BPVpIa0OLlp7" crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css"
+          integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css"
+          integrity="sha384-hKRH7ZmTc4+t+iae668SDRfEsjc7HT3VrEMKuSwiDUK4pNQXd/v9BPVpIa0OLlp7"
+          crossorigin="anonymous">
     <link rel="stylesheet" href="<?= assetUrl('assets/css/app.css') ?>">
     <?php
     // Compute a version hash for the background image:
@@ -124,12 +134,19 @@ if (!function_exists('getVersionInfo')) {
     <meta name="apple-mobile-web-app-title" content="ISO 20022 Game">
     <link rel="apple-touch-icon" href="/app-icon?v=<?= $bgVersion ?>">
     <meta name="robots" content="index, follow">
-    <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
-    <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
+    <meta name="description"
+          content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of
+                   international address formatting standards. Perfect for developers, bankers,
+                   and financial professionals.">
+    <meta name="keywords"
+          content="ISO 20022, address formatting, banking standards, financial messaging,
+                   SWIFT, game, quiz, learning, education">
     <meta name="author" content="ISO 20022 Address Game">
     <!-- OpenGraph Meta Tags for Social Media Sharing -->
     <meta property="og:title" content="ISO 20022 Address Challenge">
-    <meta property="og:description" content="Master international address formatting standards. Test your skills, compete for high scores, and challenge your friends!">
+    <meta property="og:description"
+          content="Master international address formatting standards. Test your skills,
+                   compete for high scores, and challenge your friends!">
     <meta property="og:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -140,7 +157,9 @@ if (!function_exists('getVersionInfo')) {
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ISO 20022 Address Challenge">
-    <meta name="twitter:description" content="Master international address formatting standards. Test your skills, compete for high scores!">
+    <meta name="twitter:description"
+          content="Master international address formatting standards. Test your skills,
+                   compete for high scores!">
     <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 </head>
@@ -170,13 +189,18 @@ if (!function_exists('getVersionInfo')) {
         <span class="footer-separator">&bull;</span>
         <a href="#" data-screen="privacy" class="footer-link">Privacy</a>
         <span class="footer-separator" id="footerGithubSep">&bull;</span>
-        <a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener" class="footer-link" id="footerGithubLink">GitHub</a>
+        <a href="https://github.com/xdubois-57/iso20022-address-game"
+           target="_blank" rel="noopener"
+           class="footer-link" id="footerGithubLink">GitHub</a>
         <br/>
-        <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
+        <span class="footer-text"><?= htmlspecialchars($ver['tag'], ENT_QUOTES, 'UTF-8') ?>
+            (<?= htmlspecialchars($ver['commit'], ENT_QUOTES, 'UTF-8') ?>)</span>
     </footer>
 
     <!-- Dedicated confetti canvas (iOS Safari fix: avoids position:fixed clipping) -->
-    <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;"></canvas>
+    <canvas id="confettiCanvas"
+            style="position:fixed;top:0;left:0;width:100%;height:100%;
+                   pointer-events:none;z-index:9999;"></canvas>
 
     <!-- Inactivity overlay -->
     <div id="inactivityOverlay" class="overlay hidden">
@@ -187,14 +211,22 @@ if (!function_exists('getVersionInfo')) {
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js" integrity="sha384-PwiT+fWTPpIySx6DrH1FKraKo+LvVpOClsjx0TSdMYTKi7BR1hR149f4VHLUUnfA" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js" integrity="sha384-JSZXO0kKYHTylAsDYTb+7Kg2eUyalm19b8Pydcdf8sQ1cCKYZr9lLahoKT9+LFY5" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"
+            integrity="sha384-PwiT+fWTPpIySx6DrH1FKraKo+LvVpOClsjx0TSdMYTKi7BR1hR149f4VHLUUnfA"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"
+            integrity="sha384-JSZXO0kKYHTylAsDYTb+7Kg2eUyalm19b8Pydcdf8sQ1cCKYZr9lLahoKT9+LFY5"
+            crossorigin="anonymous"></script>
     <!-- Served locally: hybrid-mode grading depends on this formatter, and a
          kiosk on a restricted network would otherwise silently fall back to a
          single hardcoded layout for every country. -->
     <script src="<?= assetUrl('assets/js/vendor/address-formatter.js') ?>"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"
+            integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"
+            integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz"
+            crossorigin="anonymous"></script>
     <!-- type="module" lets app.js import public/assets/js/lib/*.js (extracted
          for tests/js/*.test.js — see tests/js) with no build step: module
          scripts are natively deferred, so this still runs after every

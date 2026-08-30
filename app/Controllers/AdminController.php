@@ -843,7 +843,9 @@ class AdminController
             'webhook_path' => '/webhook/github',
             'last_event_at' => isset($values['update_last_event_at']) ? (int) $values['update_last_event_at'] : null,
             'last_event_result' => $values['update_last_event_result'] ?? null,
-            'last_install_at' => isset($values['update_last_install_at']) ? (int) $values['update_last_install_at'] : null,
+            'last_install_at' => isset($values['update_last_install_at'])
+                ? (int) $values['update_last_install_at']
+                : null,
             'last_install_status' => $values['update_last_install_status'] ?? null,
             'last_install_error' => $values['update_last_install_error'] ?? null,
             'dependencies_changed' => ($values['update_dependencies_changed'] ?? '0') === '1',

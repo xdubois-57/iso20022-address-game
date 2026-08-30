@@ -26,7 +26,7 @@ export function formatAddressForDisplay(addressData) {
     if (!addressData) return '';
 
     if (typeof window === 'undefined' || typeof window.addressFormatter === 'undefined') {
-        var lines = [];
+        const lines = [];
         // Additional info first (like floor, suite)
         if (addressData.attention) lines.push(addressData.attention);
         // Street line: houseNumber + road (order depends on country; fallback uses number first)
@@ -60,7 +60,7 @@ export function formatAddressForDisplay(addressData) {
         countryCode: (addressData.countryCode || '').toUpperCase(),
     };
 
-    var lines = window.addressFormatter.format(addr, { output: 'array' });
+    let lines = window.addressFormatter.format(addr, { output: 'array' });
 
     // Remove empty lines
     lines = lines.filter(function (l) { return l && l.trim() !== ''; });
@@ -68,7 +68,7 @@ export function formatAddressForDisplay(addressData) {
     // Ensure country is shown - append it if not present in library output
     // The library sometimes omits country when components are sparse
     if (addressData.country && lines.length > 0) {
-        var hasCountry = lines.some(function (line) {
+        const hasCountry = lines.some(function (line) {
             return line.toLowerCase().indexOf(addressData.country.toLowerCase()) !== -1;
         });
         if (!hasCountry) {

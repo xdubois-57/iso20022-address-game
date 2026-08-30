@@ -35,9 +35,13 @@ class GitHubUrlValidatorTest extends TestCase
     public static function allowedUrlProvider(): array
     {
         return [
-            'github.com' => ['https://github.com/xdubois-57/iso20022-address-game/releases/download/v1.0.0/release.zip'],
+            'github.com' => [
+                'https://github.com/xdubois-57/iso20022-address-game/releases/download/v1.0.0/release.zip',
+            ],
             'api.github.com' => ['https://api.github.com/repos/xdubois-57/iso20022-address-game/zipball/main'],
-            'codeload.github.com' => ['https://codeload.github.com/xdubois-57/iso20022-address-game/zip/refs/heads/main'],
+            'codeload.github.com' => [
+                'https://codeload.github.com/xdubois-57/iso20022-address-game/zip/refs/heads/main',
+            ],
             'objects.githubusercontent.com' => ['https://objects.githubusercontent.com/some/path'],
             'release-assets.githubusercontent.com' => ['https://release-assets.githubusercontent.com/some/path'],
             'uppercase host' => ['https://GITHUB.COM/owner/repo/zipball/main'],

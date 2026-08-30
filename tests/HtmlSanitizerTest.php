@@ -62,7 +62,10 @@ class HtmlSanitizerTest extends TestCase
     public function testRelativeAndMailtoLinksAreAllowed(): void
     {
         $this->assertStringContainsString('href="/privacy"', HtmlSanitizer::sanitize('<a href="/privacy">p</a>'));
-        $this->assertStringContainsString('href="mailto:a@b.c"', HtmlSanitizer::sanitize('<a href="mailto:a@b.c">m</a>'));
+        $this->assertStringContainsString(
+            'href="mailto:a@b.c"',
+            HtmlSanitizer::sanitize('<a href="mailto:a@b.c">m</a>'),
+        );
     }
 
     public function testEmptyInputStaysEmpty(): void

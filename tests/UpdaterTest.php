@@ -296,7 +296,10 @@ class UpdaterTest extends TestCase
 
         // Simulate a bad install landing on top of the original tree.
         file_put_contents($this->basePath . '/app/Original.php', '<?php // BROKEN');
-        file_put_contents($this->basePath . '/app/NewFileFromBadInstall.php', '<?php // should be removed? (not by restore)');
+        file_put_contents(
+            $this->basePath . '/app/NewFileFromBadInstall.php',
+            '<?php // should be removed? (not by restore)'
+        );
 
         $this->invokePrivate($updater, 'restoreBackup', [$backupPath]);
 
@@ -394,6 +397,10 @@ class UpdaterTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('must be an https GitHub URL');
-        $this->invokePrivate($updater, 'download', ['https://attacker.example/evil.zip', $this->basePath . '/artifact.zip']);
+        $this->invokePrivate(
+            $updater,
+            'download',
+            ['https://attacker.example/evil.zip', $this->basePath . '/artifact.zip'],
+        );
     }
 }

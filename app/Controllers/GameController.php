@@ -342,8 +342,14 @@ class GameController
         return [
             ['id' => 'TwnNm', 'label' => 'Town Name', 'tag' => '<TwnNm>', 'mandatory' => true],
             ['id' => 'Ctry', 'label' => 'Country', 'tag' => '<Ctry>', 'mandatory' => true],
-            ['id' => 'AdrLine1', 'label' => 'Address Line 1 (max 70 chars)', 'tag' => '<AdrLine>', 'mandatory' => false],
-            ['id' => 'AdrLine2', 'label' => 'Address Line 2 (max 70 chars)', 'tag' => '<AdrLine>', 'mandatory' => false],
+            [
+                'id' => 'AdrLine1', 'label' => 'Address Line 1 (max 70 chars)',
+                'tag' => '<AdrLine>', 'mandatory' => false,
+            ],
+            [
+                'id' => 'AdrLine2', 'label' => 'Address Line 2 (max 70 chars)',
+                'tag' => '<AdrLine>', 'mandatory' => false,
+            ],
         ];
     }
 

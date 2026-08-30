@@ -20,20 +20,20 @@ set -euo pipefail
 BUMP="${1:-patch}"
 
 if [[ "$BUMP" != "patch" && "$BUMP" != "minor" && "$BUMP" != "major" ]]; then
-    echo "Usage: $0 [patch|minor|major]"
+    echo "Usage: $0 [patch|minor|major]" >&2
     exit 1
 fi
 
 # Ensure working directory is clean
 if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Error: Working directory is not clean. Commit or stash changes first."
+    echo "Error: Working directory is not clean. Commit or stash changes first." >&2
     exit 1
 fi
 
 # Ensure we are on main branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$BRANCH" != "main" ]]; then
-    echo "Error: Must be on 'main' branch (currently on '$BRANCH')."
+    echo "Error: Must be on 'main' branch (currently on '$BRANCH')." >&2
     exit 1
 fi
 

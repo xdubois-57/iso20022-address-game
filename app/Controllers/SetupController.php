@@ -130,7 +130,8 @@ class SetupController
 
         $this->jsonResponse([
             'success' => true,
-            'message' => 'Configuration saved and database initialized. Default admin PIN is 1234 — change it immediately.',
+            'message' => 'Configuration saved and database initialized. '
+                . 'Default admin PIN is 1234 — change it immediately.',
         ]);
     }
 

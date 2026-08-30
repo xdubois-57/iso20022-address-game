@@ -187,8 +187,14 @@ class GitHubWebhookTest extends TestCase
         $result = $this->webhook()->handleReleaseEvent($this->releasePayload([
             'release' => [
                 'assets' => [
-                    ['name' => 'notes.txt', 'browser_download_url' => 'https://objects.githubusercontent.com/notes.txt'],
-                    ['name' => 'release-v1.2.3.zip', 'browser_download_url' => 'https://objects.githubusercontent.com/release-v1.2.3.zip'],
+                    [
+                        'name' => 'notes.txt',
+                        'browser_download_url' => 'https://objects.githubusercontent.com/notes.txt',
+                    ],
+                    [
+                        'name' => 'release-v1.2.3.zip',
+                        'browser_download_url' => 'https://objects.githubusercontent.com/release-v1.2.3.zip',
+                    ],
                 ],
             ],
         ]));

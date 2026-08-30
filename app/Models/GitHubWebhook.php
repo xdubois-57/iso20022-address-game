@@ -136,7 +136,9 @@ class GitHubWebhook
         $repository = $payload['repository'] ?? null;
         $fullName = is_array($repository) ? (string) ($repository['full_name'] ?? '') : '';
         if ($fullName !== '') {
-            $commit = $this->githubApiGet('https://api.github.com/repos/' . $fullName . '/commits/' . rawurlencode($tagName));
+            $commit = $this->githubApiGet(
+                'https://api.github.com/repos/' . $fullName . '/commits/' . rawurlencode($tagName)
+            );
             $sha = is_array($commit) ? (string) ($commit['sha'] ?? '') : '';
             if ($sha !== '') {
                 return substr($sha, 0, 7);
@@ -246,9 +248,12 @@ class GitHubWebhook
         }
 
         $tagName = (string) $release['tag_name'];
-        $commit = $this->githubApiGet("https://api.github.com/repos/{$owner}/{$repo}/commits/" . rawurlencode($tagName));
+        $commit = $this->githubApiGet(
+            "https://api.github.com/repos/{$owner}/{$repo}/commits/" . rawurlencode($tagName)
+        );
         $sha = is_array($commit) ? (string) ($commit['sha'] ?? '') : '';
-        $this->queuePendingInstall('release', $downloadUrl, $tagName, $sha !== '' ? substr($sha, 0, 7) : substr(sha1($tagName), 0, 7));
+        $shortSha = $sha !== '' ? substr($sha, 0, 7) : substr(sha1($tagName), 0, 7);
+        $this->queuePendingInstall('release', $downloadUrl, $tagName, $shortSha);
         return ['status' => 'ok'];
     }
 
@@ -368,7 +373,12 @@ class GitHubWebhook
         return (string) ($this->settings->get('update_channel') ?: 'release');
     }
 
-    private function queuePendingInstall(string $sourceType, string $downloadUrl, string $versionTo, string $commit): void
+    private function queuePendingInstall(
+        string $sourceType,
+        string $downloadUrl,
+        string $versionTo,
+        string $commit
+    ): void
     {
         $this->settings->set('update_pending', json_encode([
             'source_type' => $sourceType,

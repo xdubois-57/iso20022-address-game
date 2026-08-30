@@ -231,7 +231,8 @@ if ($method === 'POST') {
     // CSRF verification for all non-setup POST requests
     $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfToken)) {
-        error_log('SECURITY: CSRF token mismatch from ' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' action=' . $action);
+        error_log('SECURITY: CSRF token mismatch from '
+            . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . ' action=' . $action);
         jsonError('Invalid CSRF token', 403);
         exit;
     }
