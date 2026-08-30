@@ -199,7 +199,7 @@ facts: id, content, created_at
 - **Host header validation**: `HTTP_HOST` validated against `[a-zA-Z0-9.-]+(:\d+)?` pattern to prevent injection
 - **Credentials**: `config/credentials.php` excluded from version control, protected by `.htaccess`. `app/`, `scripts/`, `storage/` and `uploads/` carry the same deny rules, for installs whose DocumentRoot is the project root
 - **Setup lockdown**: the unauthenticated, CSRF-exempt `setup/*` routes refuse to run once `config/credentials.php` or `config/db_config.json` exists. A database outage therefore cannot be used to repoint the installation or overwrite its encryption key
-- **Admin PIN**: Stored as bcrypt hash; legacy plaintext PINs auto-upgraded on login
+- **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
 - **Event Code**: Hashed with bcrypt (never in plaintext), rate limited (5 attempts / 30 sec), constant-time comparison via `password_verify()`, enforced server-side, and never returned to the client — `admin/get-event-code` reports only whether one is set
 - **Security logging**: Failed admin logins, event code attempts, and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)

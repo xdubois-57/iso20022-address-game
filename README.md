@@ -191,7 +191,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
 - **Event Code**: Hashed with bcrypt (like admin PIN), rate limited (5 attempts / 30 seconds), and enforced on the server rather than in the browser
-- **Admin PIN**: Stored as bcrypt hash; legacy plaintext auto-upgraded on login
+- **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
 - **Prepared statements**: All database queries use parameterised PDO statements
 - **Input validation**: Server-side bounds on all inputs (score 0–100, time 0–3600s, name 1–50 chars). Note that these are *bounds*, not proof of authenticity — see "Scoring is client-authoritative" below
 - **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output. "Did you know?" facts accept a little inline markup and are therefore run through an allowlist sanitiser (`<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>`) on both write and read

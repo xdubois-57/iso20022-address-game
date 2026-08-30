@@ -247,19 +247,33 @@ class AdminFeaturesTest extends TestCase
         $this->assertFalse(password_verify('0000', $hash));
     }
 
-    public function testCredentialsFileHasValidBcryptHash(): void
+    /**
+     * Replaces an assertion that config/credentials.php must always hold a
+     * bcrypt hash. That is no longer true and is no longer meant to be: a PIN
+     * written into the file by hand is deliberately accepted in clear and
+     * hashed in place on first use, so demanding a hash forbade a supported
+     * state. It also read the developer's OWN credentials.php and required the
+     * PIN to be 1234, which made it pass, fail or skip depending on the
+     * machine rather than on the code.
+     *
+     * What is actually worth pinning is the shape of the example file that
+     * ships with the repository, since Quick Start tells people to copy it.
+     * The PIN handling itself is covered properly, and hermetically, by
+     * tests/AdminPinStorageTest.php.
+     */
+    public function testShippedExampleCredentialsFileHasTheExpectedShape(): void
     {
-        $credFile = __DIR__ . '/../config/credentials.php';
-        if (!file_exists($credFile)) {
-            $this->markTestSkipped('credentials.php not found');
-        }
+        $example = require __DIR__ . '/../config/credentials.php.example';
 
-        $creds = require $credFile;
-        $storedPin = $creds['admin']['pin'] ?? '';
+        $this->assertIsArray($example);
+        $this->assertArrayHasKey('db', $example);
+        $this->assertArrayHasKey('encryption', $example);
+        $this->assertArrayHasKey('key', $example['encryption'], 'Encryption::__construct() reads this');
+        $this->assertArrayHasKey('admin', $example);
+        $this->assertArrayHasKey('pin', $example['admin'], 'AdminController::getStoredPin() reads this');
 
-        // Must be a proper bcrypt hash
-        $this->assertStringStartsWith('$2y$', $storedPin, "Stored PIN must be a bcrypt hash starting with \$2y\$");
-        $this->assertTrue(password_verify('1234', $storedPin), "Default PIN 1234 must verify against stored hash");
+        // The example ships a placeholder key that must never be usable as-is.
+        $this->assertStringContainsString('CHANGE_ME', $example['encryption']['key']);
     }
 
     /* =======================================================

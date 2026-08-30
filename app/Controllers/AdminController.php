@@ -100,38 +100,136 @@ class AdminController
     }
 
     /**
-     * Upgrade a plaintext PIN to a bcrypt hash in both DB and config file.
+     * Replace a plaintext PIN in config/credentials.php with a bcrypt hash of
+     * itself, so a PIN typed into the file by hand is hashed the first time it
+     * is used and never sits in clear afterwards.
+     *
+     * Best effort by design: a config directory that is not writable (common
+     * on locked-down shared hosting) must not stop an otherwise correct login,
+     * it just means the value stays plaintext until someone makes the file
+     * writable.
      */
     private function upgradePinToHash(string $pin): void
     {
-        $hash = password_hash($pin, PASSWORD_BCRYPT);
-
-        // Store in DB
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare(
-            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-        );
-        $stmt->execute(['admin_pin', $hash]);
-
-        // Also update config file if it has plaintext
-        $credFile = Database::configDir() . '/credentials.php';
-        if (file_exists($credFile)) {
-            $content = file_get_contents($credFile);
-            $escaped = preg_quote($pin, '/');
-            // Use preg_replace_callback to avoid $ in hash being treated as backreferences
-            $updated = preg_replace_callback(
-                "/'pin'\s*=>\s*'" . $escaped . "'/",
-                function () use ($hash) {
-                    return "'pin' => '" . addcslashes($hash, "'") . "'";
-                },
-                $content
+        if (!$this->writePinToCredentials(password_hash($pin, PASSWORD_BCRYPT))) {
+            error_log(
+                'Admin PIN is stored in clear in ' . Database::configDir()
+                . '/credentials.php and could not be hashed automatically — the file is not writable.'
             );
-            if ($updated !== $content) {
-                file_put_contents($credFile, $updated);
-            }
         }
+    }
+
+    /**
+     * The PIN as stored in config/credentials.php — hashed or plaintext — or
+     * null when the file has none.
+     */
+    private function readPinFromCredentials(): ?string
+    {
+        $credFile = Database::configDir() . '/credentials.php';
+        if (!is_file($credFile)) {
+            return null;
+        }
+
+        try {
+            $creds = include $credFile;
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $pin = is_array($creds) ? ($creds['admin']['pin'] ?? null) : null;
+
+        return (is_string($pin) && $pin !== '') ? $pin : null;
+    }
+
+    /**
+     * Store $value as the admin PIN in config/credentials.php, preserving
+     * every other setting.
+     *
+     * That file also holds the AES key every stored player name is encrypted
+     * under, so corrupting it would not merely break a login — it would make
+     * the leaderboard permanently undecryptable. Hence: the array is
+     * round-tripped through var_export() rather than the value being spliced
+     * in by a regex that could match too much or not at all; the result is
+     * staged in a temporary file and parsed to prove it is valid PHP that
+     * still carries the encryption key; and only then is it moved into place
+     * with rename(), which is atomic. Any failure leaves the original file
+     * exactly as it was.
+     */
+    private function writePinToCredentials(string $value): bool
+    {
+        $credFile = Database::configDir() . '/credentials.php';
+        if (!is_file($credFile)) {
+            return false;
+        }
+
+        try {
+            $creds = include $credFile;
+        } catch (\Throwable) {
+            return false;
+        }
+        if (!is_array($creds) || $creds === []) {
+            return false;
+        }
+
+        $originalKeys = array_keys($creds);
+        $originalKey = $creds['encryption']['key'] ?? null;
+
+        $creds['admin'] = is_array($creds['admin'] ?? null) ? $creds['admin'] : [];
+        $creds['admin']['pin'] = $value;
+
+        $contents = "<?php\n"
+            . "/**\n"
+            . " * ISO 20022 Address Structuring Game — local credentials.\n"
+            . " * Holds the database password, the AES key for stored player names,\n"
+            . " * and the admin PIN. Never commit this file.\n"
+            . " * Last written by the application on " . date('Y-m-d H:i:s') . ".\n"
+            . " */\n\n"
+            . 'return ' . var_export($creds, true) . ";\n";
+
+        $tmp = $credFile . '.tmp' . bin2hex(random_bytes(4));
+        if (@file_put_contents($tmp, $contents, LOCK_EX) === false) {
+            @unlink($tmp);
+            return false;
+        }
+
+        // Prove the staged file parses and kept everything that mattered. A
+        // parse error surfaces as a catchable ParseError, so a malformed file
+        // can never reach the rename() below.
+        try {
+            $written = include $tmp;
+        } catch (\Throwable) {
+            @unlink($tmp);
+            return false;
+        }
+        $intact = is_array($written)
+            && ($written['admin']['pin'] ?? null) === $value
+            && ($written['encryption']['key'] ?? null) === $originalKey
+            && array_diff($originalKeys, array_keys($written)) === [];
+        if (!$intact) {
+            @unlink($tmp);
+            return false;
+        }
+
+        // Keep the original's permissions rather than the umask default, so a
+        // deliberately tight 0600 is not widened by a PIN change.
+        $mode = @fileperms($credFile);
+        if ($mode !== false) {
+            @chmod($tmp, $mode & 0777);
+        }
+
+        if (!@rename($tmp, $credFile)) {
+            @unlink($tmp);
+            return false;
+        }
+
+        // The file is include()d on later requests; without this OPcache can
+        // keep serving the previous PIN for up to opcache.revalidate_freq.
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($credFile, true);
+        }
+        clearstatcache(true, $credFile);
+
+        return true;
     }
 
     /**
@@ -248,13 +346,20 @@ class AdminController
 
         $hash = password_hash($newPin, PASSWORD_BCRYPT);
 
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare(
-            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-        );
-        $stmt->execute(['admin_pin', $hash]);
+        if (!$this->writePinToCredentials($hash)) {
+            // Reported rather than swallowed: the PIN is stored in exactly one
+            // place now, so a failed write means the PIN did NOT change, and
+            // an admin told "saved" who then finds the old PIN still working
+            // is worse than being told plainly to fix the permissions.
+            $this->jsonResponse([
+                'error' => 'Could not write config/credentials.php. Grant the web server write '
+                    . 'access to the config/ directory and try again.',
+            ], 500);
+            return;
+        }
+
+        // Nothing may shadow the file afterwards.
+        $this->deleteLegacyDatabasePin();
 
         $this->jsonResponse(['success' => true]);
     }
@@ -896,23 +1001,63 @@ class AdminController
      */
     private function getStoredPin(): string
     {
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
-        $stmt->execute(['admin_pin']);
-        $row = $stmt->fetch();
-        if ($row) {
-            return $row['setting_value'];
+        // An install that predates file-only storage still has the PIN in the
+        // settings table, and on such an install THAT is the current PIN —
+        // changePin() wrote it there, quite possibly long after the value left
+        // in credentials.php. Reading the file alone would therefore silently
+        // revert the PIN to a stale (often the original, weaker) value, so the
+        // row is moved into the file and dropped on first use instead.
+        $legacy = $this->legacyDatabasePin();
+        if ($legacy !== null && $this->writePinToCredentials($legacy)) {
+            $this->deleteLegacyDatabasePin();
+            return $legacy;
+        }
+        if ($legacy !== null) {
+            // The file could not be written, so the row is still the only copy
+            // — keep honouring it rather than locking the admin out.
+            return $legacy;
         }
 
-        // Fallback to credentials.php
-        $credFile = Database::configDir() . '/credentials.php';
-        if (file_exists($credFile)) {
-            $creds = require $credFile;
-            return $creds['admin']['pin'] ?? '0000';
+        return $this->readPinFromCredentials() ?? '0000';
+    }
+
+    /**
+     * The PIN left in the settings table by a version that stored it there,
+     * or null on any install that never did (or has already been migrated).
+     */
+    private function legacyDatabasePin(): ?string
+    {
+        $pdo = Database::getInstance()->getPdo();
+        if ($pdo === null) {
+            return null;
         }
 
-        return '0000';
+        try {
+            $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE setting_key = ?');
+            $stmt->execute(['admin_pin']);
+            $row = $stmt->fetch();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $pin = $row['setting_value'] ?? null;
+
+        return (is_string($pin) && $pin !== '') ? $pin : null;
+    }
+
+    private function deleteLegacyDatabasePin(): void
+    {
+        $pdo = Database::getInstance()->getPdo();
+        if ($pdo === null) {
+            return;
+        }
+
+        try {
+            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['admin_pin']);
+        } catch (\Throwable) {
+            // Migration is best effort: the file already holds the PIN, so a
+            // surviving row only means this runs again next time.
+        }
     }
 
     /**
