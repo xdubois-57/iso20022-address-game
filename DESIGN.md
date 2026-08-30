@@ -362,7 +362,48 @@ discarding the session cookie does not reset them.
   webhook, the configured owner/repo) but not the artifact's *contents* —
   push access to the configured repository is push access to the install
 
-## 7. Directory Structure
+## 7. Branding — the PMPG endorsement
+
+The rule, so the next person does not have to reconstruct it:
+
+**The PMPG supports the game. Xavier Dubois and Niel Buchan wrote it and
+maintain it.** Every piece of wording has to leave both halves standing. The
+agreed phrasing is *"Supported by"*, and nothing may imply that the PMPG
+authors, publishes or operates the game.
+
+Where the mark appears, and who draws it:
+
+| Surface | Code |
+|---|---|
+| Welcome card, and the event-code gate | `endorsementHtml()` in `public/assets/js/app.js` |
+| Page footer, every screen | `app/Views/layout.php` (`.footer-endorsement`) |
+| Apple touch icon | `App\Controllers\AppIconController` — the sunburst on a white disc |
+| Share card + home card | `App\Controllers\ShareController` |
+| OpenGraph / Twitter meta | `app/Views/layout.php`, `app/Views/share.php` |
+
+Four things that are easy to get wrong:
+
+1. **The mark is not covered by the GPL.** The licence grants rights over this
+   project's source code, not over the Payments Market Practice Group's
+   trademarks. A fork receives the code and no right to the mark, and must
+   strip `pmpg-logo.png`, `pmpg-mark.png` and the "Supported by" wording
+   before redistributing. README § *Third-party assets* says so in the place a
+   forker will actually look.
+2. **The PMPG is not a data controller.** The Privacy screen says it endorses
+   the game and does not operate it; § 1 Data Controller names only the two
+   authors. Naming the PMPG there would be an inaccurate GDPR declaration. The
+   two paragraphs sit close together and must not be merged.
+3. **The logo is never a link.** A kiosk runs in Guided Access, where an
+   outbound navigation strands the player in a browser they cannot leave.
+4. **The lockup keeps its own colours, on a light ground.** The sunburst fades
+   to near white at the bottom, so it needs the white disc on the icon and the
+   white plate on the share card. Do not recolour it and do not stretch it —
+   both are trademark problems, not merely ugly.
+
+The game keeps its own name. `<h1 class="logo">ISO 20022 Address Game</h1>` is
+text, and the PMPG lockup does not replace it.
+
+## 8. Directory Structure
 
 ```
 /project-root
@@ -400,8 +441,10 @@ discarding the session cookie does not reset them.
 │       │   └── vendor/          # Bundled @fragaria/address-formatter (see its README)
 │       ├── fonts/      # Bundled fonts (Liberation Sans)
 │       └── images/
-│           ├── emoji-controller.png    # Color 🎮 emoji for icon
-│           └── world_map.svg          # Background map SVG
+│           ├── pmpg-logo.png           # PMPG lockup — welcome card, footer, share card
+│           ├── pmpg-mark.png           # PMPG sunburst alone — apple-touch-icon
+│           ├── emoji-controller.png    # Previous icon glyph, kept so a revert is one line
+│           └── world_map.svg           # Background map SVG
 ├── scripts/
 │   ├── .htaccess           # Denies direct web access
 │   ├── cleanup.php         # GDPR retention cron job
@@ -411,6 +454,8 @@ discarding the session cookie does not reset them.
 │   └── e2e-seed-config.php # Writes a scratch config/credentials.php for e2e.sh
 ├── storage/            # Runtime data (last_cleanup timestamp, update.lock, backups/)
 ├── tests/              # PHPUnit tests; DB-backed ones use in-memory SQLite
+│   ├── ThemeDefaultsSyncTest.php  # Fails if the PHP/JS/CSS palettes drift apart
+│   ├── ShareCardLayoutTest.php    # 300 seeds: no balloon may cover the logo or the text
 │   ├── Support/        # UsesInMemoryDatabase trait
 │   ├── js/             # Vitest unit tests for public/assets/js/**
 │   └── e2e/            # Playwright end-to-end tests (specs/, playwright.config.js)
