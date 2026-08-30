@@ -195,6 +195,11 @@ if (!function_exists('getVersionInfo')) {
     <script src="<?= assetUrl('assets/js/vendor/address-formatter.js') ?>"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js" integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz" crossorigin="anonymous"></script>
-    <script src="<?= assetUrl('assets/js/app.js') ?>"></script>
+    <!-- type="module" lets app.js import public/assets/js/lib/*.js (extracted
+         for tests/js/*.test.js — see tests/js) with no build step: module
+         scripts are natively deferred, so this still runs after every
+         classic script above has set its global (addressFormatter, confetti,
+         Chart, qrcode). -->
+    <script type="module" src="<?= assetUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>

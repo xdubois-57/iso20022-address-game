@@ -47,6 +47,9 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 - **Front Controller**: `public/index.php` serves as SPA entry point
 - **API Routes**: All communication via POST with `X-Action` header
 - **No URL parameters** — prevents state-tampering and maintains clean kiosk URL
+- **One exception**: `POST /webhook/github` — GitHub's webhook delivery. No `X-Action`
+  header, no session, no CSRF token (GitHub is a machine caller with neither);
+  authenticated instead by an HMAC-SHA256 signature. See § 5 and § 6
 
 ## 3. Game Mechanics
 
@@ -201,8 +204,49 @@ facts: id, content, created_at
 - **Security logging**: Failed admin logins, event code attempts, and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
+- **Webhook signature**: `/webhook/github` requires `hash_equals('sha256=' . hash_hmac('sha256', $body, $secret), $header)` — the only CSRF-exempt, session-free route in the app, and the one place a bad signature is refused with 403 rather than a generic error
+- **Webhook secret**: `bin2hex(random_bytes(32))`, returned to the admin exactly once (in the generate response) and never again — `admin/get-update-settings` reports only whether one is set, same pattern as the event code
+- **Update artifact source**: every download URL — the initial one and every redirect hop — is checked against a GitHub-only host allowlist (`App\Models\GitHubUrlValidator`) before a single byte is fetched
 
-## 6. Directory Structure
+## 6. Automatic Updates
+
+- **Trigger**: A GitHub webhook (`POST /webhook/github`, `App\Controllers\WebhookController`)
+  or, for a manual check, the admin panel's "Install now" button
+  (`admin/install-update-now` → `App\Models\GitHubWebhook::checkAndQueueLatest()`)
+- **Two channels only**, mutually exclusive, chosen in the admin panel: `release`
+  (a formally published GitHub release) or `main` (every push to the `main`
+  branch). `App\Models\GitHubWebhook` decides what a delivery means — repository
+  match, channel match, action/branch filters — and never downloads anything
+  itself; it only writes the resolved target into the `update_pending` setting
+- **Authentication**: HMAC-SHA256 over the raw request body, constant-time
+  compared (`hash_equals`), against a 32-byte secret generated in the admin
+  panel and shown exactly once. A bad or missing signature is refused (403)
+  before the payload is even parsed
+- **Execution**: the webhook responds to GitHub immediately, then continues
+  after the response is flushed (`fastcgi_finish_request()` where available)
+  to run `App\Models\Updater`. A `flock()` on `storage/update.lock` means a
+  second delivery arriving mid-install reports `in_progress` and leaves
+  `update_pending` untouched, rather than racing the first
+- **Install steps** (`Updater::run()`): backup the live tree to
+  `storage/backups/` (excluding `storage/`, `uploads/`, and dev-only
+  directories) → download (GitHub-host allowlist enforced on every redirect
+  hop, `App\Models\GitHubUrlValidator`) → extract → copy over the live tree,
+  skipping `config/credentials.php`/`config/db_config.json` → write
+  `config/version.php` → invalidate OPcache for every replaced file. Any
+  failure from the download step onward restores the backup automatically;
+  `update_pending` is cleared only once a definitive outcome (success or a
+  recorded failure) is reached, so a process killed mid-install is retried by
+  the next visitor's request rather than stranded
+- **Dependencies**: the `release` channel's artifact (built by `release.sh`)
+  ships `vendor/`, since there is no shell access to run Composer on typical
+  shared hosting. The `main` channel's GitHub-generated source zipball does
+  not; `Updater` compares `composer.lock` before/after and flags the admin
+  panel when it changed
+- **Trust model**: this authenticates the *source* (GitHub, HTTPS, a signed
+  webhook, the configured owner/repo) but not the artifact's *contents* —
+  push access to the configured repository is push access to the install
+
+## 7. Directory Structure
 
 ```
 /project-root
@@ -211,8 +255,12 @@ facts: id, content, created_at
 │   ├── Controllers/    # API Logic
 │   │   ├── AppIconController.php    # Dynamic Apple Touch Icon (Imagick, GD fallback)
 │   │   ├── BackgroundController.php # Themed Background SVG
+│   │   ├── WebhookController.php    # POST /webhook/github — signature-verified, session-free
 │   │   └── ...
 │   ├── Models/         # DB, Encryption, Excel Parsing, HTML sanitisation, rate limiting
+│   │   ├── GitHubWebhook.php        # Decides what a webhook delivery means; queues the install
+│   │   ├── GitHubUrlValidator.php   # GitHub-only host allowlist for download URLs
+│   │   └── Updater.php              # Backup → download → extract → install → rollback
 │   ├── Support/        # Url — request-derived URLs, host validation
 │   └── Views/          # Server-rendered pages only: layout, setup, share, share-go.
 │                       # Game, admin, leaderboard and privacy screens are rendered
@@ -228,24 +276,34 @@ facts: id, content, created_at
 │   └── assets/
 │       ├── css/        # Stylesheets
 │       ├── js/
-│       │   ├── app.js  # The SPA
-│       │   └── vendor/ # Bundled @fragaria/address-formatter (see its README)
+│       │   ├── app.js           # The SPA (loaded as an ES module)
+│       │   ├── admin-update.js  # Admin panel's Automatic Updates section
+│       │   ├── lib/             # Pure logic extracted from app.js for tests/js/*.test.js
+│       │   └── vendor/          # Bundled @fragaria/address-formatter (see its README)
 │       ├── fonts/      # Bundled fonts (Liberation Sans)
 │       └── images/
 │           ├── emoji-controller.png    # Color 🎮 emoji for icon
 │           └── world_map.svg          # Background map SVG
 ├── scripts/
-│   ├── .htaccess       # Denies direct web access
-│   ├── cleanup.php     # GDPR retention cron job
-│   └── schema.sql      # Database schema for manual installs
-├── storage/            # Runtime data (last_cleanup timestamp)
+│   ├── .htaccess           # Denies direct web access
+│   ├── cleanup.php         # GDPR retention cron job
+│   ├── schema.sql          # Database schema for manual installs
+│   ├── e2e.sh              # Playwright harness: throwaway instance, run, teardown
+│   ├── e2e-router.php      # php -S router standing in for public/.htaccess
+│   └── e2e-seed-config.php # Writes a scratch config/credentials.php for e2e.sh
+├── storage/            # Runtime data (last_cleanup timestamp, update.lock, backups/)
 ├── tests/              # PHPUnit tests; DB-backed ones use in-memory SQLite
-│   └── Support/        # UsesInMemoryDatabase trait
+│   ├── Support/        # UsesInMemoryDatabase trait
+│   ├── js/             # Vitest unit tests for public/assets/js/**
+│   └── e2e/            # Playwright end-to-end tests (specs/, playwright.config.js)
 ├── uploads/            # Transient Excel uploads, deleted after parsing
 ├── vendor/             # Composer dependencies
+├── node_modules/       # JS test tooling only (gitignored) — see package.json
 ├── composer.json
+├── package.json        # Dev-only: Vitest + Playwright, never required in production
 ├── phpunit.xml
-├── release.sh          # Tags a release and writes config/version.php
+├── vitest.config.js
+├── release.sh          # Tags a release, builds+publishes the update artifact, writes config/version.php
 ├── README.md
 ├── DESIGN.md
 └── LICENSE

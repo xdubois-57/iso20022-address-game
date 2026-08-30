@@ -30,3 +30,13 @@ uploads/*.xlsx
 
 # PHPUnit
 .phpunit.result.cache
+
+# Release artifact built by release.sh (attached to the GitHub release, never committed)
+release-*.zip
+
+# JavaScript test tooling (package.json — dev-only, see README.md § Running Tests)
+node_modules/
+coverage/
+test-results/
+playwright-report/
+tests/e2e/.auth/

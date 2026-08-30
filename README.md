@@ -35,6 +35,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Dynamic Apple Touch Icon** — Themed PNG icon with color 🎮 emoji that updates automatically with theme changes
 - **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
+- **Automatic Updates** — Optional GitHub webhook that installs either every formally published release or every commit pushed to `main`, with a signed webhook, an automatic pre-install backup, and rollback on failure (see [Automatic Updates](#automatic-updates) below)
 - **Event Code Access** — Optional access control requiring players to enter a code before playing (bcrypt hashed, rate limited)
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
@@ -197,6 +198,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **Setup lockdown**: The unauthenticated setup routes refuse to run once the installation is configured, whatever the database is doing — a database outage cannot be used to repoint the app or overwrite its encryption key
 - **Authenticated encryption only for untrusted input**: share tokens are accepted in AES-256-GCM form only; the legacy unauthenticated AES-256-CTR format is read for pre-migration leaderboard rows and nothing else
 - **Security logging**: Failed login attempts and CSRF violations logged with IP address
+- **Webhook signature verification**: `/webhook/github` (see [Automatic Updates](#automatic-updates)) requires a valid HMAC-SHA256 signature over the raw request body; a bad or missing signature is refused (403) and logged, and it is the only route in the app with no CSRF/session requirement — by necessity, since GitHub is a machine caller with neither. Every downloaded artifact URL is checked against a GitHub-only host allowlist, including on every redirect hop
 - **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
 
 ## Running Tests
@@ -205,6 +207,31 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 composer install --dev
 composer test
 ```
+
+### JavaScript unit tests
+
+Development-only, requires Node.js (>=20) and never runs in production —
+production JavaScript stays plain, unbundled, and Node-free.
+
+```bash
+npm install
+npm test
+```
+
+### End-to-end tests
+
+Drives a real headless Chromium browser against a throwaway instance
+(SQLite-backed, no MySQL required) via [Playwright](https://playwright.dev/):
+
+```bash
+npm install
+npx playwright install --with-deps chromium   # once
+npm run e2e
+```
+
+`npm run e2e` (`scripts/e2e.sh`) provisions the throwaway instance, starts a
+PHP built-in server, runs the suite, and tears everything down — including on
+failure or Ctrl-C. It never touches a real `config/` directory or database.
 
 ## GDPR Cleanup (Cron Job)
 
@@ -216,6 +243,45 @@ Schedule the cleanup script to run daily:
 
 This deletes leaderboard entries older than 365 days. A fallback "poor man's cron" also runs cleanup automatically once per day on visitor traffic.
 
+## Automatic Updates
+
+Optional GitHub webhook that keeps a deployed install current without a
+manual file sync. Enable it from the Admin panel's "Automatic Updates"
+section and choose one of two channels:
+
+- **Formal releases only** — installs the artifact attached to a GitHub
+  release the moment it is published (`gh release create`/`release.sh`)
+- **Every commit on main** — installs the source zipball on every push to
+  `main`
+
+**Setup:**
+
+1. In the Admin panel, choose a channel and confirm the GitHub owner/repo
+2. Click "Generate Secret" — the secret is shown **once**; copy it now
+3. On GitHub: Settings → Webhooks → Add webhook
+   - Payload URL: the URL shown in the panel (`https://your-host/webhook/github`)
+   - Content type: `application/json`
+   - Secret: the value from step 2
+   - Events: "Releases" for the release channel, or "Pushes" for the main channel
+
+**How it works:** GitHub signs each delivery (HMAC-SHA256); the signature is
+verified before anything else runs, and every artifact is downloaded only
+from an `https://*.github.com`/`*.githubusercontent.com` host. A matching
+delivery queues the install, which then: backs up the current file tree,
+downloads and extracts the artifact, copies it over the live install
+(`config/`, `storage/` and `uploads/` are never touched), and writes the new
+version. Any failure from the download step onward restores the backup
+automatically. The release channel's artifact ships `vendor/` (see
+`release.sh`) so it installs cleanly with no shell access; the main channel's
+source zipball does not, and the panel warns when `composer.lock` changed so
+you know a manual `composer install` is needed.
+
+**Trust model:** this authenticates the *source* (GitHub, HTTPS, a signed
+webhook, the configured repository) but not the artifact's *contents* —
+anyone who can push to the configured repository can run code on the
+install. That is inherent to auto-update generally, not specific to this
+implementation.
+
 ## Deployment
 
 Deployment is a plain file sync: run `composer install --no-dev`, then upload
@@ -223,7 +289,8 @@ everything except `tests/`, `.git/` and the local config files.
 
 The maintainers use an FTP script (`deploy.sh`) for this, but it holds
 production credentials and is therefore gitignored — it is **not** part of a
-clone. Write your own, or deploy however suits your host.
+clone. Write your own, or deploy however suits your host — or skip this
+entirely and use [Automatic Updates](#automatic-updates) above instead.
 
 ## Credits
 

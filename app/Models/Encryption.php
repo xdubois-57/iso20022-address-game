@@ -39,7 +39,15 @@ class Encryption
     public function __construct(?string $key = null)
     {
         if ($key === null) {
-            $credFile = __DIR__ . '/../../config/credentials.php';
+            // Database::configDir() rather than a path fixed to this file's own
+            // location, so the Playwright E2E harness's scratch config
+            // directory (ISO20022_CONFIG_DIR) is honoured here too — this used
+            // to read the real config/credentials.php unconditionally, which
+            // is harmless in production (that IS the real path) but meant a
+            // throwaway E2E instance 500'd the moment anything touched the
+            // leaderboard, since its own scratch credentials file lived
+            // elsewhere and was never found.
+            $credFile = Database::configDir() . '/credentials.php';
             $creds = file_exists($credFile) ? require $credFile : [];
             $key = $creds['encryption']['key'] ?? '';
         }

@@ -8,7 +8,12 @@
 #   ./release.sh minor    # minor bump  e.g. 1.2.3 → 1.3.0
 #   ./release.sh major    # major bump  e.g. 1.2.3 → 2.0.0
 #
-# Requirements: git, gh (GitHub CLI, authenticated)
+# Requirements: git, gh (GitHub CLI, authenticated), composer, zip
+#
+# Also builds and publishes a deploy-ready release-vX.Y.Z.zip artifact
+# (vendor/ included, --no-dev) attached to the GitHub release — this is what
+# the admin panel's Automatic Updates "release" channel installs. See the
+# artifact-building block below for what is excluded and why.
 
 set -euo pipefail
 
@@ -102,11 +107,48 @@ git push origin "$NEW_VERSION"
 echo ""
 echo "Tag $NEW_VERSION pushed."
 
-# Create GitHub release
+# Build the release artifact. vendor/ must be present in it: the update
+# channel's whole point is working on shared hosting with no shell access to
+# run `composer install`, and a vendor-less artifact installs cleanly (the
+# copy itself never fails) but yields a dead site the moment a class it
+# needs isn't there — see App\Models\Updater. The `main` channel installs
+# GitHub's own auto-generated source zipball instead, which never has a
+# vendor/ entry, so the live one is left untouched there; Updater compares
+# composer.lock before and after to warn the admin panel when that channel
+# needs a manual `composer install`.
+#
+# `composer install --no-dev` strips PHPUnit and friends from THIS checkout's
+# own vendor/ — every `vendor/bin/phpunit` call in this working tree breaks
+# silently until dev dependencies come back. The trap restores them
+# unconditionally on any exit from here on (success, a later failure,
+# Ctrl-C), registered before the zip is even built so a failure there still
+# triggers it.
+echo ""
+echo "Building release artifact..."
+composer install --no-dev --optimize-autoloader --no-interaction --quiet
+trap 'echo "Restoring dev dependencies (composer install)..."; composer install --no-interaction --quiet || echo "WARNING: failed to restore dev dependencies — run \`composer install\` manually." >&2' EXIT
+
+ARTIFACT="release-${NEW_VERSION}.zip"
+rm -f "$ARTIFACT"
+zip -rq "$ARTIFACT" . \
+    -x ".git/*" ".github/*" "tests/*" "storage/*" "uploads/*" "*.zip" \
+       "config/credentials.php" "config/db_config.json" \
+       "node_modules/*" "coverage/*" "test-results/*" "playwright-report/*" \
+       ".claude/*" ".idea/*" ".vscode/*" "*.DS_Store" "deploy.sh"
+
+echo "Artifact built: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
+
+# Create GitHub release with the artifact attached — this is what the
+# 'release' update channel downloads (App\Models\GitHubWebhook::
+# resolveReleaseDownloadUrl() prefers a .zip asset over the auto-generated
+# source zipball whenever one is present).
 gh release create "$NEW_VERSION" \
     --title "$NEW_VERSION" \
     --notes "$NOTES" \
-    --latest
+    --latest \
+    "$ARTIFACT"
+
+rm -f "$ARTIFACT"
 
 echo ""
 echo "GitHub release $NEW_VERSION published."

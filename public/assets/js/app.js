@@ -16,6 +16,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { computeGameScore } from './lib/scoring.js';
+import { formatAddressForDisplay, isAdrLineSlot } from './lib/address.js';
+import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts } from './lib/format.js';
+import { createApi } from './lib/api.js';
+import * as AdminUpdate from './admin-update.js';
+
 (function () {
     'use strict';
 
@@ -61,17 +67,6 @@
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
     const SCREENSAVER_TIMEOUT = 60000;
-
-    /* =======================================================
-       Score Computation
-       ======================================================= */
-    function computeGameScore(pct, seconds) {
-        // Strong accuracy impact (quadratic) + inverse time bonus (faster = higher)
-        // No maximum cap but scaled to reasonable ranges
-        var accuracyScore = pct * pct; // 0-10000 for 0%-100%
-        var timeMultiplier = 1 + (500 / Math.max(1, seconds)); // Inverse: faster = higher
-        return Math.round(accuracyScore * timeMultiplier / 10);
-    }
 
     function animateScore(el, target, duration, onComplete) {
         var start = null;
@@ -126,107 +121,11 @@
     }());
 
     /* =======================================================
-       Address Formatter Helper
-       Format address according to country-specific rules.
-       ======================================================= */
-    function formatAddressForDisplay(addressData) {
-        // Fallback: simple concatenation if library unavailable or no data
-        if (!addressData) return '';
-
-        if (typeof window.addressFormatter === 'undefined') {
-            var lines = [];
-            // Additional info first (like floor, suite)
-            if (addressData.attention) lines.push(addressData.attention);
-            // Street line: houseNumber + road (order depends on country; fallback uses number first)
-            if (addressData.road || addressData.houseNumber) {
-                lines.push(((addressData.houseNumber || '') + ' ' + (addressData.road || '')).trim());
-            }
-            // City + postcode line
-            if (addressData.postcode || addressData.city) {
-                lines.push(((addressData.postcode || '') + ' ' + (addressData.city || '')).trim());
-            }
-            // Country
-            if (addressData.country) lines.push(addressData.country);
-            return lines.join('\n');
-        }
-
-        // @fragaria/address-formatter v7: countryCode must be inside the address
-        // object — it is NOT a format option. Pass all ISO 20022 components.
-        // Field mapping:
-        //   AdtlAdrInf -> attention (appears in all templates as first line)
-        //   BldgNb -> houseNumber
-        //   StrtNm -> road
-        //   PstCd -> postcode
-        //   TwnNm -> city
-        //   Ctry -> countryCode (library looks up country name from this)
-        var addr = {
-            attention: addressData.attention || '',
-            houseNumber: addressData.houseNumber || '',
-            road: addressData.road || '',
-            city: addressData.city || '',
-            postcode: addressData.postcode || '',
-            countryCode: (addressData.countryCode || '').toUpperCase(),
-        };
-
-        var lines = window.addressFormatter.format(addr, { output: 'array' });
-
-        // Remove empty lines
-        lines = lines.filter(function (l) { return l && l.trim() !== ''; });
-
-        // Ensure country is shown - append it if not present in library output
-        // The library sometimes omits country when components are sparse
-        if (addressData.country && lines.length > 0) {
-            var lastLine = lines[lines.length - 1];
-            // Check if country is already in the output (case-insensitive)
-            var hasCountry = lines.some(function(line) {
-                return line.toLowerCase().indexOf(addressData.country.toLowerCase()) !== -1;
-            });
-            if (!hasCountry) {
-                lines.push(addressData.country);
-            }
-        }
-
-        return lines.join('\n');
-    }
-
-    /* =======================================================
        API Helper
        ======================================================= */
     var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
-    async function api(action, body, isUpload) {
-        const opts = { method: 'POST' };
-        if (isUpload) {
-            opts.headers = { 'X-Action': action, 'X-CSRF-Token': csrfToken };
-            opts.body = body;
-        } else {
-            opts.headers = {
-                'Content-Type': 'application/json',
-                'X-Action': action,
-                'X-CSRF-Token': csrfToken,
-            };
-            opts.body = JSON.stringify(body || {});
-        }
-        // A 500, a proxy error page or a dropped connection all yield something
-        // that is not JSON. resp.json() throws on those, and because every call
-        // site only guards with `if (!data)` the rejection was unhandled and the
-        // UI simply stopped. Fail as null instead, which callers already expect.
-        var data;
-        try {
-            const resp = await fetch(API_URL, opts);
-            data = await resp.json();
-        } catch (e) {
-            console.error('API request failed:', action, e);
-            return null;
-        }
-
-        if (data && data.setup_required) {
-            // Database connection failed, redirect to setup page
-            window.location.href = 'index.php';
-            return null;
-        }
-        return data;
-    }
+    const api = createApi({ apiUrl: API_URL, getCsrfToken: function () { return csrfToken; } });
 
     /* =======================================================
        Fullscreen
@@ -432,31 +331,23 @@
     }
 
     function updateCountdown(targetDate, el) {
-        var now = new Date();
-        var diff = targetDate.getTime() - now.getTime();
-        if (diff <= 0) {
+        var parts = countdownParts(targetDate, new Date());
+        if (parts.expired) {
             el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
                 + '<div class="countdown-expired">Deadline reached</div>';
             stopDeadlineCountdown();
             return;
         }
-        var totalSeconds = Math.floor(diff / 1000);
-        var days = Math.floor(totalSeconds / 86400);
-        var hours = Math.floor((totalSeconds % 86400) / 3600);
-        var minutes = Math.floor((totalSeconds % 3600) / 60);
-        var seconds = totalSeconds % 60;
-
-        function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
         el.innerHTML = '<div class="countdown-label">Unstructured address support ends in</div>'
             + '<div class="countdown-timer">'
-            + '<span class="countdown-unit">' + days + '</span><span class="countdown-suffix">d</span>'
+            + '<span class="countdown-unit">' + parts.days + '</span><span class="countdown-suffix">d</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + pad(hours) + '</span><span class="countdown-suffix">h</span>'
+            + '<span class="countdown-unit">' + parts.hours + '</span><span class="countdown-suffix">h</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + pad(minutes) + '</span><span class="countdown-suffix">m</span>'
+            + '<span class="countdown-unit">' + parts.minutes + '</span><span class="countdown-suffix">m</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + pad(seconds) + '</span><span class="countdown-suffix">s</span>'
+            + '<span class="countdown-unit">' + parts.seconds + '</span><span class="countdown-suffix">s</span>'
             + '</div>';
     }
 
@@ -472,10 +363,6 @@
             currentFactIndex = (currentFactIndex + 1) % factsCache.length;
         }
         return factsCache[currentFactIndex];
-    }
-
-    function stripLinks(html) {
-        return html.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
     }
 
     function renderFactInto(el) {
@@ -870,10 +757,6 @@
             }
             touchDragChip = null;
         });
-    }
-
-    function isAdrLineSlot(slotId) {
-        return slotId.indexOf('AdrLine') === 0;
     }
 
     function placeChipInSlot(chipId, slotId) {
@@ -1532,6 +1415,11 @@
         html += '<p id="eventCodeStatus" class="deadline-status hidden"></p>';
         html += '</div>';
 
+        // Automatic Updates — rendered/wired by admin-update.js (its own
+        // module so tests/js/admin-update.test.js can exercise it without a
+        // build step); this is just the mount point.
+        html += '<div id="autoUpdateSectionContainer"><div class="admin-section"><h3>Automatic Updates</h3><p>Loading...</p></div></div>';
+
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
         html += '<div class="pin-change-form">';
@@ -1596,6 +1484,7 @@
         loadAdminDeadline();
         loadAdminFacts();
         loadAdminTheme();
+        AdminUpdate.initAutoUpdateSection(document.getElementById('autoUpdateSectionContainer'), api);
     }
 
     var gamesChart = null;
@@ -2250,12 +2139,6 @@
     /* =======================================================
        Utilities
        ======================================================= */
-    function escapeHtml(str) {
-        var div = document.createElement('div');
-        div.textContent = str || '';
-        return div.innerHTML;
-    }
-
     function copyToClipboard(text) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
@@ -2274,18 +2157,6 @@
         try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
         ta.remove();
         return ok;
-    }
-
-    function decodeHtml(str) {
-        var ta = document.createElement('textarea');
-        ta.innerHTML = str || '';
-        return ta.value;
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return '';
-        var d = new Date(dateStr);
-        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     }
 
     /**

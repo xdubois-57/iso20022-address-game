@@ -21,15 +21,6 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 /**
- * Presence of either file marks the install as already configured, which
- * permanently closes the unauthenticated setup routes. See the setup/ branch
- * below. db_config.json is included because older installs were configured
- * through it alone and have no credentials.php to check.
- */
-const CREDENTIALS_FILE = __DIR__ . '/../config/credentials.php';
-const DB_CONFIG_FILE   = __DIR__ . '/../config/db_config.json';
-
-/**
  * Current schema revision. Bump when initSchema() gains a table or column.
  */
 const SCHEMA_VERSION = 6;
@@ -54,9 +45,19 @@ function ensureSchema(\App\Models\Database $db): void
     }
 }
 
+/**
+ * True once either config file marks the install as already configured,
+ * which permanently closes the unauthenticated setup routes below.
+ * db_config.json is included because older installs were configured through
+ * it alone and have no credentials.php to check. Resolved through
+ * Database::configDir() rather than a fixed path so the Playwright E2E
+ * harness's scratch config directory (ISO20022_CONFIG_DIR) is checked
+ * instead of a developer's real config/ in that one context.
+ */
 function isAlreadyConfigured(): bool
 {
-    return file_exists(CREDENTIALS_FILE) || file_exists(DB_CONFIG_FILE);
+    $configDir = \App\Models\Database::configDir();
+    return file_exists($configDir . '/credentials.php') || file_exists($configDir . '/db_config.json');
 }
 
 use App\Models\Database;
@@ -67,6 +68,9 @@ use App\Controllers\SetupController;
 use App\Controllers\ShareController;
 use App\Controllers\BackgroundController;
 use App\Controllers\AppIconController;
+use App\Controllers\WebhookController;
+use App\Models\SettingsModel;
+use App\Models\Updater;
 
 // Security headers.
 //
@@ -123,6 +127,25 @@ if ($requestUri === '/share/go') {
 }
 if ($requestUri === '/share') {
     (new ShareController())->sharePage();
+    exit;
+}
+
+// POST /webhook/github — the one public, session-free, CSRF-free route.
+// GitHub is a machine caller with no cookie to carry a CSRF token or session;
+// App\Controllers\WebhookController::github() authenticates it instead via
+// the HMAC-SHA256 signature checked against the secret generated on the
+// admin panel's Automatic Updates section. Must run before session_start()
+// and the CSRF check below for the same reason the share routes above do.
+if ($requestUri === '/webhook/github' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $webhookDb = Database::getInstance();
+    if (!$webhookDb->connect()) {
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['status' => 'db_unavailable']);
+        exit;
+    }
+    ensureSchema($webhookDb);
+    (new WebhookController())->github();
     exit;
 }
 
@@ -261,6 +284,10 @@ if ($method === 'POST') {
         'admin/set-event-code' => (new AdminController())->setEventCode(),
         'admin/get-theme' => (new AdminController())->getTheme(),
         'admin/save-theme' => (new AdminController())->saveTheme(),
+        'admin/get-update-settings' => (new AdminController())->getUpdateSettings(),
+        'admin/save-update-settings' => (new AdminController())->saveUpdateSettings(),
+        'admin/generate-webhook-secret' => (new AdminController())->generateWebhookSecret(),
+        'admin/install-update-now' => (new AdminController())->installUpdateNow(),
 
         default => jsonError('Unknown action', 404),
     };
@@ -299,7 +326,36 @@ if ($action === 'admin/export') {
 }
 
 // Serve the SPA shell
+ob_start();
 require __DIR__ . '/../app/Views/layout.php';
+$page = ob_get_clean();
+header('Content-Length: ' . strlen($page));
+echo $page;
+
+// Poor man's cron, continued: a webhook-triggered install that is still
+// `update_pending` a couple of minutes after being queued means the process
+// that was supposed to run it (App\Controllers\WebhookController::
+// runInstallAfterResponse()) never finished — killed by a host's request
+// time limit, a crashed worker, whatever. Rather than leave it stranded,
+// the next visitor's page load (this one) picks it up, after their own
+// response has already been sent so it costs them nothing. Updater's own
+// flock() means this is safe to attempt even if an install actually is
+// still running elsewhere — it just reports 'in_progress' and returns.
+$pendingJson = (new SettingsModel($db->getPdo()))->get('update_pending');
+if ($pendingJson !== null) {
+    $pending = json_decode($pendingJson, true);
+    $queuedAt = is_array($pending) ? (int) ($pending['queued_at'] ?? 0) : 0;
+    if ($queuedAt > 0 && (time() - $queuedAt) > 120) {
+        ignore_user_abort(true);
+        set_time_limit(180);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } else {
+            flush();
+        }
+        (new Updater(dirname(__DIR__), new SettingsModel($db->getPdo())))->run();
+    }
+}
 
 // Helper
 function jsonError(string $message, int $code): void

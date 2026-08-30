@@ -40,13 +40,32 @@ class Database
     }
 
     /**
+     * Directory config/credentials.php and config/db_config.json live in.
+     *
+     * Defaults to the real config/ directory (production, and every
+     * developer's normal local run — behaviour here is byte-identical to
+     * before this existed). The ISO20022_CONFIG_DIR override exists solely
+     * for the Playwright E2E harness (scripts/e2e.sh): it points a
+     * throwaway instance at its own scratch config directory — a SQLite
+     * db_config.json, its own credentials.php — without ever touching a
+     * developer's real config/db_config.json. Never set in production.
+     */
+    public static function configDir(): string
+    {
+        $override = getenv('ISO20022_CONFIG_DIR');
+        return $override !== false && $override !== '' ? $override : __DIR__ . '/../../config';
+    }
+
+    /**
      * Attempt to connect using credentials.php first, then db_config.json fallback.
      * Returns true on success, false on failure.
      */
     public function connect(): bool
     {
+        $configDir = self::configDir();
+
         // Try credentials.php first
-        $credFile = __DIR__ . '/../../config/credentials.php';
+        $credFile = $configDir . '/credentials.php';
         if (file_exists($credFile)) {
             $creds = require $credFile;
             if (isset($creds['db']) && $this->tryConnect($creds['db'])) {
@@ -55,7 +74,7 @@ class Database
         }
 
         // Fallback to db_config.json
-        $jsonFile = __DIR__ . '/../../config/db_config.json';
+        $jsonFile = $configDir . '/db_config.json';
         if (file_exists($jsonFile)) {
             $json = file_get_contents($jsonFile);
             $dbConfig = json_decode($json, true);
@@ -68,11 +87,27 @@ class Database
     }
 
     /**
-     * Try connecting with the given config array.
+     * Try connecting with the given config array. MySQL unless the config
+     * explicitly asks for SQLite ('driver' => 'sqlite', 'path' => '...') —
+     * the same driver the PHPUnit suite already runs every test against
+     * (Tests\Support\UsesInMemoryDatabase), now reachable through a config
+     * file too so the Playwright E2E harness can boot a real HTTP server
+     * against a throwaway file-backed SQLite database with no MySQL
+     * involved. Never used by a production install: db_config.json is only
+     * ever written by SetupController, which never offers this driver.
      */
     public function tryConnect(array $dbConfig): bool
     {
         try {
+            if (($dbConfig['driver'] ?? 'mysql') === 'sqlite') {
+                $dsn = 'sqlite:' . (string) ($dbConfig['path'] ?? '');
+                $this->pdo = new PDO($dsn, null, null, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]);
+                return true;
+            }
+
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
                 $dbConfig['host'] ?? '127.0.0.1',

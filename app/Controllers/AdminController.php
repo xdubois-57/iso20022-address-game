@@ -28,6 +28,8 @@ use App\Models\ThemeModel;
 use App\Models\HtmlSanitizer;
 use App\Models\SettingsModel;
 use App\Models\RateLimitModel;
+use App\Models\GitHubWebhook;
+use App\Models\Updater;
 
 class AdminController
 {
@@ -114,7 +116,7 @@ class AdminController
         $stmt->execute(['admin_pin', $hash]);
 
         // Also update config file if it has plaintext
-        $credFile = __DIR__ . '/../../config/credentials.php';
+        $credFile = Database::configDir() . '/credentials.php';
         if (file_exists($credFile)) {
             $content = file_get_contents($credFile);
             $escaped = preg_quote($pin, '/');
@@ -714,6 +716,147 @@ class AdminController
         $this->jsonResponse(['success' => true]);
     }
 
+    private const UPDATE_CHANNELS = ['release', 'main'];
+
+    /**
+     * POST /api/admin/get-update-settings — Automatic Updates panel state.
+     *
+     * The webhook secret itself is never returned once set — same rule as
+     * getEventCode() above: it is shown once, when generated, and never
+     * again, so an admin session that later leaks can't carry it off.
+     */
+    public function getUpdateSettings(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $settings = new SettingsModel(Database::getInstance()->getPdo());
+        $values = $settings->getMany([
+            'update_enabled', 'update_channel', 'update_webhook_secret',
+            'update_github_owner', 'update_github_repo',
+            'update_last_event_at', 'update_last_event_result',
+            'update_last_install_at', 'update_last_install_status', 'update_last_install_error',
+            'update_dependencies_changed', 'update_pending',
+        ]);
+
+        $this->jsonResponse([
+            'enabled' => ($values['update_enabled'] ?? '0') === '1',
+            'channel' => $values['update_channel'] ?? 'release',
+            'has_secret' => !empty($values['update_webhook_secret']),
+            'github_owner' => $values['update_github_owner'] ?? 'xdubois-57',
+            'github_repo' => $values['update_github_repo'] ?? 'iso20022-address-game',
+            'webhook_path' => '/webhook/github',
+            'last_event_at' => isset($values['update_last_event_at']) ? (int) $values['update_last_event_at'] : null,
+            'last_event_result' => $values['update_last_event_result'] ?? null,
+            'last_install_at' => isset($values['update_last_install_at']) ? (int) $values['update_last_install_at'] : null,
+            'last_install_status' => $values['update_last_install_status'] ?? null,
+            'last_install_error' => $values['update_last_install_error'] ?? null,
+            'dependencies_changed' => ($values['update_dependencies_changed'] ?? '0') === '1',
+            'install_pending' => isset($values['update_pending']),
+            'version' => $this->currentVersion(),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/save-update-settings — Persist enable/channel/repo.
+     */
+    public function saveUpdateSettings(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $channel = $input['channel'] ?? '';
+        if (!in_array($channel, self::UPDATE_CHANNELS, true)) {
+            $this->jsonResponse(['error' => 'Invalid channel'], 400);
+            return;
+        }
+
+        $owner = trim((string) ($input['github_owner'] ?? ''));
+        $repo = trim((string) ($input['github_repo'] ?? ''));
+        if ($owner === '' || $repo === '' || mb_strlen($owner) > 100 || mb_strlen($repo) > 100) {
+            $this->jsonResponse(['error' => 'GitHub owner and repository are required'], 400);
+            return;
+        }
+
+        $settings = new SettingsModel(Database::getInstance()->getPdo());
+        $settings->setMany([
+            'update_enabled' => !empty($input['enabled']) ? '1' : '0',
+            'update_channel' => $channel,
+            'update_github_owner' => $owner,
+            'update_github_repo' => $repo,
+        ]);
+
+        $this->jsonResponse(['success' => true]);
+    }
+
+    /**
+     * POST /api/admin/generate-webhook-secret — Issue a new webhook secret.
+     *
+     * Returned in full exactly once, in this response, for the admin to
+     * paste into GitHub's webhook configuration. Regenerating invalidates
+     * the previous secret immediately — any webhook still configured with
+     * the old one starts failing signature verification.
+     */
+    public function generateWebhookSecret(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $secret = bin2hex(random_bytes(32));
+        (new SettingsModel(Database::getInstance()->getPdo()))->set('update_webhook_secret', $secret);
+
+        $this->jsonResponse(['success' => true, 'secret' => $secret]);
+    }
+
+    /**
+     * POST /api/admin/install-update-now — Manual trigger, bypassing the
+     * webhook entirely: asks GitHub for the latest release or latest main
+     * commit (whichever the configured channel means) and installs it
+     * through the same App\Models\Updater path a webhook delivery uses.
+     *
+     * Runs synchronously — unlike the webhook path, an admin clicking this
+     * button is already watching the page for the result, so there is
+     * nothing to defer.
+     */
+    public function installUpdateNow(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $pdo = Database::getInstance()->getPdo();
+        $settings = new SettingsModel($pdo);
+
+        $queued = (new GitHubWebhook($settings))->checkAndQueueLatest();
+        if ($queued['status'] !== 'ok') {
+            $this->jsonResponse(['success' => false, 'reason' => $queued['reason'] ?? 'unknown']);
+            return;
+        }
+
+        $result = (new Updater(dirname(__DIR__, 2), $settings))->run();
+        $this->jsonResponse(['success' => $result['status'] === 'completed', 'result' => $result]);
+    }
+
+    private function currentVersion(): array
+    {
+        $versionFile = __DIR__ . '/../../config/version.php';
+        if (file_exists($versionFile)) {
+            $info = include $versionFile;
+            if (is_array($info) && !empty($info['tag']) && !empty($info['commit'])) {
+                return ['tag' => $info['tag'], 'commit' => $info['commit']];
+            }
+        }
+        return ['tag' => 'dev', 'commit' => 'unknown'];
+    }
+
     /**
      * Facts accept a little inline markup, so they are sanitised against an
      * allowlist rather than escaped: they are rendered with innerHTML on the
@@ -754,7 +897,7 @@ class AdminController
         }
 
         // Fallback to credentials.php
-        $credFile = __DIR__ . '/../../config/credentials.php';
+        $credFile = Database::configDir() . '/credentials.php';
         if (file_exists($credFile)) {
             $creds = require $credFile;
             return $creds['admin']['pin'] ?? '0000';
