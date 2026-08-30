@@ -102,10 +102,12 @@ test.describe('a full round', () => {
         expect(scenario.slots_structured.length).toBeGreaterThan(0);
         expect(scenario.slots_hybrid.length).toBeGreaterThan(0);
 
-        // --- answer it correctly: every chip into the slot named after it
+        // --- answer it correctly. The server compares the VALUE dropped into
+        // each slot (ScenarioModel::validateAnswer), so the mapping is
+        // field => value, not chip id => slot id.
         const mapping = {};
         for (const chip of scenario.chips) {
-            mapping[chip.id] = chip.field ?? chip.id;
+            mapping[chip.field] = chip.value;
         }
         const validated = await api(page, csrf, 'game/validate', {
             scenario_id: scenario.id,
@@ -114,9 +116,9 @@ test.describe('a full round', () => {
         });
         expect(validated.status()).toBe(200);
         const result = await validated.json();
-        expect(result).toHaveProperty('percentage');
-        expect(result.percentage).toBeGreaterThanOrEqual(0);
-        expect(result.percentage).toBeLessThanOrEqual(100);
+        // A fully correct answer must score 100 — asserting only a 0..100
+        // range would pass even if grading were broken.
+        expect(result.percentage).toBe(100);
 
         // --- record the completed game
         const completed = await api(page, csrf, 'game/complete', {});

@@ -442,7 +442,15 @@ class GameController
         return $countries[$code] ?? $code;
     }
 
-    private function getJsonInput(): array
+    /**
+     * The decoded JSON request body.
+     *
+     * `protected` rather than `private` for the same reason as
+     * AdminController::getJsonInput(): php://input is not writable in-process,
+     * so this is the only seam through which these endpoints' validation can
+     * be exercised without a browser. Production behaviour is unchanged.
+     */
+    protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];

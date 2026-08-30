@@ -240,6 +240,34 @@ npm install
 npm test
 ```
 
+### Coverage
+
+```bash
+composer test:coverage      # PHP unit coverage  -> coverage/php/raw/unit.cov
+E2E_COVERAGE=1 npm run e2e  # browser coverage   -> coverage/php/raw/*.raw
+composer coverage:merge     # both              -> coverage/php/clover.xml
+npm run test:coverage       # JavaScript        -> coverage/js/lcov.info
+```
+
+Coverage is measured across **all three** suites. The browser tests drive the
+real front controller over HTTP, so `E2E_COVERAGE=1` records what they execute
+and `coverage:merge` combines it with the PHPUnit report — a line covered only
+by a browser test still counts. Needs the `pcov` extension (CI installs it;
+locally, point `E2E_PCOV_EXTENSION` at `pcov.so` if it is built but not
+enabled in `php.ini`).
+
+Current: **PHP 80%**, **JavaScript 99%**.
+
+Some paths are excluded from the coverage metric (never from analysis) in
+`sonar-project.properties`, because unit tests cannot reach them: shell and CLI
+helpers, the front controller, view templates, and `public/assets/js/app.js` —
+the SPA bootstrap, a single large IIFE that wires the UI to the DOM on load.
+Importing it under jsdom would execute the whole application against a fake
+document rather than test it; it is covered end to end by Playwright, which
+produces no lcov. The logic worth asserting on has been moved out of it into
+`public/assets/js/lib/`, which **is** measured and sits at 98-100%. Continuing
+that extraction is what will genuinely cover the rest.
+
 ### End-to-end tests
 
 Drives a real headless Chromium browser against a throwaway instance
@@ -254,6 +282,31 @@ npm run e2e
 `npm run e2e` (`scripts/e2e.sh`) provisions the throwaway instance, starts a
 PHP built-in server, runs the suite, and tears everything down — including on
 failure or Ctrl-C. It never touches a real `config/` directory or database.
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+
+| Job | What it does |
+|---|---|
+| **PHP** | PHPUnit on 8.1 and 8.4 — the floor this project advertises and the current release |
+| **JavaScript** | Vitest unit suite |
+| **End-to-end** | Playwright against a throwaway SQLite instance |
+| **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
+
+### SonarCloud setup
+
+Analysis is configured by `sonar-project.properties`
+([dashboard](https://sonarcloud.io/project/overview?id=xdubois-57_iso20022-address-game)).
+Two things are needed for the job to run:
+
+1. **A `SONAR_TOKEN` repository secret.** Generate it in SonarCloud (My Account
+   → Security) and add it under Settings → Secrets and variables → Actions.
+   Without it the scan step is *skipped* rather than failed, so pull requests
+   from forks — which cannot read secrets — still run the rest of CI.
+2. **Automatic Analysis turned off**, in SonarCloud under Administration →
+   Analysis Method. SonarCloud refuses a CI-based analysis while its own
+   automatic analysis is enabled, and only the CI one can carry coverage.
 
 ## GDPR Cleanup (Cron Job)
 

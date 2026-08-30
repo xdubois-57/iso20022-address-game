@@ -343,6 +343,57 @@ class GitHubWebhookTest extends TestCase
         $this->assertSame('dev-ccccccc', $pending['version_to']);
     }
 
+    public function testCheckAndQueueLatestReleaseReportsWhenGitHubHasNone(): void
+    {
+        $this->configure('release');
+        $result = $this->webhook(fn () => null)->checkAndQueueLatest();
+
+        $this->assertSame('no_release_found', $result['reason']);
+    }
+
+    public function testCheckAndQueueLatestReleaseRefusesAnOffGitHubAsset(): void
+    {
+        $this->configure('release');
+        $webhook = $this->webhook(fn (string $url) => str_contains($url, '/releases/latest')
+            ? ['tag_name' => 'v3.0.0', 'zipball_url' => 'https://attacker.example/evil.zip']
+            : null);
+
+        $this->assertSame('no_download_url', $webhook->checkAndQueueLatest()['reason']);
+        $this->assertNull($this->settings->get('update_pending'));
+    }
+
+    public function testAPingIsNotTreatedAsAnInstallTrigger(): void
+    {
+        // The controller answers ping itself; neither handler should ever see
+        // a payload without an action or a ref and queue something from it.
+        $this->configure('release');
+        $this->assertSame('action_not_published', $this->webhook()->handleReleaseEvent(['zen' => 'x'])['reason']);
+        $this->assertNull($this->settings->get('update_pending'));
+    }
+
+    public function testAReleaseWithoutAnyDownloadableArtifactIsIgnored(): void
+    {
+        $this->configure('release');
+        $result = $this->webhook()->handleReleaseEvent($this->releasePayload([
+            'release' => ['zipball_url' => '', 'assets' => []],
+        ]));
+
+        $this->assertSame('no_download_url', $result['reason']);
+    }
+
+    public function testANonZipReleaseAssetFallsBackToTheSourceZipball(): void
+    {
+        $this->configure('release');
+        $this->webhook()->handleReleaseEvent($this->releasePayload([
+            'release' => ['assets' => [
+                ['name' => 'checksums.txt', 'browser_download_url' => 'https://objects.githubusercontent.com/c.txt'],
+            ]],
+        ]));
+
+        $pending = json_decode($this->settings->get('update_pending'), true);
+        $this->assertStringContainsString('zipball', $pending['download_url']);
+    }
+
     public function testCheckAndQueueLatestMainReportsNoCommitFound(): void
     {
         $this->configure('main');

@@ -83,7 +83,13 @@ class SetupController
         $hashedPin = password_hash($defaultPin, PASSWORD_BCRYPT);
 
         // Write credentials.php
-        $credFile = __DIR__ . '/../../config/credentials.php';
+        // Database::configDir(), not a path fixed to this file's location.
+        // This was the last hardcoded config path in the app — the others were
+        // moved when ISO20022_CONFIG_DIR was introduced. Left as it was, any
+        // test that reached this line would overwrite the developer's real
+        // credentials.php, encryption key and all. Production behaviour is
+        // unchanged: unset, configDir() resolves to exactly this directory.
+        $credFile = Database::configDir() . '/credentials.php';
         $credContent = "<?php\n";
         $credContent .= "/**\n";
         $credContent .= " * ISO 20022 Address Structuring Game\n";
@@ -128,7 +134,15 @@ class SetupController
         ]);
     }
 
-    private function getJsonInput(): array
+    /**
+     * The decoded JSON request body.
+     *
+     * `protected` for the same reason as the other controllers': php://input
+     * cannot be written from inside the process, so this is the only seam
+     * through which setup's validation is testable without a browser.
+     * Production behaviour is unchanged.
+     */
+    protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];

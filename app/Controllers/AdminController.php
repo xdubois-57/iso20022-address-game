@@ -427,16 +427,14 @@ class AdminController
         $input = $this->getJsonInput();
         $deadline = trim($input['deadline'] ?? '');
 
-        $db = Database::getInstance();
-        $pdo = $db->getPdo();
-        $stmt = $pdo->prepare(
-            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-            . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-        );
+        // Through SettingsModel rather than a hand-written upsert: the raw
+        // statement here was MySQL-only (ON DUPLICATE KEY), so setting a
+        // deadline threw a syntax error on SQLite — which the end-to-end
+        // instance now runs on. SettingsModel picks the dialect per driver.
+        $settings = new SettingsModel(Database::getInstance()->getPdo());
 
         if ($deadline === '') {
-            // Clear the deadline
-            $pdo->prepare('DELETE FROM settings WHERE setting_key = ?')->execute(['unstructured_deadline']);
+            $settings->delete('unstructured_deadline');
             $this->jsonResponse(['success' => true, 'deadline' => null]);
             return;
         }
@@ -448,7 +446,7 @@ class AdminController
             return;
         }
 
-        $stmt->execute(['unstructured_deadline', $deadline]);
+        $settings->set('unstructured_deadline', $deadline);
         $this->jsonResponse(['success' => true, 'deadline' => $deadline]);
     }
 
@@ -731,23 +729,13 @@ class AdminController
         $hash = password_hash($code, PASSWORD_BCRYPT);
         $timestamp = time();
 
-        $pdo->beginTransaction();
-        try {
-            // Save the hashed code
-            $stmt = $pdo->prepare(
-                'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) '
-                . 'ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
-            );
-            $stmt->execute(['event_code', $hash]);
-
-            // Save the timestamp to track when code was last changed
-            $stmt->execute(['event_code_timestamp', (string)$timestamp]);
-
-            $pdo->commit();
-        } catch (\Exception $e) {
-            $pdo->rollBack();
-            throw $e;
-        }
+        // setMany() writes both keys in one transaction and picks the upsert
+        // dialect per driver; the hand-written statement here was MySQL-only,
+        // so saving an event code threw a syntax error on SQLite.
+        (new SettingsModel($pdo))->setMany([
+            'event_code' => $hash,
+            'event_code_timestamp' => (string) $timestamp,
+        ]);
 
         // A new code releases anyone locked out under the old one, for every
         // caller rather than just this session.
