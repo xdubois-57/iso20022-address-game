@@ -302,6 +302,14 @@ discarding the session cookie does not reset them.
 - **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **Rate limiting**: Address-keyed and stored in `rate_limits`, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, never the address
 - **Input validation**: Server-side bounds on score (0–100), time_seconds (0–3600), player name (1–50 chars)
+- **Input shape**: a JSON body's shape belongs to the caller, so every string
+  field read from one goes through `App\Support\Input::string()` (scalars
+  coerce exactly as PHP always did; arrays/objects become `''`), instead of
+  fataling in `trim()`/`password_verify()` with a visitor-triggerable 500.
+  The two admin fields where `''` is itself a command — clearing the deadline
+  or the event code — reject non-strings outright rather than coerce, so a
+  malformed request can never become a destructive one.
+  `tests/MalformedJsonInputTest.php` pins all of it
 - **Retention**: `App\Models\RetentionCleanup` deletes leaderboard entries after
   365 days and rate-limit rows once they lock nobody out and have been idle for
   24 hours, so hashed addresses are not kept beyond their purpose. Run by
@@ -346,8 +354,10 @@ discarding the session cookie does not reset them.
   second delivery arriving mid-install reports `in_progress` and leaves
   `update_pending` untouched, rather than racing the first
 - **Install steps** (`Updater::run()`): backup the live tree to
-  `storage/backups/` (excluding `storage/`, `uploads/`, and dev-only
-  directories) → download (GitHub-host allowlist enforced on every redirect
+  `storage/backups/` (excluding `storage/`, `uploads/`, dev-only directories,
+  **and the credential files** — restore never reads
+  `config/credentials.php`/`config/db_config.json` back, so archiving them
+  only duplicated the AES key and DB password into up to three zips) → download (GitHub-host allowlist enforced on every redirect
   hop, `App\Models\GitHubUrlValidator`) → extract → copy over the live tree,
   skipping `config/credentials.php`/`config/db_config.json` → write
   `config/version.php` → invalidate OPcache for every replaced file. Any

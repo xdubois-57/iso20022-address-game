@@ -369,7 +369,9 @@ section and choose one of two channels:
 **How it works:** GitHub signs each delivery (HMAC-SHA256); the signature is
 verified before anything else runs, and every artifact is downloaded only
 from an `https://*.github.com`/`*.githubusercontent.com` host. A matching
-delivery queues the install, which then: backs up the current file tree,
+delivery queues the install, which then: backs up the current file tree
+(minus `config/credentials.php` and `config/db_config.json` — a rollback
+never restores those, so the backup does not carry your secrets),
 downloads and extracts the artifact, copies it over the live install
 (`config/`, `storage/` and `uploads/` are never touched), and writes the new
 version. Any failure from the download step onward restores the backup

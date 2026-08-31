@@ -20,6 +20,7 @@
 namespace App\Models;
 
 use PDO;
+use App\Support\Input;
 
 class ScenarioModel
 {
@@ -158,7 +159,10 @@ class ScenarioModel
                     continue;
                 }
                 $maxScore++;
-                $userVal = trim($userMapping[$field] ?? '');
+                // Input::string: the mapping's VALUES are client JSON too, and
+                // an array here fataled in trim(). It now compares as '' and
+                // is simply marked wrong.
+                $userVal = trim(Input::string($userMapping[$field] ?? ''));
                 if (mb_strtolower($userVal) === mb_strtolower($expected)) {
                     $score++;
                 } else {
@@ -175,7 +179,7 @@ class ScenarioModel
             foreach (['TwnNm', 'Ctry'] as $mandatory) {
                 $expected = trim($correct[$mandatory] ?? '');
                 $maxScore++;
-                $userVal = trim($userMapping[$mandatory] ?? '');
+                $userVal = trim(Input::string($userMapping[$mandatory] ?? ''));
                 if (mb_strtolower($userVal) === mb_strtolower($expected)) {
                     $score++;
                 } else {
@@ -197,6 +201,11 @@ class ScenarioModel
             if (!is_array($adrLine2Fields)) {
                 $adrLine2Fields = [];
             }
+            // Field names only: a nested array in either line raised an
+            // "Array to string conversion" warning inside array_diff() below.
+            // A legitimate client sends field-name strings and is unaffected.
+            $adrLine1Fields = array_values(array_filter($adrLine1Fields, 'is_string'));
+            $adrLine2Fields = array_values(array_filter($adrLine2Fields, 'is_string'));
 
             // Expected fields with values, in country-specific formatted address order.
             // Use client-supplied order if provided, fall back to static HYBRID_FIELD_ORDER.

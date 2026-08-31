@@ -323,6 +323,39 @@ class UpdaterTest extends TestCase
         $this->assertSame('must survive untouched', file_get_contents($this->basePath . '/storage/live-data.txt'));
     }
 
+    /**
+     * The safety backup must not carry the credential files. Restoring never
+     * reads them — copyRecursive() skips PROTECTED_RELATIVE_FILES in both
+     * directions — so archiving them bought nothing and duplicated the AES
+     * key and database password into storage/backups/*.zip, up to
+     * MAX_BACKUPS copies deep, where the only web protection on a
+     * root-DocumentRoot install is an .htaccess file. A secret that is never
+     * used must not be copied.
+     */
+    public function testBackupExcludesTheCredentialFiles(): void
+    {
+        mkdir($this->basePath . '/config', 0755, true);
+        file_put_contents($this->basePath . '/config/credentials.php', '<?php return [];');
+        file_put_contents($this->basePath . '/config/db_config.json', '{}');
+        file_put_contents($this->basePath . '/config/version.php', '<?php return [];');
+
+        $updater = new Updater($this->basePath, $this->settings);
+        $backupPath = $this->invokePrivate($updater, 'createBackup');
+
+        $zip = new \ZipArchive();
+        $zip->open($backupPath);
+        $names = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $names[] = $zip->getNameIndex($i);
+        }
+        $zip->close();
+
+        $this->assertNotContains('config/credentials.php', $names, 'the AES key must not be archived');
+        $this->assertNotContains('config/db_config.json', $names, 'the DB password must not be archived');
+        // The rest of config/ still is: version.php is what a rollback restores.
+        $this->assertContains('config/version.php', $names);
+    }
+
     public function testBackupExcludesStorageDirectory(): void
     {
         mkdir($this->basePath . '/storage', 0755, true);

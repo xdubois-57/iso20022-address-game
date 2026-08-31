@@ -1700,7 +1700,7 @@ import * as AdminUpdate from './admin-update.js';
             content += '<button type="button" class="fact-fmt-btn" data-fmt="italic" title="Italic"><i>I</i></button>';
             content += '<button type="button" class="fact-fmt-btn" data-fmt="link" title="Link">\uD83D\uDD17</button>';
             content += '</div>';
-            content += '<div class="fact-editor" id="factEditorArea" contenteditable="true">' + (existingContent || '') + '</div>';
+            content += '<div class="fact-editor" id="factEditorArea" contenteditable="true"></div>';
             content += '<div class="fact-edit-actions">';
             content += '<button class="btn-primary" id="factEditorSave">Save</button>';
             content += '<button class="btn-secondary" id="factEditorCancel">Cancel</button>';
@@ -1710,6 +1710,14 @@ import * as AdminUpdate from './admin-update.js';
             document.body.appendChild(overlay);
 
             var editor = document.getElementById('factEditorArea');
+            // The existing content goes through the allowlist here rather
+            // than being concatenated into the markup above. Today every
+            // caller happens to hand over content read back from an
+            // already-sanitised node, but that is a property of the callers,
+            // not of this editor — sanitising at the sink is what keeps a
+            // future call site from turning this contenteditable into an
+            // injection point.
+            setSanitizedHtml(editor, existingContent || '');
             editor.focus();
 
             // Update toolbar active states on selection change

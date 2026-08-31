@@ -24,6 +24,7 @@ use App\Models\ScenarioModel;
 use App\Models\GameCounterModel;
 use App\Models\RateLimitModel;
 use App\Controllers\AdminController;
+use App\Support\Input;
 use Snipe\BanBuilder\CensorWords;
 
 class GameController
@@ -69,7 +70,10 @@ class GameController
     {
         $input = $this->getJsonInput();
         $scenarioId = (int) ($input['scenario_id'] ?? 0);
-        $mapping = $input['mapping'] ?? [];
+        // A non-array mapping (a JSON string or number) used to reach
+        // validateAnswer()'s array-typed parameter and fatal; it now fails
+        // the emptiness check below like any other malformed request.
+        $mapping = is_array($input['mapping'] ?? null) ? $input['mapping'] : [];
         $goalType = $input['goal_type'] ?? null;
         $adrFieldOrder = isset($input['adr_field_order']) && is_array($input['adr_field_order'])
             ? array_values(array_filter($input['adr_field_order'], 'is_string'))
@@ -212,7 +216,9 @@ class GameController
         }
 
         $input    = $this->getJsonInput();
-        $submitted = trim($input['code'] ?? '');
+        // Input::string: an array here fataled in trim() — a 500 any visitor
+        // could trigger. It now counts as an ordinary wrong code.
+        $submitted = trim(Input::string($input['code'] ?? ''));
         $stored   = AdminController::fetchEventCodeStatic();
 
         if ($stored === null) {
@@ -255,7 +261,7 @@ class GameController
     public function checkName(): void
     {
         $input = $this->getJsonInput();
-        $name = trim($input['name'] ?? '');
+        $name = trim(Input::string($input['name'] ?? ''));
 
         if ($name === '' || mb_strlen($name) > 50) {
             $this->jsonResponse(['error' => 'Name must be 1-50 characters'], 400);

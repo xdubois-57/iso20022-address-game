@@ -12,6 +12,7 @@ use App\Controllers\BackgroundController;
 use App\Models\Database;
 use App\Models\Encryption;
 use App\Models\ThemeModel;
+use App\Support\Input;
 
 class ShareController
 {
@@ -171,7 +172,9 @@ class ShareController
         // Minimal payload: only score and name for shorter URLs
         $payload = json_encode([
             's' => max(0, min(10000, (int) ($input['score'] ?? 0))),
-            'n' => $this->sanitizeName($input['name'] ?? ''),
+            // Input::string: sanitizeName()'s string parameter fataled on an
+            // array — a 500 any visitor could trigger.
+            'n' => $this->sanitizeName(Input::string($input['name'] ?? '')),
         ]);
 
         $enc = new Encryption();

@@ -134,13 +134,11 @@ if (!function_exists('getVersionInfo')) {
     <meta name="apple-mobile-web-app-title" content="ISO 20022 Game">
     <link rel="apple-touch-icon" href="/app-icon?v=<?= $bgVersion ?>">
     <meta name="robots" content="index, follow">
-    <meta name="description"
-          content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of
-                   international address formatting standards. Perfect for developers, bankers,
-                   and financial professionals.">
-    <meta name="keywords"
-          content="ISO 20022, address formatting, banking standards, financial messaging,
-                   SWIFT, game, quiz, learning, education">
+    <!-- Kept on one line, like the og/twitter descriptions below: wrapping a
+         content="..." attribute puts the literal newline and its indentation
+         inside the value a crawler reads and a search result displays. -->
+    <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
+    <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
     <meta name="author" content="ISO 20022 Address Game">
     <!-- OpenGraph Meta Tags for Social Media Sharing.
          Titles stay short: LinkedIn truncates around 70 characters and the

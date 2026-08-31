@@ -324,6 +324,17 @@ class Updater
             if ($topLevel !== false && in_array($topLevel, self::EXCLUDED_TOP_LEVEL, true)) {
                 continue;
             }
+            // The credential files stay out of the backup. Restoring never
+            // reads them anyway — copyRecursive() skips PROTECTED_RELATIVE_FILES
+            // in both directions — so archiving them bought nothing and left
+            // the AES key and database password duplicated into
+            // storage/backups/*.zip, up to MAX_BACKUPS copies deep, in a
+            // directory whose only web protection on a root-DocumentRoot
+            // install is an .htaccess file. A secret that is never used has
+            // no business being copied.
+            if (in_array($relative, self::PROTECTED_RELATIVE_FILES, true)) {
+                continue;
+            }
             if ($item->isDir()) {
                 $zip->addEmptyDir($relative);
             } else {

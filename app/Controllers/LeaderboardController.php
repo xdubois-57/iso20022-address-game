@@ -22,6 +22,7 @@ namespace App\Controllers;
 use App\Models\Database;
 use App\Models\LeaderboardModel;
 use App\Models\RateLimitModel;
+use App\Support\Input;
 use Snipe\BanBuilder\CensorWords;
 
 class LeaderboardController
@@ -79,7 +80,9 @@ class LeaderboardController
         }
 
         $input = $this->getJsonInput();
-        $name = trim($input['player_name'] ?? '');
+        // Input::string: an array here fataled in trim() — a 500 any visitor
+        // could trigger. It now fails the length check like any bad name.
+        $name = trim(Input::string($input['player_name'] ?? ''));
         $score = (int) ($input['score'] ?? 0);
 
         if ($name === '' || mb_strlen($name) > 50) {

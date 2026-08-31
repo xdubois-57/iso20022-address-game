@@ -20,6 +20,7 @@
 namespace App\Controllers;
 
 use App\Models\Database;
+use App\Support\Input;
 
 class SetupController
 {
@@ -29,12 +30,17 @@ class SetupController
     public function testConnection(): void
     {
         $input = $this->getJsonInput();
+        // Input::string throughout: this route is unauthenticated by necessity
+        // (a fresh install has nothing to authenticate against), so an array
+        // where a string belongs fataled in trim() for any anonymous caller.
+        // The password is not trimmed — leading or trailing spaces in it are
+        // legitimate.
         $dbConfig = [
-            'host' => trim($input['host'] ?? '127.0.0.1'),
-            'port' => trim($input['port'] ?? '3306'),
-            'name' => trim($input['name'] ?? ''),
-            'username' => trim($input['username'] ?? ''),
-            'password' => $input['password'] ?? '',
+            'host' => trim(Input::string($input['host'] ?? '127.0.0.1')),
+            'port' => trim(Input::string($input['port'] ?? '3306')),
+            'name' => trim(Input::string($input['name'] ?? '')),
+            'username' => trim(Input::string($input['username'] ?? '')),
+            'password' => Input::string($input['password'] ?? ''),
         ];
 
         if (empty($dbConfig['name'])) {
@@ -56,12 +62,13 @@ class SetupController
     public function saveConfig(): void
     {
         $input = $this->getJsonInput();
+        // Same guards as testConnection() above, for the same reason.
         $dbConfig = [
-            'host' => trim($input['host'] ?? '127.0.0.1'),
-            'port' => trim($input['port'] ?? '3306'),
-            'name' => trim($input['name'] ?? ''),
-            'username' => trim($input['username'] ?? ''),
-            'password' => $input['password'] ?? '',
+            'host' => trim(Input::string($input['host'] ?? '127.0.0.1')),
+            'port' => trim(Input::string($input['port'] ?? '3306')),
+            'name' => trim(Input::string($input['name'] ?? '')),
+            'username' => trim(Input::string($input['username'] ?? '')),
+            'password' => Input::string($input['password'] ?? ''),
         ];
 
         if (empty($dbConfig['name'])) {

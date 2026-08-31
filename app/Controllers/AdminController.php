@@ -30,6 +30,7 @@ use App\Models\SettingsModel;
 use App\Models\RateLimitModel;
 use App\Models\GitHubWebhook;
 use App\Models\Updater;
+use App\Support\Input;
 
 class AdminController
 {
@@ -65,7 +66,9 @@ class AdminController
         }
 
         $input = $this->getJsonInput();
-        $pin = $input['pin'] ?? '';
+        // Input::string: an array here fataled in password_verify() below —
+        // a 500 any visitor could trigger. A scalar coerces as PHP always did.
+        $pin = Input::string($input['pin'] ?? '');
 
         $stored = $this->getStoredPin();
 
@@ -337,7 +340,7 @@ class AdminController
         }
 
         $input = $this->getJsonInput();
-        $newPin = $input['new_pin'] ?? '';
+        $newPin = Input::string($input['new_pin'] ?? '');
 
         if (!preg_match('/^\d{4,8}$/', $newPin)) {
             $this->jsonResponse(['error' => 'PIN must be 4-8 digits'], 400);
@@ -425,6 +428,14 @@ class AdminController
         }
 
         $input = $this->getJsonInput();
+        // Rejected rather than coerced: '' means "clear the deadline" on this
+        // endpoint, so quietly turning a malformed value into '' would turn a
+        // broken request into a destructive one. (An array here used to be an
+        // uncaught TypeError in trim().)
+        if (!is_string($input['deadline'] ?? '')) {
+            $this->jsonResponse(['error' => 'Invalid date/time format. Use YYYY-MM-DDTHH:MM.'], 400);
+            return;
+        }
         $deadline = trim($input['deadline'] ?? '');
 
         // Through SettingsModel rather than a hand-written upsert: the raw
@@ -700,6 +711,12 @@ class AdminController
         }
 
         $input = $this->getJsonInput();
+        // Rejected rather than coerced, same as setDeadline(): '' means
+        // "remove the event code", so a malformed value must not become ''.
+        if (!is_string($input['event_code'] ?? '')) {
+            $this->jsonResponse(['error' => 'Event code must be a string'], 400);
+            return;
+        }
         $code  = trim($input['event_code'] ?? '');
 
         $db  = Database::getInstance();
@@ -886,8 +903,12 @@ class AdminController
             return;
         }
 
-        $owner = trim((string) ($input['github_owner'] ?? ''));
-        $repo = trim((string) ($input['github_repo'] ?? ''));
+        // Input::string, not a bare (string) cast: casting an array emits an
+        // "Array to string conversion" warning and stores the literal word
+        // "Array" as the owner. A non-scalar becomes '' and fails the
+        // required-field check below instead.
+        $owner = trim(Input::string($input['github_owner'] ?? ''));
+        $repo = trim(Input::string($input['github_repo'] ?? ''));
         if ($owner === '' || $repo === '' || mb_strlen($owner) > 100 || mb_strlen($repo) > 100) {
             $this->jsonResponse(['error' => 'GitHub owner and repository are required'], 400);
             return;
