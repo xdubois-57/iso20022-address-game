@@ -17,12 +17,71 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Cache busting helper: appends file modification timestamp to URL
+/**
+ * The shell is never cached, deliberately and explicitly.
+ *
+ * Every versioned asset URL on the page is minted HERE, so a cached copy of
+ * this document keeps handing out the PREVIOUS `?v=` values — and a browser
+ * holding a stale shell can never discover that the CSS or JS moved on. Cache
+ * busting is only as fresh as the page that carries the stamps.
+ *
+ * PHP's session cache limiter happens to send these same headers today, which
+ * is why this worked without saying so. That is incidental: it is a php.ini
+ * setting a host can change (`session.cache_limiter=`), and losing it would
+ * reintroduce exactly the stale-asset bug this file's versioning exists to
+ * prevent. Saying it out loud costs nothing and does not depend on a session.
+ */
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+}
+
+/**
+ * The release stamp half of the cache-busting version, '' on a dev checkout.
+ *
+ * mtime alone is not enough on a real deployment. The site is uploaded by
+ * FTP, and an FTP client set to preserve timestamps writes the new file with
+ * the OLD mtime — so `?v={mtime}` produces the same URL it did before the
+ * upload, and every browser that already has the file keeps its stale copy
+ * indefinitely. That is not hypothetical: a stale app.css renders the page
+ * with the PMPG logo at its natural 1095px, which is what a broken layout
+ * after an update looks like.
+ *
+ * The commit written into config/version.php by release.sh changes on every
+ * release regardless of what the transfer did to any mtime, so the two
+ * together cover each other: a file edited without a release still busts on
+ * mtime, and a release whose mtimes were preserved still busts on the commit.
+ */
+if (!function_exists('assetReleaseStamp')) {
+    function assetReleaseStamp(): string {
+        static $stamp = null;
+        if ($stamp !== null) {
+            return $stamp;
+        }
+
+        $stamp = '';
+        $versionFile = __DIR__ . '/../../config/version.php';
+        if (file_exists($versionFile)) {
+            $info = include $versionFile;
+            if (is_array($info) && !empty($info['commit'])) {
+                // Into the URL's query string, so keep it to characters that
+                // need no encoding rather than trusting the file's contents.
+                $stamp = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $info['commit']);
+            }
+        }
+
+        return $stamp;
+    }
+}
+
+// Cache busting helper: file modification timestamp plus the release stamp.
 if (!function_exists('assetUrl')) {
     function assetUrl($path) {
         $fullPath = __DIR__ . '/../../public/' . $path;
         $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
-        return $path . '?v=' . $mtime;
+        $release = assetReleaseStamp();
+
+        return $path . '?v=' . $mtime . ($release === '' ? '' : '.' . $release);
     }
 }
 
@@ -161,6 +220,40 @@ if (!function_exists('getVersionInfo')) {
     <meta name="twitter:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group.">
     <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <?php
+    // app.js builds this one URL itself, so it cannot use assetUrl(). It used
+    // to carry a hand-written '?v=1' — a version that, being a literal, could
+    // never change: replacing the logo file would have left every browser
+    // showing the old one forever.
+    ?>
+    <meta name="pmpg-logo-url" content="<?= htmlspecialchars(assetUrl('assets/images/pmpg-logo.png'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php
+    // app.js is versioned by the <script> tag below, but its `import`s are
+    // bare relative paths that carry no version at all — so editing
+    // lib/format.js changed nothing any browser could see, and the stale copy
+    // was served until the cache aged out on its own. An import map is how
+    // that is fixed without a build step: the specifier app.js writes stays
+    // relative, and the browser fetches the versioned URL named here.
+    //
+    // Must precede every module script. A browser too old to understand
+    // import maps ignores it and loads the unversioned paths — exactly what
+    // it did before, so this can only help.
+    // Keys must be URL-LIKE ('./...'), not bare: a key without a leading
+    // './', '../' or '/' is a bare specifier, and a bare specifier only ever
+    // matches an import written exactly that way. app.js writes
+    // `import ... from './lib/format.js'`, which the browser resolves to a
+    // URL — so the map has to be keyed by that same URL, or it silently
+    // matches nothing and the unversioned file is fetched. Document-relative
+    // rather than root-absolute ('/assets/...') so an install served from a
+    // subdirectory resolves exactly as the <script src> below already does.
+    $moduleVersions = [];
+    foreach (['scoring', 'address', 'format', 'sanitize', 'random', 'api'] as $lib) {
+        $moduleVersions['./assets/js/lib/' . $lib . '.js'] = './' . assetUrl('assets/js/lib/' . $lib . '.js');
+    }
+    ?>
+    <script type="importmap">
+        <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
+    </script>
 </head>
 <body>
     <header class="game-header">
