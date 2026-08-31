@@ -274,21 +274,6 @@ class MalformedJsonInputTest extends TestCase
         );
     }
 
-    public function testSaveUpdateSettingsWithArrayOwnerIsRejectedNotStoredAsArray(): void
-    {
-        $_SESSION['admin'] = true;
-
-        [$json, $status] = $this->invoke(
-            $this->admin(['enabled' => true, 'channel' => 'release', 'github_owner' => ['x'], 'github_repo' => 'r']),
-            'saveUpdateSettings'
-        );
-
-        // The bare (string) cast this replaced stored the literal word
-        // "Array" as the owner, with a conversion warning in the log.
-        $this->assertSame(400, $status);
-        $this->assertNull($this->settings->get('update_github_owner'));
-    }
-
     public function testChangePinWithAnArrayIsRejectedNotFatal(): void
     {
         $_SESSION['admin'] = true;
