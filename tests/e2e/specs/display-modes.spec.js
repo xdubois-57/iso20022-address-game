@@ -99,6 +99,118 @@ test.describe('display modes — the existing contexts are unchanged', () => {
         await expect(page.locator('#footerGithubLink')).toBeVisible();
     });
 
+    test('the admin panel explains the modes rather than switching them', async ({ page }) => {
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+
+        const section = page.locator('.display-modes-section');
+        await expect(section).toBeVisible();
+        await expect(section.locator('h3')).toHaveText('Display modes');
+
+        // Three blocks: the device toggle, the two URL-driven screens, and
+        // the setting that belongs to one of them.
+        await expect(section.locator('h4')).toHaveText([
+            'Kiosk mode — this device',
+            'Dedicated screens — by URL',
+            'Wall window',
+        ]);
+
+        // Both URLs, absolute, built from the origin the organiser is on —
+        // not from anything configured, so what they copy is reachable from
+        // where they are standing.
+        const origin = new URL(page.url()).origin;
+        await expect(page.locator('.display-mode-url')).toHaveText([
+            `${origin}/?mode=hof`,
+            `${origin}/?mode=play`,
+        ]);
+
+        // A slot for a QR code each. Whether one is drawn into them is
+        // asserted separately below, because it depends on a CDN script.
+        await expect(page.locator('.display-mode-qr')).toHaveCount(2);
+
+        // The launch command, ready to copy, and the reason it is preferred.
+        await expect(page.locator('.display-mode-cmd pre')).toContainText(
+            `chrome --kiosk --app="${origin}/?mode=hof"`
+        );
+        await expect(page.locator('.display-mode-note')).toContainText('reboot');
+
+        // The panel is the instructions, not the switch. A control here that
+        // put the wall into wall mode would go out at that PC's first reboot,
+        // which is the exact problem the URL solves.
+        await expect(section.locator('input[type="checkbox"]')).toHaveCount(1);
+        await expect(section.locator('#kioskToggle')).toHaveCount(1);
+    });
+
+    test('each dedicated screen gets a QR code, from the library already loaded', async ({ page }) => {
+        // qrcode-generator arrives from a CDN, so a stand-in is installed
+        // before the page's own scripts run. The real library overwrites it
+        // whenever it loads, which means this asserts the real thing on a
+        // machine with a route to jsdelivr and asserts OUR half of it —
+        // that both slots are filled with what the library returned —
+        // everywhere else. Either way the test runs; it is never skipped over.
+        await page.addInitScript(() => {
+            window.qrcode = function () {
+                return {
+                    addData(text) { this._text = text; },
+                    make() { /* nothing to compute for a stand-in */ },
+                    createSvgTag: () => '<svg viewBox="0 0 1 1"></svg>',
+                };
+            };
+        });
+
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+
+        await expect(page.locator('.display-mode-qr')).toHaveCount(2);
+        await expect(page.locator('.display-mode-qr svg')).toHaveCount(2);
+
+        // One library, not two: the same script tag the kiosk share code uses.
+        await expect(page.locator('script[src*="qrcode"]')).toHaveCount(1);
+    });
+
+    test('the wall window setting lives in exactly one place and still saves', async ({ page }) => {
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+
+        // Moved, not copied. Two fields writing the same key is how an
+        // organiser sets a value in one of them and watches the other undo it.
+        await expect(page.locator('#boardWindowInput')).toHaveCount(1);
+        await expect(page.locator('.admin-section', { hasText: 'Wall Window' })).toHaveCount(1);
+        await expect(page.locator('.display-modes-section #boardWindowInput')).toHaveCount(1);
+
+        await expect(page.locator('#boardWindowInput')).toHaveValue('24');
+        await page.fill('#boardWindowInput', '6');
+        await page.click('#saveBoardWindowBtn');
+        await expect(page.locator('#boardWindowStatus')).toContainText('last 6 hours');
+
+        // It reaches the wall's own data source, which is the only screen it
+        // is meant to affect.
+        expect((await (await page.request.get('/board/data')).json()).window_hours).toBe(6);
+
+        // Put it back so the rest of the run sees a normal instance.
+        await page.fill('#boardWindowInput', '24');
+        await page.click('#saveBoardWindowBtn');
+        await expect(page.locator('#boardWindowStatus')).toContainText('last 24 hours');
+    });
+
+    test('copying a URL puts it on the clipboard', async ({ page, context }) => {
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+
+        await page.locator('.display-mode-row .display-mode-copy').first().click();
+        await expect(page.locator('.display-mode-row .display-mode-copy').first())
+            .toHaveText('Copied');
+
+        const origin = new URL(page.url()).origin;
+        expect(await page.evaluate(() => navigator.clipboard.readText()))
+            .toBe(`${origin}/?mode=hof`);
+    });
+
     test('an unknown mode behaves exactly like the bare URL', async ({ page }) => {
         await page.goto('/?mode=nimportequoi');
 

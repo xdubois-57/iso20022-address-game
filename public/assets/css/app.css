@@ -1800,8 +1800,7 @@ body[data-mode="play"] .header-content {
     justify-content: center;
 }
 
-/* Wall window field in the Admin screen (iteration 6 folds this section into
-   "Display modes"; the controls themselves keep these rules). */
+/* Wall window field, inside the Admin screen's "Display modes" section. */
 .board-window-form {
     display: flex;
     align-items: center;
@@ -2262,4 +2261,112 @@ body[data-mode="play"] .profanity-warning {
 body[data-mode="play"] .game-welcome {
     overflow-y: auto;
     max-height: calc(100vh - 120px);
+}
+
+/* ---------------------------------------------------------
+   Admin → Display modes
+
+   One section holding the three ways this game reaches a screen, because an
+   organiser needs them side by side to understand how they differ. It is a
+   set of INSTRUCTIONS, not a set of switches: there is no control here that
+   turns the wall on, since anything switched on from this page goes out at
+   the first reboot of the machine it was switched on for.
+   --------------------------------------------------------- */
+.display-modes-intro {
+    margin-bottom: 1rem;
+}
+
+.display-mode-block {
+    border-top: 1px solid var(--game-light-peppermint);
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.display-mode-block:first-of-type {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+.display-mode-block h4 {
+    margin: 0 0 0.35rem;
+    font-size: 1rem;
+}
+
+.display-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--game-neutral);
+    flex-wrap: wrap;
+}
+
+.display-mode-qr {
+    flex: 0 0 auto;
+    width: 92px;
+    height: 92px;
+    background: var(--game-white);
+    border-radius: 6px;
+    padding: 4px;
+}
+
+.display-mode-qr svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.display-mode-info {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+
+.display-mode-name {
+    margin: 0;
+    font-weight: 600;
+}
+
+/* The URL is the thing being copied, so it is shown in full and allowed to
+   wrap rather than being truncated into something an organiser cannot check
+   against what they typed. */
+.display-mode-url {
+    margin: 0.15rem 0;
+    font-family: monospace;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.display-mode-what {
+    margin: 0;
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+
+.display-mode-launch-label {
+    margin: 1rem 0 0.35rem;
+    font-weight: 600;
+}
+
+.display-mode-cmd {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.display-mode-cmd pre {
+    flex: 1 1 260px;
+    margin: 0;
+    padding: 0.6rem 0.75rem;
+    background: var(--game-neutral);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.display-mode-note {
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
 }

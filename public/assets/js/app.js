@@ -1781,9 +1781,19 @@ import {
         var html = '<section class="admin-screen"><div class="admin-dashboard">';
         html += '<h2>Admin Dashboard</h2>';
 
-        // Kiosk Mode
-        html += '<div class="admin-section kiosk-section"><h3>Kiosk Mode</h3>';
-        html += '<p>Enable fullscreen kiosk mode with screen saver for this session.</p>';
+        // Display modes — the three ways this game gets onto a screen,
+        // gathered into one section because an organiser setting up an event
+        // needs to see them side by side to understand how they differ.
+        html += '<div class="admin-section display-modes-section"><h3>Display modes</h3>';
+        html += '<p class="display-modes-intro">Three ways to show the game. '
+            + '<strong>Kiosk mode</strong> switches on for <em>this device</em>, in this browser session. '
+            + 'The <strong>wall</strong> and the <strong>play station</strong> switch on through their URL, '
+            + 'on their own machine — which is how they survive a reboot.</p>';
+
+        // 1. Kiosk mode — the existing toggle, moved unchanged and renamed so
+        //    that "this device" is impossible to misread.
+        html += '<div class="display-mode-block kiosk-section"><h4>Kiosk mode — this device</h4>';
+        html += '<p>Fullscreen and screen saver for the current browser session. For an iPad prepared by hand.</p>';
         html += '<label class="kiosk-toggle">';
         html += '<input type="checkbox" id="kioskToggle"' + (kioskMode ? ' checked' : '') + '>';
         html += '<span class="kiosk-slider"></span>';
@@ -1802,6 +1812,39 @@ import {
         html += '</ol>';
         html += '<p><strong>Note:</strong> Guided Access locks the iPad to this single app — users cannot switch to Safari, the home screen, or any other app.</p>';
         html += '</details>';
+        html += '</div>';
+
+        // 2. The two dedicated screens. Instructions, NOT switches.
+        //
+        //    There is deliberately no button here that would put the wall into
+        //    wall mode from the admin screen. It would go out at the first
+        //    reboot of that PC with nobody in the room — which is the exact
+        //    problem the URL exists to solve.
+        html += '<div class="display-mode-block"><h4>Dedicated screens — by URL</h4>';
+        html += '<p>Open these on the machine concerned. The mode is in the address, so it survives '
+            + 'a reboot, a Windows update and a crashed tab — unlike the kiosk toggle above.</p>';
+        html += '<div id="displayModeUrls"></div>';
+        html += '<p class="display-mode-launch-label">Launch each screen with:</p>';
+        html += '<div class="display-mode-cmd" id="displayModeCommands"></div>';
+        html += '<p class="display-mode-note"><strong>Use the browser\'s own kiosk switch, not fullscreen from the page.</strong> '
+            + 'Fullscreen triggered by the page needs someone to click something first, and after a '
+            + 'reboot at three in the morning there is nobody there to click it. '
+            + '<code>--kiosk</code> comes back fullscreen on its own and keeps the address bar out of reach.</p>';
+        html += '</div>';
+
+        // 3. The wall's time window, moved here from its own section in
+        //    iteration 2. It belongs with the screen it affects.
+        html += '<div class="display-mode-block"><h4>Wall window</h4>';
+        html += '<p>How far back the <code>?mode=hof</code> wall looks. It affects that screen and nothing else — '
+            + 'the Hall of Fame on phones and on the iPad kiosk stays all-time.</p>';
+        html += '<div class="board-window-form">';
+        html += '<input type="number" id="boardWindowInput" min="0" max="8760" step="1" class="board-window-input">';
+        html += '<span class="board-window-unit">hours &middot; 0 = since forever</span>';
+        html += '<button class="btn-primary" id="saveBoardWindowBtn">Save</button>';
+        html += '</div>';
+        html += '<p id="boardWindowStatus" class="board-window-status"></p>';
+        html += '</div>';
+
         html += '</div>';
 
         // Game Counter section
@@ -1829,20 +1872,6 @@ import {
         html += '<button class="btn-secondary" id="clearDeadlineBtn">Clear</button>';
         html += '</div>';
         html += '<p id="deadlineStatus" class="deadline-status hidden"></p>';
-        html += '</div>';
-
-        // Wall window — a plain integer field for now. Iteration 6 folds this
-        // into a single "Display modes" section; it is deliberately not built
-        // out here, so that the section is designed once rather than twice.
-        html += '<div class="admin-section"><h3>Wall Window</h3>';
-        html += '<p>How far back the <code>?mode=hof</code> wall looks. Affects that screen only — '
-            + 'the Hall of Fame on phones and on the iPad kiosk stays all-time.</p>';
-        html += '<div class="board-window-form">';
-        html += '<input type="number" id="boardWindowInput" min="0" max="8760" step="1" class="board-window-input">';
-        html += '<span class="board-window-unit">hours &middot; 0 = since forever</span>';
-        html += '<button class="btn-primary" id="saveBoardWindowBtn">Save</button>';
-        html += '</div>';
-        html += '<p id="boardWindowStatus" class="board-window-status"></p>';
         html += '</div>';
 
         // Theme Colors
@@ -1887,10 +1916,86 @@ import {
         initDropzone();
         loadGameStats();
         loadAdminLeaderboard();
+        renderDisplayModeUrls();
         loadAdminDeadline();
         loadAdminBoardWindow();
         loadAdminFacts();
         loadAdminTheme();
+    }
+
+    /**
+     * The two dedicated screens, as instructions an organiser can follow.
+     *
+     * Built from window.location.origin rather than from anything stored, so
+     * the URLs are right on a laptop, on a staging host and in production
+     * without anybody configuring a base address — and so what is copied is
+     * demonstrably reachable from where the organiser is standing.
+     */
+    const DISPLAY_MODE_SCREENS = [
+        {
+            mode: 'hof',
+            name: 'Hall of Fame — portrait screen',
+            what: 'No menus · refreshes every 5s · nothing is touchable',
+        },
+        {
+            mode: 'play',
+            name: 'Play station — landscape screen',
+            what: 'No menus · Hall of Fame unreachable · on-screen keyboard',
+        },
+    ];
+
+    function renderDisplayModeUrls() {
+        var container = document.getElementById('displayModeUrls');
+        var commands = document.getElementById('displayModeCommands');
+        if (!container) return;
+
+        var html = '';
+        DISPLAY_MODE_SCREENS.forEach(function (screen) {
+            var url = window.location.origin + '/?mode=' + screen.mode;
+            html += '<div class="display-mode-row">';
+            html += '<div class="display-mode-qr" id="displayModeQr_' + screen.mode + '"></div>';
+            html += '<div class="display-mode-info">';
+            html += '<p class="display-mode-name">' + escapeHtml(screen.name) + '</p>';
+            html += '<p class="display-mode-url">' + escapeHtml(url) + '</p>';
+            html += '<p class="display-mode-what">' + escapeHtml(screen.what) + '</p>';
+            html += '</div>';
+            html += '<button class="btn-secondary display-mode-copy" data-copy="' + escapeHtml(url)
+                + '">Copy</button>';
+            html += '</div>';
+        });
+        container.innerHTML = html;
+
+        if (commands) {
+            var cmdText = DISPLAY_MODE_SCREENS.map(function (screen) {
+                return 'chrome --kiosk --app="' + window.location.origin + '/?mode=' + screen.mode + '"';
+            }).join('\n');
+            commands.innerHTML = '<pre>' + escapeHtml(cmdText) + '</pre>'
+                + '<button class="btn-secondary display-mode-copy" data-copy="'
+                + escapeHtml(cmdText) + '">Copy</button>';
+        }
+
+        // The QR library already loaded for kiosk share codes — a second one
+        // would be a second thing to keep patched for no gain.
+        DISPLAY_MODE_SCREENS.forEach(function (screen) {
+            var target = document.getElementById('displayModeQr_' + screen.mode);
+            if (!target || typeof qrcode !== 'function') return;
+            var qr = qrcode(0, 'M');
+            qr.addData(window.location.origin + '/?mode=' + screen.mode);
+            qr.make();
+            target.innerHTML = qr.createSvgTag(3, 0);
+        });
+
+        document.querySelectorAll('.display-mode-copy').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var self = this;
+                copyToClipboard(this.dataset.copy).then(function (ok) {
+                    if (!ok) return;
+                    var original = self.textContent;
+                    self.textContent = 'Copied';
+                    setTimeout(function () { self.textContent = original; }, 1500);
+                });
+            });
+        });
     }
 
     async function loadAdminBoardWindow() {
