@@ -473,6 +473,69 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/get-board-window — the wall's time window, in hours.
+     */
+    public function getBoardWindow(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $stored = (new SettingsModel(Database::getInstance()->getPdo()))->get('board_window_hours');
+
+        $this->jsonResponse([
+            'window_hours' => ($stored === null || !is_numeric($stored))
+                ? LeaderboardModel::DEFAULT_WINDOW_HOURS
+                : max(0, min(BoardController::MAX_WINDOW_HOURS, (int) $stored)),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/set-board-window — set the wall's time window.
+     *
+     * Applies to ?mode=hof and to nothing else. The Hall of Fame served to
+     * phones and to the iPad kiosk stays all-time: an organiser narrowing the
+     * wall to the evening's own scores must not thereby erase the record from
+     * every other screen.
+     *
+     * 0 means "since forever" rather than "a window of zero hours" — the
+     * Admin field says so, and the model reads it the same way.
+     */
+    public function setBoardWindow(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $input = $this->getJsonInput();
+        $raw = $input['window_hours'] ?? null;
+
+        // Rejected rather than coerced. (int) '' is 0, and 0 is a meaningful
+        // value here — a malformed request would otherwise quietly widen the
+        // wall to all time instead of failing.
+        if (!is_int($raw) && !(is_string($raw) && $raw !== '' && ctype_digit($raw))) {
+            $this->jsonResponse(['error' => 'Window must be a whole number of hours.'], 400);
+            return;
+        }
+
+        $hours = (int) $raw;
+        if ($hours < 0 || $hours > BoardController::MAX_WINDOW_HOURS) {
+            $this->jsonResponse(
+                ['error' => 'Window must be between 0 and ' . BoardController::MAX_WINDOW_HOURS . ' hours.'],
+                400
+            );
+            return;
+        }
+
+        (new SettingsModel(Database::getInstance()->getPdo()))
+            ->set('board_window_hours', (string) $hours);
+
+        $this->jsonResponse(['success' => true, 'window_hours' => $hours]);
+    }
+
+    /**
      * Fetch the stored deadline value from the settings table.
      */
     public static function fetchDeadlineStatic(): ?string

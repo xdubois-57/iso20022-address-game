@@ -1481,6 +1481,20 @@ import { createApi } from './lib/api.js';
         html += '<p id="deadlineStatus" class="deadline-status hidden"></p>';
         html += '</div>';
 
+        // Wall window — a plain integer field for now. Iteration 6 folds this
+        // into a single "Display modes" section; it is deliberately not built
+        // out here, so that the section is designed once rather than twice.
+        html += '<div class="admin-section"><h3>Wall Window</h3>';
+        html += '<p>How far back the <code>?mode=hof</code> wall looks. Affects that screen only — '
+            + 'the Hall of Fame on phones and on the iPad kiosk stays all-time.</p>';
+        html += '<div class="board-window-form">';
+        html += '<input type="number" id="boardWindowInput" min="0" max="8760" step="1" class="board-window-input">';
+        html += '<span class="board-window-unit">hours &middot; 0 = since forever</span>';
+        html += '<button class="btn-primary" id="saveBoardWindowBtn">Save</button>';
+        html += '</div>';
+        html += '<p id="boardWindowStatus" class="board-window-status"></p>';
+        html += '</div>';
+
         // Theme Colors
         html += '<div class="admin-section"><h3>Theme Colors</h3>';
         html += '<p>Customize the brand colors. Changes take effect after saving and reloading the page.</p>';
@@ -1524,8 +1538,19 @@ import { createApi } from './lib/api.js';
         loadGameStats();
         loadAdminLeaderboard();
         loadAdminDeadline();
+        loadAdminBoardWindow();
         loadAdminFacts();
         loadAdminTheme();
+    }
+
+    async function loadAdminBoardWindow() {
+        var input = document.getElementById('boardWindowInput');
+        if (!input) return;
+
+        var data = await api('admin/get-board-window');
+        if (data && typeof data.window_hours === 'number') {
+            input.value = String(data.window_hours);
+        }
     }
 
     var gamesChart = null;
@@ -1999,6 +2024,28 @@ import { createApi } from './lib/api.js';
                 status.textContent = 'Deadline cleared';
                 status.classList.remove('hidden');
                 await showModal('Deadline cleared');
+            }
+        });
+
+        document.getElementById('saveBoardWindowBtn').addEventListener('click', async function () {
+            var input = document.getElementById('boardWindowInput');
+            var status = document.getElementById('boardWindowStatus');
+            var raw = input.value.trim();
+
+            // Checked here as well as on the server, purely so a typo gets an
+            // answer without a round trip. The server does not trust this.
+            if (!/^\d+$/.test(raw) || parseInt(raw, 10) > 8760) {
+                status.textContent = 'Enter a whole number of hours between 0 and 8760.';
+                return;
+            }
+
+            var data = await api('admin/set-board-window', { window_hours: parseInt(raw, 10) });
+            if (data && data.success) {
+                status.textContent = data.window_hours === 0
+                    ? 'Saved — the wall shows every entry ever recorded.'
+                    : 'Saved — the wall shows the last ' + data.window_hours + ' hours.';
+            } else {
+                status.textContent = (data && data.error) ? data.error : 'Could not save the window.';
             }
         });
 

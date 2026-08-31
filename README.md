@@ -157,6 +157,28 @@ For an optimal kiosk experience on iPad, add the app to your home screen and ena
 6. Triple-click the Side button to start Guided Access (locks to this app)
 7. Triple-click again and enter passcode to stop Guided Access
 
+### 7. The Hall of Fame wall (`?mode=hof`)
+
+A public GET route, `/board/data`, feeds the wall display. It answers JSON
+without a session and without a CSRF token, unlike every other API route here.
+
+That is deliberate. The rest of the API is POST-only with a CSRF token bound to
+the PHP session, whose default lifetime is 24 minutes. A screen that polls the
+server from six in the evening until the room empties would lose its session
+and see every call fall to 403 — silently, around midnight, with nobody
+standing in front of it. A public GET removes that failure mode at the root.
+Nothing is exposed that the Hall of Fame does not already show any anonymous
+visitor: the same names, the same scores, the same ordering.
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `board_window_hours` | Admin → Wall Window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
+
+`board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
+Fame served to phones, to desktop browsers and to the iPad kiosk stays
+all-time, so narrowing the wall to one evening never erases the record
+everywhere else.
+
 ## Excel File Format
 
 ### Sheet 1: Scenarios

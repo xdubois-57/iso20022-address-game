@@ -113,6 +113,168 @@ class LeaderboardModel
     }
 
     /**
+     * The default time window the wall shows, in hours. 0 means "all time".
+     */
+    public const DEFAULT_WINDOW_HOURS = 24;
+
+    /**
+     * A `created_at >= now - N hours` fragment, or '' when there is no window.
+     *
+     * Spelled out per driver for the same reason purgeExpired() is: MySQL's
+     * DATE_SUB()/INTERVAL parses on neither SQLite nor the other way round.
+     * The cutoff is computed by the database rather than by PHP because
+     * created_at is written by the database — MySQL stamps rows in the
+     * session timezone, SQLite always in UTC — so asking each engine for its
+     * own "now" keeps both sides of the comparison in one frame of reference.
+     *
+     * A null or zero window means no filtering at all, not a window of zero
+     * hours: the Admin field documents 0 as "since forever", and a literal
+     * reading of it would blank the wall.
+     */
+    private function windowClause(?int $windowHours, string $keyword = 'WHERE'): string
+    {
+        if ($windowHours === null || $windowHours <= 0) {
+            return '';
+        }
+
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        return $driver === 'sqlite'
+            ? " $keyword created_at >= datetime('now', :window_spec) "
+            : " $keyword created_at >= DATE_SUB(NOW(), INTERVAL :window_hours HOUR) ";
+    }
+
+    /** Bind whichever window parameter windowClause() just used. */
+    private function bindWindow(\PDOStatement $stmt, ?int $windowHours): void
+    {
+        if ($windowHours === null || $windowHours <= 0) {
+            return;
+        }
+
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $stmt->bindValue(':window_spec', '-' . $windowHours . ' hours');
+        } else {
+            $stmt->bindValue(':window_hours', $windowHours, PDO::PARAM_INT);
+        }
+    }
+
+    /**
+     * The top of the leaderboard inside a time window, for the wall.
+     *
+     * A separate method rather than an extra argument on getTopEntries() or
+     * getPaginatedEntries(): those two serve the classic Hall of Fame, which
+     * stays all-time on every device, and widening their signatures would put
+     * a window parameter within reach of screens that must never have one.
+     *
+     * The ordering is deliberately identical to theirs — game_score DESC,
+     * time_seconds ASC, created_at ASC. A different tie-break would let the
+     * wall and the Hall of Fame disagree about who is ahead, in front of the
+     * two people concerned.
+     */
+    public function getBoardEntries(int $limit, ?int $windowHours): array
+    {
+        $expr = self::GAME_SCORE_EXPR;
+        $stmt = $this->pdo->prepare(
+            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score "
+            . 'FROM leaderboard'
+            . $this->windowClause($windowHours)
+            . ' ORDER BY game_score DESC, time_seconds ASC, created_at ASC LIMIT :limit'
+        );
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $this->bindWindow($stmt, $windowHours);
+        $stmt->execute();
+
+        return $this->hydrate($stmt->fetchAll());
+    }
+
+    /**
+     * The most recently finished runs inside the window, newest first.
+     *
+     * Feeds the wall's "just arrived" banner, which has to name players who
+     * placed too low to appear in the visible top — the ones for whom the
+     * wall is the only acknowledgement they will get.
+     */
+    public function getRecentEntries(int $limit, ?int $windowHours): array
+    {
+        $expr = self::GAME_SCORE_EXPR;
+        $stmt = $this->pdo->prepare(
+            "SELECT id, encrypted_name, score, time_seconds, created_at, $expr AS game_score "
+            . 'FROM leaderboard'
+            . $this->windowClause($windowHours)
+            . ' ORDER BY created_at DESC, id DESC LIMIT :limit'
+        );
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $this->bindWindow($stmt, $windowHours);
+        $stmt->execute();
+
+        return $this->hydrate($stmt->fetchAll());
+    }
+
+    /** How many entries fall inside the window. */
+    public function getCountSince(?int $windowHours): int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM leaderboard' . $this->windowClause($windowHours)
+        );
+        $this->bindWindow($stmt, $windowHours);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * The 1-based rank of an entry WITHIN a time window.
+     *
+     * Computed here rather than inferred by the browser from a row's position
+     * in the array. Two players who tie on score and time share a rank, and a
+     * client counting rows would hand the second of them a number one too
+     * high — on a wall, in front of both.
+     *
+     * Returns 0 when the entry does not exist, or falls outside the window.
+     */
+    public function getRankInWindow(int $id, ?int $windowHours): int
+    {
+        $window = $this->windowClause($windowHours, 'AND');
+
+        $check = $this->pdo->prepare(
+            'SELECT id FROM leaderboard WHERE id = :id' . $window
+        );
+        $check->bindValue(':id', $id, PDO::PARAM_INT);
+        $this->bindWindow($check, $windowHours);
+        $check->execute();
+        if (!$check->fetch()) {
+            return 0;
+        }
+
+        $lbExpr = 'ROUND(lb.score * lb.score * (1.0 + 500.0 / '
+            . '(CASE WHEN lb.time_seconds < 1 THEN 1 ELSE lb.time_seconds END)) / 10.0)';
+        $tExpr = 'ROUND(t.score * t.score * (1.0 + 500.0 / '
+            . '(CASE WHEN t.time_seconds < 1 THEN 1 ELSE t.time_seconds END)) / 10.0)';
+
+        // The window applies to the rows being counted as well as to the
+        // subject: a rank "within the last 24 hours" that counted yesterday's
+        // entries above it would not be a rank in that window at all.
+        $lbWindow = $window === ''
+            ? ''
+            : str_replace('created_at', 'lb.created_at', $window);
+
+        $sql = 'SELECT COUNT(*) FROM leaderboard lb, '
+            . '(SELECT score, time_seconds, created_at FROM leaderboard WHERE id = :id) t '
+            . "WHERE (($lbExpr > $tExpr) "
+            . "OR ($lbExpr = $tExpr AND lb.time_seconds < t.time_seconds) "
+            . "OR ($lbExpr = $tExpr AND lb.time_seconds = t.time_seconds AND lb.created_at < t.created_at))"
+            . $lbWindow;
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $this->bindWindow($stmt, $windowHours);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn() + 1;
+    }
+
+    /**
      * Attach a display name to each row and drop the ciphertext.
      *
      * Names that cannot be decrypted — typically after a key change — are shown

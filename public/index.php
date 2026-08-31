@@ -68,6 +68,7 @@ use App\Controllers\SetupController;
 use App\Controllers\ShareController;
 use App\Controllers\BackgroundController;
 use App\Controllers\AppIconController;
+use App\Controllers\BoardController;
 
 // Security headers.
 //
@@ -124,6 +125,24 @@ if ($requestUri === '/share/go') {
 }
 if ($requestUri === '/share') {
     (new ShareController())->sharePage();
+    exit;
+}
+/**
+ * The Hall of Fame wall's data source, and the reason it sits up here with
+ * the share routes rather than down among the POST actions.
+ *
+ * Every other API route is a POST carrying a CSRF token bound to the PHP
+ * session, whose default lifetime is 24 minutes. A wall polling from six in
+ * the evening until two in the morning would lose its session and see every
+ * call fall to 403 — silently, around midnight, with nobody in front of the
+ * screen. A public GET, declared before session_start(), removes that failure
+ * mode instead of working around it with token refreshes.
+ *
+ * Safe because it exposes nothing the Hall of Fame does not already show any
+ * anonymous visitor: the same names, scores and ordering.
+ */
+if ($requestUri === '/board/data') {
+    (new BoardController())->data();
     exit;
 }
 
@@ -232,6 +251,8 @@ if ($method === 'POST') {
         'admin/purge-leaderboard' => (new AdminController())->purgeLeaderboard(),
         'admin/set-deadline' => (new AdminController())->setDeadline(),
         'admin/get-deadline' => (new AdminController())->getDeadline(),
+        'admin/get-board-window' => (new AdminController())->getBoardWindow(),
+        'admin/set-board-window' => (new AdminController())->setBoardWindow(),
         'admin/get-facts' => (new AdminController())->getFacts(),
         'admin/add-fact' => (new AdminController())->addFact(),
         'admin/update-fact' => (new AdminController())->updateFact(),

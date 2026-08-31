@@ -1799,3 +1799,30 @@ body[data-mode="hof"] .header-content,
 body[data-mode="play"] .header-content {
     justify-content: center;
 }
+
+/* Wall window field in the Admin screen (iteration 6 folds this section into
+   "Display modes"; the controls themselves keep these rules). */
+.board-window-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.board-window-input {
+    width: 100px;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--game-grey-green);
+    border-radius: 6px;
+}
+
+.board-window-unit {
+    font-size: 0.9rem;
+    color: var(--game-grey-green);
+}
+
+.board-window-status {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    min-height: 1.2em;
+}
