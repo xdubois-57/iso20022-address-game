@@ -43,7 +43,13 @@ import { createApi } from './lib/api.js';
      * lockup does not change, so a constant is the honest mechanism — bump
      * this literal on the day the asset is ever replaced.
      */
-    const PMPG_LOGO_SRC = 'assets/images/pmpg-logo.png?v=1';
+    // Versioned by the server (layout.php), so replacing the logo file
+    // actually reaches a browser that already has the old one. The literal
+    // fallback only applies if the meta tag is missing, which no served page
+    // does — an unversioned URL beats a broken image.
+    const PMPG_LOGO_SRC =
+        document.querySelector('meta[name="pmpg-logo-url"]')?.content
+        || 'assets/images/pmpg-logo.png';
 
     /* =======================================================
        State
