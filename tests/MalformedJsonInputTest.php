@@ -216,7 +216,10 @@ class MalformedJsonInputTest extends TestCase
         // is not in front of the controller here, which is the point: the
         // controller itself must not fatal.
         [$json, $status] = $this->invoke(
-            $this->setupController(['host' => ['h'], 'port' => ['p'], 'name' => ['db'], 'username' => ['u'], 'password' => ['s']]),
+            $this->setupController([
+                'host' => ['h'], 'port' => ['p'], 'name' => ['db'],
+                'username' => ['u'], 'password' => ['s'],
+            ]),
             'testConnection'
         );
 

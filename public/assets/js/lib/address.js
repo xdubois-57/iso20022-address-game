@@ -51,7 +51,7 @@ export function formatAddressForDisplay(addressData) {
     //   PstCd -> postcode
     //   TwnNm -> city
     //   Ctry -> countryCode (library looks up country name from this)
-    var addr = {
+    const addr = {
         attention: addressData.attention || '',
         houseNumber: addressData.houseNumber || '',
         road: addressData.road || '',
