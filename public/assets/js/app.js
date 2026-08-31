@@ -1195,6 +1195,66 @@ import { createApi } from './lib/api.js';
     /* =======================================================
        Leaderboard Screen
        ======================================================= */
+    /**
+     * The Hall of Fame table, and whether it contains the row belonging to the
+     * run just submitted (the caller scrolls to it and fires the confetti).
+     *
+     * Extracted from renderLeaderboardScreen() along with
+     * buildPaginationControls(): between them the row loop and the pagination
+     * branches carried most of that function's cognitive complexity (S3776),
+     * and neither depends on anything else the caller is doing.
+     */
+    function buildLeaderboardTable(entries, startRank, highlightId) {
+        var hasHighlight = false;
+        var html = '<table class="leaderboard-table"><thead><tr>'
+            + '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th>'
+            + '</tr></thead><tbody>';
+
+        entries.forEach(function (entry, i) {
+            var isMe = highlightId && parseInt(entry.id, 10) === parseInt(highlightId, 10);
+            if (isMe) hasHighlight = true;
+
+            var score = entry.game_score !== undefined
+                ? entry.game_score
+                : computeGameScore(parseInt(entry.score, 10) || 0, parseInt(entry.time_seconds, 10) || 0);
+
+            html += '<tr' + (isMe ? ' class="my-entry"' : '') + '>'
+                + '<td>' + (startRank + i + 1) + '</td>'
+                + '<td>' + escapeHtml(entry.player_name) + '</td>'
+                + '<td>' + score + '</td>'
+                + '<td>' + formatDate(entry.created_at) + '</td></tr>';
+        });
+
+        return { html: html + '</tbody></table>', hasHighlight: hasHighlight };
+    }
+
+    /** Pagination row, or nothing at all when everything fits on one page. */
+    function buildPaginationControls(currentPage, totalPages, totalCount) {
+        if (totalPages <= 1) {
+            return '';
+        }
+
+        var html = '<div class="pagination">';
+        if (currentPage > 1) {
+            html += '<button class="btn-page" data-page="1" title="First">&laquo;</button>'
+                + '<button class="btn-page" data-page="' + (currentPage - 1) + '" title="Previous">&lsaquo;</button>';
+        }
+
+        var startP = Math.max(1, currentPage - 2);
+        var endP = Math.min(totalPages, currentPage + 2);
+        for (var p = startP; p <= endP; p++) {
+            html += '<button class="btn-page' + (p === currentPage ? ' active' : '')
+                + '" data-page="' + p + '">' + p + '</button>';
+        }
+
+        if (currentPage < totalPages) {
+            html += '<button class="btn-page" data-page="' + (currentPage + 1) + '" title="Next">&rsaquo;</button>'
+                + '<button class="btn-page" data-page="' + totalPages + '" title="Last">&raquo;</button>';
+        }
+
+        return html + '<span class="page-info">' + totalCount + ' entries</span></div>';
+    }
+
     async function renderLeaderboardScreen(page) {
         // Navigate to the submitted entry's page if available
         if (!page && lastSubmittedPage) {
@@ -1223,41 +1283,10 @@ import { createApi } from './lib/api.js';
         if (totalCount === 0) {
             html += '<p class="empty-state">No entries yet. Be the first to play!</p>';
         } else {
-            html += '<table class="leaderboard-table"><thead><tr>';
-            html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th>';
-            html += '</tr></thead><tbody>';
-
-            entries.forEach(function (entry, i) {
-                var isMe = highlightId && parseInt(entry.id) === parseInt(highlightId);
-                if (isMe) hasHighlight = true;
-                html += '<tr' + (isMe ? ' class="my-entry"' : '') + '>';
-                html += '<td>' + (startRank + i + 1) + '</td>';
-                html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-                html += '<td>' + (entry.game_score !== undefined ? entry.game_score : computeGameScore(parseInt(entry.score) || 0, parseInt(entry.time_seconds) || 0)) + '</td>';
-                html += '<td>' + formatDate(entry.created_at) + '</td></tr>';
-            });
-
-            html += '</tbody></table>';
-
-            // Pagination controls
-            if (totalPages > 1) {
-                html += '<div class="pagination">';
-                if (currentPage > 1) {
-                    html += '<button class="btn-page" data-page="1" title="First">&laquo;</button>';
-                    html += '<button class="btn-page" data-page="' + (currentPage - 1) + '" title="Previous">&lsaquo;</button>';
-                }
-                var startP = Math.max(1, currentPage - 2);
-                var endP = Math.min(totalPages, currentPage + 2);
-                for (var p = startP; p <= endP; p++) {
-                    html += '<button class="btn-page' + (p === currentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
-                }
-                if (currentPage < totalPages) {
-                    html += '<button class="btn-page" data-page="' + (currentPage + 1) + '" title="Next">&rsaquo;</button>';
-                    html += '<button class="btn-page" data-page="' + totalPages + '" title="Last">&raquo;</button>';
-                }
-                html += '<span class="page-info">' + totalCount + ' entries</span>';
-                html += '</div>';
-            }
+            var table = buildLeaderboardTable(entries, startRank, highlightId);
+            hasHighlight = table.hasHighlight;
+            html += table.html;
+            html += buildPaginationControls(currentPage, totalPages, totalCount);
         }
 
         html += '</div></section>';
