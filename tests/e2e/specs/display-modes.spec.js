@@ -150,11 +150,11 @@ test.describe('display modes — the dedicated screens', () => {
 // minutes per address, and that budget is shared with every other spec in the
 // run — board-data.spec.js and gameplay.spec.js both spend from it. Seeding
 // generously here does not fail this file, it fails gameplay.spec.js several
-// minutes later, which is a miserable thing to debug. Five is what a podium
-// plus a couple of rows costs; the tests that need a full board serve one
-// through page.route instead.
+// minutes later, which is a miserable thing to debug. Four is what a podium
+// plus a row costs; the tests that need a full board serve one through
+// page.route instead.
 test.describe.serial('the wall (?mode=hof)', () => {
-    const SEEDED = 5;
+    const SEEDED = 4;
 
     test.beforeAll(async ({ browser }) => {
         const page = await browser.newPage();
@@ -164,7 +164,13 @@ test.describe.serial('the wall (?mode=hof)', () => {
                 () => document.querySelector('meta[name="csrf-token"]')?.content || ''
             );
 
-            for (let i = 0; i < SEEDED; i++) {
+            // Top up to SEEDED rather than adding SEEDED. Other specs in the
+            // run have already put entries on the board and spent from the
+            // same rate-limit budget; submitting a fixed number regardless is
+            // how that budget gets exhausted for whoever runs last.
+            const existing = (await (await page.request.get('/board/data')).json()).total_count;
+
+            for (let i = existing; i < SEEDED; i++) {
                 const resp = await page.request.post('/index.php', {
                     headers: {
                         'Content-Type': 'application/json',

@@ -235,6 +235,12 @@ import {
         // welcome card on a display nobody is watching.
         if (displayMode === 'hof') return;
 
+        // Any navigation away from the play station's result screen cancels
+        // its hand-back timer. Without this, a player who taps Play again
+        // would be thrown back to the welcome card mid-game by a timer left
+        // running from the previous round.
+        stopPlayReturn();
+
         window.scrollTo(0, 0);
         dismissScreenSaver();
         // Update nav active state
@@ -1049,11 +1055,14 @@ import {
         });
     }
 
-    function showFinalScore() {
-        gameActive = false;
-        stopGameTimer();
-        stopInactivityTimer();
-
+    /**
+     * The numbers a finished game is described by.
+     *
+     * Extracted so the play station's end screen and the existing one can
+     * agree on them without either recomputing the other's arithmetic — the
+     * one thing that must not drift between the two.
+     */
+    function summariseGame() {
         var totalScore = 0, totalMax = 0, perfectCount = 0;
         roundScores.forEach(function (r) {
             totalScore += r.score;
@@ -1061,10 +1070,38 @@ import {
             if (r.perfect) perfectCount++;
         });
         var finalPct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
-        var finalGameScore = computeGameScore(finalPct, gameElapsedSeconds);
         var mins = Math.floor(gameElapsedSeconds / 60);
         var secs = gameElapsedSeconds % 60;
-        var timeStr = mins + ':' + (secs < 10 ? '0' : '') + secs;
+
+        return {
+            finalPct: finalPct,
+            perfectCount: perfectCount,
+            roundCount: roundScores.length,
+            finalGameScore: computeGameScore(finalPct, gameElapsedSeconds),
+            timeStr: mins + ':' + (secs < 10 ? '0' : '') + secs,
+        };
+    }
+
+    function showFinalScore() {
+        gameActive = false;
+        stopGameTimer();
+        stopInactivityTimer();
+
+        var summary = summariseGame();
+
+        // The play station gets an entirely different ending, and takes it
+        // before anything below runs. Not a variation on this screen: the
+        // path below reaches the Hall of Fame and the share sheet, and on a
+        // standing kiosk both are things a player cannot get back out of.
+        if (displayMode === 'play') {
+            showPlayStationResult(summary);
+            return;
+        }
+
+        var perfectCount = summary.perfectCount;
+        var finalPct = summary.finalPct;
+        var finalGameScore = summary.finalGameScore;
+        var timeStr = summary.timeStr;
 
         var html = '<section class="final-score-screen"><div class="final-score-card">';
         html += '<h1>\uD83C\uDF89 Game Over!</h1>';
@@ -1151,6 +1188,161 @@ import {
         } else {
             setupShareButtons(finalGameScore);
         }
+    }
+
+    /* =======================================================
+       The play station's end of game (?mode=play)
+
+       A queue forms behind this screen. Everything here is shaped by that:
+       the player is thanked, shown something worth having, and pointed at the
+       wall next door — and then the station makes itself available again
+       without being asked.
+
+       What it deliberately does NOT contain:
+
+       - the Hall of Fame. Reaching it is what makes a player stand there
+         scrolling while five people wait;
+       - any rank, standing or top-three. Same reason;
+       - any share button, and no entry into the share path AT ALL.
+         hasNativeShare() returns true as soon as 'ontouchstart' is in window,
+         which it is on a Windows touch screen, and navigator.share opens the
+         OS share pane OVER the kiosk with no way out that a player will find.
+         Hiding the button would not help — the requirement is that this code
+         path is never entered.
+       ======================================================= */
+    const PLAY_AUTO_RETURN_MS = 8000;
+
+    var playReturnTimer = null;
+    var playCountdownInterval = null;
+
+    function stopPlayReturn() {
+        clearTimeout(playReturnTimer);
+        clearInterval(playCountdownInterval);
+        playReturnTimer = null;
+        playCountdownInterval = null;
+    }
+
+    /** "Nice one, Rafael" — the first name only, and only if there is one. */
+    function firstNameOf(name) {
+        var first = String(name || '').trim().split(/\s+/)[0];
+        return first || 'you';
+    }
+
+    function playStatsHtml(summary) {
+        // Three figures on one line: enough to compare a run against your own
+        // last one, and nothing that implies a standing.
+        //
+        // Not "hints used", which the roadmap asks for: this game has no hint
+        // mechanism to count, and inventing one to fill a slot would be a
+        // change to the game rather than to this screen. Accuracy is the
+        // nearest honest third figure and is already computed.
+        return '<div class="play-stats">'
+            + '<div class="play-stat"><div class="play-stat-value">'
+            + summary.perfectCount + ' / ' + summary.roundCount
+            + '</div><div class="play-stat-label">addresses</div></div>'
+            + '<div class="play-stat"><div class="play-stat-value">'
+            + summary.timeStr
+            + '</div><div class="play-stat-label">time</div></div>'
+            + '<div class="play-stat"><div class="play-stat-value">'
+            + summary.finalPct + '%'
+            + '</div><div class="play-stat-label">accuracy</div></div>'
+            + '</div>';
+    }
+
+    function showPlayStationResult(summary) {
+        stopPlayReturn();
+
+        var html = '<section class="play-result">';
+        html += '<p class="play-hook">Nice one, ' + escapeHtml(firstNameOf(playerName)) + '</p>';
+        html += '<div class="play-score" id="playScoreValue">0</div>';
+        html += playStatsHtml(summary);
+        // The centrepiece. The reward is not removed on this screen, it is
+        // redirected: the arrow points at the physical panel beside it.
+        html += '<div class="play-wall-cue">Your name is going up on the wall '
+            + '<span class="play-arrow" aria-hidden="true">→</span></div>';
+        html += '<button class="btn-primary play-again" id="playAgainBtn">Play again'
+            + '<span class="play-again-bar" id="playAgainBar"></span></button>';
+        html += '<p class="play-next">Next player in <span id="playCountdown">'
+            + (PLAY_AUTO_RETURN_MS / 1000) + '</span>s</p>';
+        html += '</section>';
+
+        appContainer.innerHTML = html;
+        window.scrollTo(0, 0);
+
+        // The public celebration belongs to the wall, but the player's own
+        // screen is allowed to react.
+        if (boundConfetti) {
+            boundConfetti({ particleCount: 120, spread: 80, origin: { y: 0.55 } });
+            setTimeout(function () {
+                boundConfetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 } });
+                boundConfetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 } });
+            }, 250);
+        }
+
+        api('game/complete', {});
+
+        // Filed without being asked. On a station with a queue behind it,
+        // "Submit to Hall of Fame" is one more thing to explain to every
+        // player, and a run nobody submitted is a name that never reaches the
+        // wall it was just promised.
+        (async function () {
+            var data = await api('leaderboard/submit', {
+                player_name: playerName,
+                score: summary.finalPct,
+                time_seconds: gameElapsedSeconds,
+            });
+            // Nothing is shown either way. The rank came back in that
+            // response and is deliberately ignored, and a failure is not this
+            // player's problem to solve standing at a kiosk.
+            if (data && data.success) {
+                lastSubmittedEntryId = data.entry_id;
+            }
+        })();
+
+        var scoreEl = document.getElementById('playScoreValue');
+        animateScore(scoreEl, summary.finalGameScore, 1200, function () {
+            scoreEl.classList.add('play-score-pop');
+        });
+
+        document.getElementById('playAgainBtn').addEventListener('click', function () {
+            stopPlayReturn();
+            showScreen('game');
+        });
+
+        startPlayAutoReturn();
+    }
+
+    /**
+     * Hand the station back to the next player on its own.
+     *
+     * The bar draining under the button is the point: a player who wants
+     * another go can see how long they have, and one who has walked off does
+     * not leave their score on screen for the person behind them.
+     */
+    function startPlayAutoReturn() {
+        var bar = document.getElementById('playAgainBar');
+        if (bar) {
+            // Set on the next frame so the transition has a start value to
+            // animate from; assigning both in one go would simply jump.
+            bar.style.transition = 'none';
+            bar.style.width = '100%';
+            requestAnimationFrame(function () {
+                bar.style.transition = 'width ' + (PLAY_AUTO_RETURN_MS / 1000) + 's linear';
+                bar.style.width = '0%';
+            });
+        }
+
+        var remaining = PLAY_AUTO_RETURN_MS / 1000;
+        playCountdownInterval = setInterval(function () {
+            remaining--;
+            var el = document.getElementById('playCountdown');
+            if (el) el.textContent = String(Math.max(0, remaining));
+        }, 1000);
+
+        playReturnTimer = setTimeout(function () {
+            stopPlayReturn();
+            showScreen('game');
+        }, PLAY_AUTO_RETURN_MS);
     }
 
     /**

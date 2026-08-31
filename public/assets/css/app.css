@@ -2048,3 +2048,134 @@ body[data-mode="hof"] .game-main {
         animation: none;
     }
 }
+
+/* ---------------------------------------------------------
+   The play station's end of game (?mode=play)
+
+   A 42-inch landscape panel, played standing, with a queue behind it.
+   Everything is sized for a couple of paces back and an arm's length reach:
+   72px is the floor for anything touchable, roughly 35mm on a 1080p panel of
+   this size, where the 44px that suits a phone in the hand is too small.
+   --------------------------------------------------------- */
+.play-result {
+    max-width: min(1000px, 90vw);
+    margin: 0 auto;
+    padding: 2vh 0;
+    /* A column, explicitly. Laid out in normal flow the wall cue is an
+       inline-block and the Play again button lands beside it rather than
+       under it, which reads as two competing calls to action. */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.play-hook {
+    font-size: clamp(1.4rem, 4vh, 2.6rem);
+    font-weight: 600;
+    margin: 0 0 1vh;
+    opacity: 0.85;
+}
+
+.play-score {
+    font-size: clamp(4rem, 18vh, 11rem);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--game-emerald);
+}
+
+/* The small leap as the count lands. Short and once — this screen is seen a
+   few hundred times in an evening by different people, not studied. */
+.play-score-pop {
+    animation: play-score-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes play-score-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+.play-stats {
+    display: flex;
+    justify-content: center;
+    gap: clamp(1.5rem, 6vw, 5rem);
+    margin: 2vh 0 3vh;
+    /* Enough separation from the world map behind to stay readable at a
+       couple of paces. */
+    background: rgb(255 255 255 / 26%);
+    border-radius: 12px;
+    padding: 1.4vh 3vw;
+}
+
+.play-stat-value {
+    font-size: clamp(1.3rem, 4vh, 2.4rem);
+    font-weight: 700;
+}
+
+.play-stat-label {
+    font-size: clamp(0.75rem, 1.8vh, 1.1rem);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.7;
+}
+
+/* The centrepiece. The reward is not removed on this screen, it is
+   redirected — and the arrow points at the physical panel standing next to
+   this one, which is why it is this large. */
+.play-wall-cue {
+    background: rgb(255 255 255 / 30%);
+    border-radius: 14px;
+    padding: 1.6vh 3vw;
+    font-size: clamp(1.1rem, 3.2vh, 2.2rem);
+    font-weight: 600;
+    margin-bottom: 3vh;
+}
+
+.play-arrow {
+    font-size: 1.3em;
+    margin-left: 0.3em;
+    display: inline-block;
+    animation: play-arrow-nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes play-arrow-nudge {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(10px); }
+}
+
+.play-again {
+    position: relative;
+    overflow: hidden;
+    display: block;
+    /* 72px floor: played standing, at arm's length, sometimes by two people
+       at once. */
+    min-height: 72px;
+    min-width: 280px;
+    font-size: clamp(1.1rem, 2.6vh, 1.6rem);
+    padding: 0 2.5rem;
+}
+
+/* Drains over the eight seconds of the automatic hand-back, so a player can
+   see how long they have rather than being cut off mid-thought. */
+.play-again-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 6px;
+    width: 100%;
+    background: rgb(255 255 255 / 65%);
+}
+
+.play-next {
+    font-size: clamp(0.85rem, 1.8vh, 1.1rem);
+    opacity: 0.7;
+    margin-top: 1.2vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .play-score-pop,
+    .play-arrow {
+        animation: none;
+    }
+}
