@@ -72,9 +72,16 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 
 - **Front Controller**: `public/index.php` serves as SPA entry point
 - **API Routes**: All communication via POST with `X-Action` header
-- **No URL parameters** — prevents state-tampering and maintains clean kiosk URL
-- **No exceptions**: every API route carries `X-Action`, a session and a CSRF token.
-  The app has no machine-caller endpoint, and nothing in it acts on an
+- **No URL parameters carry state** — the game itself is driven entirely by
+  POSTs, so there is nothing in a URL to tamper with. The one exception is
+  `?mode=hof|play`, which selects a display context and nothing else (see
+  *Display modes* below); it is read through a strict allowlist and any other
+  value falls back silently to the ordinary game
+- **One exception to POST-only**: `/board/data` is a public GET without a
+  session or a CSRF token, because the wall polls it for a whole evening and a
+  session-bound token expires in 24 minutes. It is read-only and returns the
+  same public leaderboard the Hall of Fame already shows. Every other API route
+  carries `X-Action`, a session and a CSRF token; nothing anywhere acts on an
   unauthenticated request
 
 ## 3. Game Mechanics
@@ -153,6 +160,65 @@ carry.
   - Rotates fun facts every 20 seconds
   - Dismisses on any touch/click interaction
 - **Reset**: Kiosk mode is session-only and resets on page reload
+
+### Display modes — the wall and the play station
+
+Two deployment contexts sit alongside the three above: a Hall of Fame wall
+(`?mode=hof`, a 42" portrait touch panel nobody touches) and a play station
+(`?mode=play`, a 42" landscape touch panel played standing), each driven by its
+own PC.
+
+Four decisions here are not obvious. They are written down because without the
+reasons the next person will undo the work believing they are simplifying.
+
+**The mode lives in the URL, and is resolved server-side.** Not in a session
+flag. `kioskMode` is a session flag set from the Admin screen, and that suits an
+iPad prepared by hand. It does not suit a PC bolted to a wall: at the first
+reload — a Windows update, a power cut, a crashed tab — the screen comes back in
+default mode, menus and all, and nobody is standing there to put it right. A URL
+parameter survives all of that. It is resolved in `public/index.php` rather than
+in JavaScript for two reasons: `app/Views/layout.php` renders the nav, so hiding
+it afterwards would flash the menus on every load; and it would still be in the
+DOM, reachable by keyboard. **This is a guard rail, not a security boundary** —
+the API routes stay open and the leaderboard data is public regardless. Do not
+build authentication for it.
+
+**The on-screen keyboard exists because Windows will not show its own.** Windows
+only offers its touch keyboard when it detects *no* physical keyboard. The play
+station has one, plugged in and tucked away in a corner, so Windows concludes the
+user can type and shows nothing. Without `?mode=play`'s keyboard the name field
+cannot be filled at all, and no game can be started. It is not a nicety, and it
+is scoped to `play` alone: a phone and an iPad both raise a perfectly good
+system keyboard, and overriding theirs would be a regression.
+
+**Native sharing is disabled in `play` mode, path and all.** `hasNativeShare()`
+returns true as soon as `'ontouchstart' in window`, which is the case on a
+Windows touch panel. `navigator.share` then opens the operating system's share
+pane *over* the kiosk, and a player will not find their way out of it. Hiding
+the button is not enough — `showFinalScore()` returns before the share path is
+entered at all.
+
+**The Admin panel is the instructions, not the switch.** Admin → Display modes
+gathers the three ways the game reaches a screen, shows both URLs with a Copy
+button and a QR code, and prints the `chrome --kiosk` command. It deliberately
+contains no control that puts the wall into wall mode: such a control would go
+out at that machine's first reboot, which is precisely the problem the URL
+solves.
+
+Two supporting choices, for the same reason:
+
+- **`/board/data` is a public GET, declared before `session_start()`.** Every
+  other API route is a POST with a CSRF token bound to a session whose default
+  lifetime is 24 minutes; a page polling all evening would lose it and fail with
+  403s around midnight, silently, in front of nobody. Do not add token refreshing
+  to work around what a public route simply does not need. The data is the same
+  public leaderboard the Hall of Fame already shows.
+- **The wall never blanks on failure.** A failed poll keeps the last good board
+  on screen and retries with a backoff capped at 30s; a small dot in the corner
+  admits staleness after three consecutive failures. A board frozen two minutes
+  ago is worth far more than a blank screen or an error page in front of fifty
+  people, and the cap is what brings it back within seconds of the network
+  returning.
 
 ### Fun Facts
 - **Database**: 10 default facts about ISO 20022 created on fresh install
@@ -350,6 +416,7 @@ text, and the PMPG lockup does not replace it.
 │   ├── Controllers/    # API Logic
 │   │   ├── AppIconController.php    # Apple Touch Icon: themed ground + PMPG sunburst on a white disc (Imagick, GD fallback)
 │   │   ├── BackgroundController.php # Themed Background SVG
+│   │   ├── BoardController.php      # GET /board/data — the wall's source; no session, no CSRF, on purpose
 │   │   └── ...
 │   ├── Models/         # DB, Encryption, Excel Parsing, HTML sanitisation, rate limiting
 │   │   ├── RetentionCleanup.php     # The scheduled deletions, shared by cron and its fallback

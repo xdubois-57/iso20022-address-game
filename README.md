@@ -43,6 +43,10 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
+- **Display modes** — `?mode=hof` drives an unattended Hall of Fame wall that
+  refreshes itself and survives a network outage; `?mode=play` drives a standing
+  play station with an on-screen keyboard and an end-of-game that hands the
+  machine back to the next player. See [Display modes](#display-modes)
 - **Responsive** — Mobile hamburger menu, touch-first design for tablets
 - **Cache Busting** — Theme-aware cache busting for background images and icons (includes theme colors + file mtimes)
 
@@ -131,7 +135,7 @@ presses that button — nothing overwrites a deliberate choice automatically.
 Enable **Kiosk Mode** for unattended public displays:
 
 1. Go to Admin panel
-2. Toggle "Kiosk Mode" at the top of the dashboard
+2. Under **Display modes**, switch on *Kiosk mode — this device*
 3. The app will:
    - Enter fullscreen automatically
    - Re-enter fullscreen if user exits
@@ -144,7 +148,10 @@ Enable **Kiosk Mode** for unattended public displays:
 - Rotates fun facts every 20 seconds
 - Dismisses on any touch/click interaction
 
-**Note:** Kiosk mode is session-only and resets on page reload.
+**Note:** Kiosk mode is session-only and resets on page reload. That is fine
+for an iPad you prepare by hand, and exactly wrong for an unattended screen —
+which is why the wall and the play station use a URL instead. See
+**Display modes** below.
 
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
@@ -157,10 +164,64 @@ For an optimal kiosk experience on iPad, add the app to your home screen and ena
 6. Triple-click the Side button to start Guided Access (locks to this app)
 7. Triple-click again and enter passcode to stop Guided Access
 
-### 7. The Hall of Fame wall (`?mode=hof`)
+## Display modes
 
-A public GET route, `/board/data`, feeds the wall display. It answers JSON
-without a session and without a CSRF token, unlike every other API route here.
+The game runs in five contexts. Three of them need no setup at all; the two
+dedicated screens are switched on by a URL.
+
+| Context | How you get there | Screen |
+|---|---|---|
+| Mobile / shared link | plain URL | whatever the player is holding |
+| Desktop browser | plain URL | a window |
+| iPad kiosk | toggle in Admin → Display modes | an iPad, prepared by hand |
+| **Hall of Fame wall** | `?mode=hof` | 42" **portrait**, touch, never touched |
+| **Play station** | `?mode=play` | 42" **landscape**, touch, played standing |
+
+```
+https://<host>/?mode=hof     the wall
+https://<host>/?mode=play    the play station
+```
+
+Both dedicated screens are served without the navigation bar and without the
+hamburger — omitted from the markup, not hidden after rendering. Understand
+this as a **guard rail, not a security boundary**: the API routes stay open and
+the leaderboard is public either way. The goal is that a player does not wander
+off into the Hall of Fame, not that a determined visitor cannot.
+
+### Launching the two screens
+
+Use the browser's own kiosk switch, not the Fullscreen API:
+
+```
+chrome --kiosk --app="https://<host>/?mode=hof"
+chrome --kiosk --app="https://<host>/?mode=play"
+```
+
+Fullscreen triggered from inside the page requires a user gesture. After a
+reboot at three in the morning there is nobody there to provide one, and the
+screen comes back as an ordinary window with menus. `--kiosk` returns to
+fullscreen on its own and keeps the address bar out of reach.
+
+### Reaching the admin screen from one of these machines
+
+Load the URL with no parameter. There is no back door in either display mode,
+by design.
+
+### Settings
+
+| Setting | Where | Default | Meaning |
+|---|---|---|---|
+| `board_window_hours` | Admin → Display modes → Wall window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
+
+`board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
+Fame served to phones, to desktop browsers and to the iPad kiosk stays
+all-time, so narrowing the wall to one evening never erases the record
+everywhere else.
+
+### `/board/data`
+
+The wall reads a public GET route, `/board/data`, which answers JSON without a
+session and without a CSRF token — unlike every other API route here.
 
 That is deliberate. The rest of the API is POST-only with a CSRF token bound to
 the PHP session, whose default lifetime is 24 minutes. A screen that polls the
@@ -170,14 +231,23 @@ standing in front of it. A public GET removes that failure mode at the root.
 Nothing is exposed that the Hall of Fame does not already show any anonymous
 visitor: the same names, the same scores, the same ordering.
 
-| Setting | Where | Default | Meaning |
-|---|---|---|---|
-| `board_window_hours` | Admin → Wall Window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
+It takes an optional `?limit=`, capped server-side at 50, and returns
+`window_hours`, `total_count`, `server_time`, `entries[]` and `recent[]`. Every
+entry carries a rank computed by the server.
 
-`board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
-Fame served to phones, to desktop browsers and to the iPad kiosk stays
-all-time, so narrowing the wall to one evening never erases the record
-everywhere else.
+### Before the event
+
+Worth doing once, on the real machines, and not on the day:
+
+- Launch both screens with the `--kiosk` commands above, then **reboot both
+  machines** and check they come back on their own in the right mode.
+- Set `board_window_hours`, play three games, and watch the wall react.
+- **Unplug the wall machine's network for thirty seconds**, then plug it back
+  in. The board must stay on screen throughout and resume by itself. This is
+  the one rehearsal that matters on the night.
+- Play a full game **with a finger only**, name included, without touching the
+  physical keyboard.
+- Confirm that pressing the wall does nothing whatsoever.
 
 ## Excel File Format
 
