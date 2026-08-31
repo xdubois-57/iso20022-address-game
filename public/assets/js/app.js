@@ -22,7 +22,6 @@ import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts } from '
 import { setSanitizedHtml } from './lib/sanitize.js';
 import { randomIndex } from './lib/random.js';
 import { createApi } from './lib/api.js';
-import * as AdminUpdate from './admin-update.js';
 
 (function () {
     'use strict';
@@ -1405,11 +1404,6 @@ import * as AdminUpdate from './admin-update.js';
         html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
         html += '</div>';
 
-        // Automatic Updates — rendered/wired by admin-update.js (its own
-        // module so tests/js/admin-update.test.js can exercise it without a
-        // build step); this is just the mount point.
-        html += '<div id="autoUpdateSectionContainer"><div class="admin-section"><h3>Automatic Updates</h3><p>Loading...</p></div></div>';
-
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
         html += '<div class="pin-change-form">';
@@ -1473,7 +1467,6 @@ import * as AdminUpdate from './admin-update.js';
         loadAdminDeadline();
         loadAdminFacts();
         loadAdminTheme();
-        AdminUpdate.initAutoUpdateSection(document.getElementById('autoUpdateSectionContainer'), api);
     }
 
     var gamesChart = null;

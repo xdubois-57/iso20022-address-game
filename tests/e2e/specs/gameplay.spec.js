@@ -243,6 +243,37 @@ test.describe('public game endpoints', () => {
         }
     });
 
+    test('the removed automatic-update endpoints stay removed', async ({ page }) => {
+        // Deployment is the deploy script's job alone now. These answering
+        // anything but 404 would mean the updater grew back — and with it a
+        // route that installs code on the server.
+        const csrf = await session(page);
+        await api(page, csrf, 'admin/login', { pin: ADMIN_PIN });
+
+        for (const action of [
+            'admin/get-update-settings',
+            'admin/save-update-settings',
+            'admin/generate-webhook-secret',
+            'admin/install-update-now',
+        ]) {
+            const resp = await api(page, csrf, action, {});
+            expect(resp.status(), `${action} must be gone`).toBe(404);
+        }
+    });
+
+    test('/webhook/github is no longer a route of its own', async ({ page }) => {
+        // It used to be THE exception: session-free, CSRF-free, and it acted
+        // on an unauthenticated POST. Reaching the ordinary unknown-action
+        // 404 is what proves the exception is gone rather than merely quiet.
+        const csrf = await session(page);
+        const resp = await page.request.post('/webhook/github', {
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+            data: JSON.stringify({ action: 'published' }),
+        });
+
+        expect(resp.status()).toBe(404);
+    });
+
     test('an unknown action is refused', async ({ page }) => {
         const csrf = await session(page);
         const resp = await api(page, csrf, 'game/there-is-no-such-action', {});

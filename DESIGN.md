@@ -73,9 +73,9 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 - **Front Controller**: `public/index.php` serves as SPA entry point
 - **API Routes**: All communication via POST with `X-Action` header
 - **No URL parameters** — prevents state-tampering and maintains clean kiosk URL
-- **One exception**: `POST /webhook/github` — GitHub's webhook delivery. No `X-Action`
-  header, no session, no CSRF token (GitHub is a machine caller with neither);
-  authenticated instead by an HMAC-SHA256 signature. See § 5 and § 6
+- **No exceptions**: every API route carries `X-Action`, a session and a CSRF token.
+  The app has no machine-caller endpoint, and nothing in it acts on an
+  unauthenticated request
 
 ## 3. Game Mechanics
 
@@ -244,10 +244,6 @@ Keys stored in `settings`:
 |-----|-------|
 | `unstructured_deadline` | admin-set countdown target, `YYYY-MM-DDTHH:MM` |
 | `color_primary`, `color_primary_hover`, `color_primary_light`, `color_bg`, `color_text` | theme palette, validated as hex |
-| `update_enabled`, `update_channel`, `update_github_owner`, `update_github_repo` | Automatic Updates configuration |
-| `update_webhook_secret` | 32-byte webhook secret, shown to the admin exactly once |
-| `update_pending` | JSON target queued for `App\Models\Updater` |
-| `update_last_event_*`, `update_last_install_*`, `update_dependencies_changed` | Automatic Updates diagnostics |
 
 Every write to this table goes through `App\Models\SettingsModel`, which is
 where the driver-specific upsert lives — MySQL has no `ON CONFLICT` and SQLite
@@ -303,51 +299,8 @@ discarding the session cookie does not reset them.
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
 - **Client-side HTML sanitisation**: "Did you know?" facts carry admin-authored inline markup, so they are rendered as HTML rather than escaped. `public/assets/js/lib/sanitize.js` applies the same allowlist as `App\Models\HtmlSanitizer` before anything reaches the DOM, parsing with `DOMParser` (an inert document that never runs scripts) and rebuilding from allowed nodes only. The two implementations are deliberately kept in step — same tags, same attributes, same URL schemes, same treatment of `<script>`/`<style>` (dropped with their contents) and of a link whose `href` is rejected (unwrapped, not merely stripped). Sanitising on both ends means a fact written by an older version, or a missed server-side call, still cannot execute in a visitor's browser
 - **CSPRNG for index selection**: `lib/random.js` draws from `crypto.getRandomValues` with rejection sampling rather than `Math.random()`. Which fact appears first is not a secret; the point is that every avoidable finding a scanner raises is one more a reviewer must dismiss before reaching a real one
-- **Webhook signature**: `/webhook/github` requires `hash_equals('sha256=' . hash_hmac('sha256', $body, $secret), $header)` — the only CSRF-exempt, session-free route in the app, and the one place a bad signature is refused with 403 rather than a generic error
-- **Webhook secret**: `bin2hex(random_bytes(32))`, returned to the admin exactly once (in the generate response) and never again — `admin/get-update-settings` reports only whether one is set
-- **Update artifact source**: every download URL — the initial one and every redirect hop — is checked against a GitHub-only host allowlist (`App\Models\GitHubUrlValidator`) before a single byte is fetched
 
-## 6. Automatic Updates
-
-- **Trigger**: A GitHub webhook (`POST /webhook/github`, `App\Controllers\WebhookController`)
-  or, for a manual check, the admin panel's "Install now" button
-  (`admin/install-update-now` → `App\Models\GitHubWebhook::checkAndQueueLatest()`)
-- **Two channels only**, mutually exclusive, chosen in the admin panel: `release`
-  (a formally published GitHub release) or `main` (every push to the `main`
-  branch). `App\Models\GitHubWebhook` decides what a delivery means — repository
-  match, channel match, action/branch filters — and never downloads anything
-  itself; it only writes the resolved target into the `update_pending` setting
-- **Authentication**: HMAC-SHA256 over the raw request body, constant-time
-  compared (`hash_equals`), against a 32-byte secret generated in the admin
-  panel and shown exactly once. A bad or missing signature is refused (403)
-  before the payload is even parsed
-- **Execution**: the webhook responds to GitHub immediately, then continues
-  after the response is flushed (`fastcgi_finish_request()` where available)
-  to run `App\Models\Updater`. A `flock()` on `storage/update.lock` means a
-  second delivery arriving mid-install reports `in_progress` and leaves
-  `update_pending` untouched, rather than racing the first
-- **Install steps** (`Updater::run()`): backup the live tree to
-  `storage/backups/` (excluding `storage/`, `uploads/`, dev-only directories,
-  **and the credential files** — restore never reads
-  `config/credentials.php`/`config/db_config.json` back, so archiving them
-  only duplicated the AES key and DB password into up to three zips) → download (GitHub-host allowlist enforced on every redirect
-  hop, `App\Models\GitHubUrlValidator`) → extract → copy over the live tree,
-  skipping `config/credentials.php`/`config/db_config.json` → write
-  `config/version.php` → invalidate OPcache for every replaced file. Any
-  failure from the download step onward restores the backup automatically;
-  `update_pending` is cleared only once a definitive outcome (success or a
-  recorded failure) is reached, so a process killed mid-install is retried by
-  the next visitor's request rather than stranded
-- **Dependencies**: the `release` channel's artifact (built by `release.sh`)
-  ships `vendor/`, since there is no shell access to run Composer on typical
-  shared hosting. The `main` channel's GitHub-generated source zipball does
-  not; `Updater` compares `composer.lock` before/after and flags the admin
-  panel when it changed
-- **Trust model**: this authenticates the *source* (GitHub, HTTPS, a signed
-  webhook, the configured owner/repo) but not the artifact's *contents* —
-  push access to the configured repository is push access to the install
-
-## 7. Branding — the PMPG endorsement
+## 6. Branding — the PMPG endorsement
 
 The rule, so the next person does not have to reconstruct it:
 
@@ -388,7 +341,7 @@ Four things that are easy to get wrong:
 The game keeps its own name. `<h1 class="logo">ISO 20022 Address Game</h1>` is
 text, and the PMPG lockup does not replace it.
 
-## 8. Directory Structure
+## 7. Directory Structure
 
 ```
 /project-root
@@ -397,14 +350,10 @@ text, and the PMPG lockup does not replace it.
 │   ├── Controllers/    # API Logic
 │   │   ├── AppIconController.php    # Apple Touch Icon: themed ground + PMPG sunburst on a white disc (Imagick, GD fallback)
 │   │   ├── BackgroundController.php # Themed Background SVG
-│   │   ├── WebhookController.php    # POST /webhook/github — signature-verified, session-free
 │   │   └── ...
 │   ├── Models/         # DB, Encryption, Excel Parsing, HTML sanitisation, rate limiting
-│   │   ├── GitHubWebhook.php        # Decides what a webhook delivery means; queues the install
-│   │   ├── GitHubUrlValidator.php   # GitHub-only host allowlist for download URLs
 │   │   ├── RetentionCleanup.php     # The scheduled deletions, shared by cron and its fallback
-│   │   ├── SettingsModel.php        # The only writer of the settings table; owns the upsert dialect
-│   │   └── Updater.php              # Backup → download → extract → install → rollback
+│   │   └── SettingsModel.php        # The only writer of the settings table; owns the upsert dialect
 │   ├── Support/        # Url — request-derived URLs, host validation
 │   └── Views/          # Server-rendered pages only: layout, setup, share, share-go.
 │                       # Game, admin, leaderboard and privacy screens are rendered
@@ -421,7 +370,6 @@ text, and the PMPG lockup does not replace it.
 │       ├── css/        # Stylesheets
 │       ├── js/
 │       │   ├── app.js           # The SPA (loaded as an ES module)
-│       │   ├── admin-update.js  # Admin panel's Automatic Updates section
 │       │   ├── lib/             # Pure logic extracted from app.js for tests/js/*.test.js
 │       │   └── vendor/          # Bundled @fragaria/address-formatter (see its README)
 │       ├── fonts/      # Bundled fonts (Liberation Sans)
@@ -440,7 +388,7 @@ text, and the PMPG lockup does not replace it.
 │   ├── e2e-coverage-prepend.php # Records PHP coverage per browser request
 │   ├── merge-coverage.php  # Merges unit + browser coverage into one Clover report
 │   └── serve.sh            # composer serve — local development server
-├── storage/            # Runtime data (last_cleanup timestamp, update.lock, backups/)
+├── storage/            # Runtime data (last_cleanup timestamp)
 ├── tests/              # PHPUnit tests; DB-backed ones use in-memory SQLite
 │   ├── ThemeDefaultsSyncTest.php  # Fails if the PHP/JS/CSS palettes drift apart
 │   ├── ShareCardLayoutTest.php    # 300 seeds: no balloon may cover the logo or the text
@@ -456,7 +404,7 @@ text, and the PMPG lockup does not replace it.
 ├── vitest.config.js
 ├── sonar-project.properties # SonarCloud analysis + coverage scope
 ├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
-├── release.sh          # Tags a release, builds+publishes the update artifact, writes config/version.php
+├── release.sh          # Tags a release, builds+publishes the deployable artifact, writes config/version.php
 ├── README.md
 ├── DESIGN.md
 └── LICENSE

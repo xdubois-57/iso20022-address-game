@@ -19,7 +19,7 @@
 
 // Router script for `php -S` (scripts/e2e.sh), standing in for public/.htaccess's
 // mod_rewrite rules — the built-in server does not read .htaccess at all, so
-// without this, every pretty route (/webhook/github, /share, /bg, ...) 404s
+// without this, every pretty route (/share, /bg, /app-icon, ...) 404s
 // and only public/index.php itself would ever be reachable.
 //
 // Mirrors the .htaccess logic exactly: a request for a file that exists under

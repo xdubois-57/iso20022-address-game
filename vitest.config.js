@@ -28,7 +28,7 @@ export default defineConfig({
                 // This is a scoping decision, not a claim that it is tested.
                 // The logic worth asserting on has been progressively moved
                 // out into lib/ (scoring, address, format, api, random,
-                // sanitize) and admin-update.js, all of which ARE measured and
+                // sanitize), all of which ARE measured and
                 // sit at 98-100%. Continuing that extraction is what will
                 // genuinely cover this file.
                 'public/assets/js/app.js',

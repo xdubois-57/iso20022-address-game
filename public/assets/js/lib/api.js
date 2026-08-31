@@ -18,7 +18,7 @@
 
 /**
  * Builds the api(action, body, isUpload) POST helper every screen in app.js
- * (and public/assets/js/admin-update.js) calls the backend through.
+ * calls the backend through.
  *
  * A factory rather than a bare function so the CSRF token — read once from
  * the page's <meta name="csrf-token"> at call time via getCsrfToken(), not

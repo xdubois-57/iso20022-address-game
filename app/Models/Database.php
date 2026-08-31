@@ -194,6 +194,7 @@ class Database
 
         $this->seedDefaultFacts();
         $this->purgeRemovedEventCodeData();
+        $this->purgeRemovedAutoUpdateData();
     }
 
     /**
@@ -210,6 +211,33 @@ class Database
             ->execute(['event_code', 'event_code_timestamp']);
         $this->pdo->prepare('DELETE FROM rate_limits WHERE bucket LIKE ?')
             ->execute(['event_code:%']);
+    }
+
+    /**
+     * Migration (schema v8): automatic updates were removed — deployment is
+     * the deploy script's job alone — so the settings the feature accumulated
+     * must not survive it. The webhook secret is the reason this is a
+     * migration rather than a note in the release notes: it is a live HMAC
+     * credential, and leaving it in `settings` would keep it readable to
+     * anything that can reach the table long after the only code that used
+     * it was deleted. The rest (channel, repository, last-event and
+     * last-install bookkeeping, a possibly still-queued `update_pending`)
+     * is dead state that would otherwise be interpreted by nothing forever.
+     *
+     * Prefix DELETE rather than a fixed list: every key the feature ever
+     * wrote began `update_`, including any this project has since forgotten.
+     * A no-op on installs that never enabled it.
+     *
+     * The `_` is left as a LIKE wildcard rather than escaped: `\_` needs an
+     * explicit ESCAPE clause on SQLite (MySQL takes backslash by default),
+     * so escaping it here would have matched nothing at all under the test
+     * driver while passing under production's. No settings key outside this
+     * feature begins with `update`, so the wildcard costs nothing.
+     */
+    private function purgeRemovedAutoUpdateData(): void
+    {
+        $this->pdo->prepare('DELETE FROM settings WHERE setting_key LIKE ?')
+            ->execute(['update_%']);
     }
 
     private function initSchemaMysql(): void
