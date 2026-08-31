@@ -132,13 +132,42 @@ trap 'echo "Restoring dev dependencies (composer install)..."; composer install 
 
 ARTIFACT="release-${NEW_VERSION}.zip"
 rm -f "$ARTIFACT"
+# The `* <digit>` patterns drop macOS conflict copies — "phpunit 2",
+# "README 3.md", "deep-copy 4/". iCloud Drive creates them when a synced
+# folder is rewritten mid-sync, which is exactly what the `composer install`
+# above does to vendor/bin/* and autoload_files.php, so a checkout living
+# under a synced ~/Documents grows them steadily: v0.2.3 shipped 56 of them,
+# ~229 KB of dead weight including dev-only binaries this build is meant to
+# strip. Excluding them here keeps the artifact correct on any machine
+# rather than depending on where someone happens to have cloned the repo.
 zip -rq "$ARTIFACT" . \
     -x ".git/*" ".github/*" "tests/*" "storage/*" "uploads/*" "*.zip" \
        "config/credentials.php" "config/db_config.json" \
        "node_modules/*" "coverage/*" "test-results/*" "playwright-report/*" \
-       ".claude/*" ".idea/*" ".vscode/*" "*.DS_Store" "deploy.sh"
+       ".claude/*" ".idea/*" ".vscode/*" "*.DS_Store" "deploy.sh" \
+       "* [0-9]" "* [0-9].*" "* [0-9]/" "* [0-9]/*" \
+       "* [0-9][0-9]" "* [0-9][0-9].*" "* [0-9][0-9]/" "* [0-9][0-9]/*"
 
 echo "Artifact built: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
+
+# Assert the exclusions actually held. This runs before `gh release create`,
+# so a surprise here costs a re-run rather than a published bad artifact —
+# the whole point is that nobody has to remember to check by hand.
+STRAYS=$(unzip -Z1 "$ARTIFACT" | grep -cE ' [0-9]+(/|\.|$)' || true)
+if [[ "$STRAYS" -gt 0 ]]; then
+    echo "ERROR: $STRAYS macOS conflict copies survived into $ARTIFACT:" >&2
+    unzip -Z1 "$ARTIFACT" | grep -E ' [0-9]+(/|\.|$)' | head -10 >&2
+    echo "Release NOT published. Tag $NEW_VERSION is already pushed; delete the" >&2
+    echo "strays (or move the repo off iCloud Drive) and re-run gh release create." >&2
+    exit 1
+fi
+
+if unzip -Z1 "$ARTIFACT" | grep -q '^vendor/autoload.php$'; then
+    :
+else
+    echo "ERROR: $ARTIFACT has no vendor/autoload.php — it would deploy as a dead site." >&2
+    exit 1
+fi
 
 # Create GitHub release with the artifact attached, so the zip published
 # alongside the tag is the one carrying vendor/ rather than GitHub's
