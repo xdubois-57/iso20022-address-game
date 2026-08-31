@@ -162,10 +162,14 @@ if [[ "$STRAYS" -gt 0 ]]; then
     exit 1
 fi
 
-if unzip -Z1 "$ARTIFACT" | grep -q '^vendor/autoload.php$'; then
-    :
-else
+# Counted rather than `grep -q`: -q exits on the first match, unzip then
+# dies on SIGPIPE, and under `set -o pipefail` the pipeline reports 141 even
+# though the file was found. That turned this guard into the opposite of a
+# guard — it blocked v0.2.5 over an artifact that was perfectly fine.
+AUTOLOAD=$(unzip -Z1 "$ARTIFACT" | grep -c '^vendor/autoload.php$' || true)
+if [[ "$AUTOLOAD" -eq 0 ]]; then
     echo "ERROR: $ARTIFACT has no vendor/autoload.php — it would deploy as a dead site." >&2
+    echo "Release NOT published. Tag $NEW_VERSION is already pushed." >&2
     exit 1
 fi
 
