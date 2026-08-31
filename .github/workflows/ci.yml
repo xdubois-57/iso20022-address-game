@@ -116,13 +116,43 @@ jobs:
       - run: composer install --prefer-dist --no-progress --no-interaction
       - run: npm ci
 
-      # Both reports must exist in this one workspace before the scan runs:
-      # the paths are declared in sonar-project.properties.
-      - name: PHP coverage (clover)
+      # Chromium is needed because the browser suite is part of the coverage
+      # picture below, not just its own job.
+      - run: npx playwright install --with-deps chromium
+
+      # All three reports must exist in this one workspace before the scan
+      # runs, at the paths sonar-project.properties declares.
+      #
+      # PHP coverage comes from TWO producers and is only complete once
+      # merged: PHPUnit writes a .cov, and the browser run writes one .raw per
+      # request it makes (E2E_COVERAGE=1). Skipping the merge is not a smaller
+      # number, it is NO php clover file at all — which is exactly what
+      # happened on the first real scan: Sonar reported 27.4% because it saw
+      # the JavaScript lcov and nothing else.
+      - name: PHP unit coverage
         run: composer run test:coverage
+
+      - name: PHP coverage from the browser suite
+        env:
+          E2E_COVERAGE: '1'
+        run: npm run e2e
+
+      - name: Merge PHP coverage into one Clover report
+        run: composer run coverage:merge
 
       - name: JavaScript coverage (lcov)
         run: npm run test:coverage
+
+      # Fail loudly rather than let the scan silently upload a partial
+      # picture: a missing or tiny report is how coverage quietly reads as
+      # near-zero on the dashboard while every job stays green.
+      - name: Check both coverage reports exist
+        run: |
+          test -s coverage/php/clover.xml || { echo "::error::coverage/php/clover.xml missing or empty"; exit 1; }
+          test -s coverage/js/lcov.info   || { echo "::error::coverage/js/lcov.info missing or empty"; exit 1; }
+          php -r '$x = simplexml_load_file("coverage/php/clover.xml"); $m = $x->project->metrics;
+            printf("PHP coverage: %.1f%% (%d/%d statements)\n", 100 * (int)$m["coveredstatements"] / max(1, (int)$m["statements"]),
+            (int)$m["coveredstatements"], (int)$m["statements"]);'
 
       - name: SonarCloud scan
         # Skipped rather than failed when the secret is absent, so pull
