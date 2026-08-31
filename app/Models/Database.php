@@ -193,6 +193,23 @@ class Database
         }
 
         $this->seedDefaultFacts();
+        $this->purgeRemovedEventCodeData();
+    }
+
+    /**
+     * Migration (schema v7): the event-code gate was removed — the game is
+     * open to everyone — so an install that once configured a code must not
+     * keep its bcrypt hash in `settings`, nor the hashed caller addresses of
+     * people it locked out in `rate_limits`, forever. Plain DELETEs, portable
+     * across both drivers, and a no-op on installs that never used the
+     * feature.
+     */
+    private function purgeRemovedEventCodeData(): void
+    {
+        $this->pdo->prepare('DELETE FROM settings WHERE setting_key IN (?, ?)')
+            ->execute(['event_code', 'event_code_timestamp']);
+        $this->pdo->prepare('DELETE FROM rate_limits WHERE bucket LIKE ?')
+            ->execute(['event_code:%']);
     }
 
     private function initSchemaMysql(): void

@@ -684,103 +684,6 @@ class AdminController
     }
 
     /**
-     * POST /api/admin/get-event-code — Return the current event code (or empty if none).
-     */
-    public function getEventCode(): void
-    {
-        if (!$this->isAdmin()) {
-            $this->jsonResponse(['error' => 'Unauthorized'], 401);
-            return;
-        }
-        // Return only whether a code exists. This used to return the stored
-        // bcrypt hash, letting any admin session carry it off for offline
-        // cracking; the masking the README describes was purely cosmetic and
-        // happened in the browser.
-        $this->jsonResponse(['has_code' => self::fetchEventCodeStatic() !== null]);
-    }
-
-    /**
-     * POST /api/admin/set-event-code — Save or clear the event code.
-     * Event codes are hashed with bcrypt (like admin PIN) for secure storage.
-     */
-    public function setEventCode(): void
-    {
-        if (!$this->isAdmin()) {
-            $this->jsonResponse(['error' => 'Unauthorized'], 401);
-            return;
-        }
-
-        $input = $this->getJsonInput();
-        // Rejected rather than coerced, same as setDeadline(): '' means
-        // "remove the event code", so a malformed value must not become ''.
-        if (!is_string($input['event_code'] ?? '')) {
-            $this->jsonResponse(['error' => 'Event code must be a string'], 400);
-            return;
-        }
-        $code  = trim($input['event_code'] ?? '');
-
-        $db  = Database::getInstance();
-        $pdo = $db->getPdo();
-        // Same reason as setDeadline(): the upsert dialect belongs to
-        // SettingsModel, and the MySQL spelling written inline here made this
-        // endpoint a hard error on SQLite.
-        $settings = new SettingsModel($pdo);
-
-        if ($code === '') {
-            $settings->delete('event_code');
-            $settings->delete('event_code_timestamp');
-            // Removing the code releases everyone currently locked out.
-            (new RateLimitModel($pdo))->clearScope('event_code');
-            unset($_SESSION['event_code_verified_at']);
-            $this->jsonResponse(['success' => true, 'has_code' => false]);
-            return;
-        }
-
-        if (mb_strlen($code) > 64) {
-            $this->jsonResponse(['error' => 'Event code must be 64 characters or less'], 400);
-            return;
-        }
-
-        // Hash the event code with bcrypt (same as admin PIN)
-        $hash = password_hash($code, PASSWORD_BCRYPT);
-        $timestamp = time();
-
-        // setMany() writes both keys in one transaction and picks the upsert
-        // dialect per driver; the hand-written statement here was MySQL-only,
-        // so saving an event code threw a syntax error on SQLite. Writing both
-        // together matters beyond the dialect: a code stored without its
-        // matching timestamp would leave every existing session judged against
-        // the previous code.
-        $settings->setMany([
-            'event_code' => $hash,
-            'event_code_timestamp' => (string) $timestamp,
-        ]);
-
-        // A new code releases anyone locked out under the old one, for every
-        // caller rather than just this session.
-        (new RateLimitModel($pdo))->clearScope('event_code');
-        // Note: We don't set event_code_verified_at here because the admin should still enter the code
-
-        $this->jsonResponse(['success' => true, 'has_code' => true]);
-    }
-
-    /**
-     * Return the stored event code, or null if none is set.
-     */
-    public static function fetchEventCodeStatic(): ?string
-    {
-        return (new SettingsModel(Database::getInstance()->getPdo()))->get('event_code');
-    }
-
-    /**
-     * Return the timestamp when event code was last changed, or 0 if never set.
-     */
-    public static function fetchEventCodeTimestampStatic(): int
-    {
-        return (int) ((new SettingsModel(Database::getInstance()->getPdo()))->get('event_code_timestamp') ?? 0);
-    }
-
-    /**
      * POST /api/admin/get-theme — Return current theme colors.
      */
     public function getTheme(): void
@@ -846,9 +749,9 @@ class AdminController
     /**
      * POST /api/admin/get-update-settings — Automatic Updates panel state.
      *
-     * The webhook secret itself is never returned once set — same rule as
-     * getEventCode() above: it is shown once, when generated, and never
-     * again, so an admin session that later leaks can't carry it off.
+     * The webhook secret itself is never returned once set: it is shown
+     * once, when generated, and never again, so an admin session that later
+     * leaks can't carry it off.
      */
     public function getUpdateSettings(): void
     {

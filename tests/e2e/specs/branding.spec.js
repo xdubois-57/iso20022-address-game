@@ -34,50 +34,13 @@ async function loginAsAdmin(page) {
     await page.click('[data-screen="admin"]');
     await expect(page.locator('.pin-panel')).toBeVisible();
     await enterPin(page, ADMIN_PIN);
-    await expect(page.locator('#eventCodeAdminInput')).toBeVisible();
     await expect(page.locator('#tc_text_color_primary')).toBeVisible();
 }
 
-/** Set the event code, or clear it by passing an empty string. */
-async function setEventCode(page, code) {
-    await page.fill('#eventCodeAdminInput', code);
-    await page.click('#saveEventCodeBtn');
-    await expect(page.locator('#eventCodeStatus')).toBeVisible();
-}
-
 // The welcome card's own logo is asserted in boot.spec.js, next to the rest of
-// the first-paint checks. What lives here is everything that needs the
-// instance reconfigured first.
+// the first-paint checks. What lives here is everything beyond that first
+// paint: the footer, the mobile rule, and the theme reset.
 test.describe('PMPG branding', () => {
-    test('the event code gate carries the logo too', async ({ page, browser }) => {
-        // This gate is the FIRST screen a player sees whenever an event code
-        // is configured — which is the situation the game is actually run in
-        // at a conference. A logo that only appeared on the post-gate welcome
-        // card would be missing precisely then.
-        await loginAsAdmin(page);
-        await setEventCode(page, 'e2e-branding-code');
-
-        try {
-            // A separate context, because an admin session is exempt from the
-            // gate and would sail straight past the screen under test.
-            const visitor = await browser.newContext();
-            const visitorPage = await visitor.newPage();
-            await visitorPage.goto('/');
-
-            await expect(visitorPage.locator('#eventCodeInput')).toBeVisible();
-
-            const logo = visitorPage.locator('.welcome-card .card-endorsement img');
-            await expect(logo).toBeVisible();
-            await expect(logo).toHaveAttribute('alt', PMPG_ALT);
-
-            await visitor.close();
-        } finally {
-            // Restore the instance for every spec that runs after this one:
-            // a leftover event code would gate the whole suite.
-            await setEventCode(page, '');
-        }
-    });
-
     test('the footer logo rides in the layout, so it holds across screens', async ({ page }) => {
         await page.setViewportSize({ width: 1280, height: 900 });
         await page.goto('/');
@@ -159,15 +122,4 @@ test.describe('PMPG branding', () => {
         await expect(page.locator('#tc_text_color_primary')).toHaveValue('#3d345f');
     });
 
-    test('clearing the event code leaves the game reachable again', async ({ browser }) => {
-        // Guards the cleanup above. If the finally block ever stopped working,
-        // the failure would surface here as a clear message rather than as a
-        // baffling cascade in an unrelated spec.
-        const visitor = await browser.newContext();
-        const visitorPage = await visitor.newPage();
-        await visitorPage.goto('/');
-
-        await expect(visitorPage.locator('#welcomeNameInput')).toBeVisible();
-        await visitor.close();
-    });
 });

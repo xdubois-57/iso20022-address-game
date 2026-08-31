@@ -41,7 +41,6 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel, defaulting to the PMPG palette
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
 - **Automatic Updates** — Optional GitHub webhook that installs either every formally published release or every commit pushed to `main`, with a signed webhook, an automatic pre-install backup, and rollback on failure (see [Automatic Updates](#automatic-updates) below)
-- **Event Code Access** — Optional access control requiring players to enter a code before playing (bcrypt hashed, rate limited)
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
@@ -148,27 +147,6 @@ Enable **Kiosk Mode** for unattended public displays:
 
 **Note:** Kiosk mode is session-only and resets on page reload.
 
-### Event Code (Optional)
-
-Enable **Event Code** protection to restrict game access to authorized players only:
-
-1. Go to Admin panel
-2. Navigate to "Event Code" section
-3. Enter a code (max 64 characters) and click Save
-4. The game will now prompt for this code on the home screen
-
-**Security Features:**
-- Event codes are hashed with bcrypt (never stored in plaintext)
-- Rate limited: 5 failed attempts trigger a 30-second lockout, counted per
-  client address so discarding the session cookie does not reset it
-- The server never returns the code or its hash — the admin panel only learns
-  whether one is set
-- Enforced server-side: the gameplay, scoring and share endpoints refuse a
-  session that has not entered the code
-- Clearing the input and saving removes the protection
-- Session-persistent until the player presses Stop or the inactivity timer
-  fires, either of which re-locks the gate for the next player
-
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
 
@@ -203,12 +181,11 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 
 - **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
 - **CSRF protection**: Token-based validation on all POST requests
-- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 attempts (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
+- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
 - **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
-- **Event Code**: Hashed with bcrypt (like admin PIN), rate limited (5 attempts / 30 seconds), and enforced on the server rather than in the browser
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
 - **Prepared statements**: All database queries use parameterised PDO statements
 - **Input validation**: Server-side bounds on all inputs (score 0–100, time 0–3600s, name 1–50 chars). Note that these are *bounds*, not proof of authenticity — see "Scoring is client-authoritative" below

@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS game_counter (
     played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Rate limiting for admin login, event code entry and score submission.
+-- Rate limiting for admin login and score submission.
 -- `bucket` is a keyed hash of the caller's address: the address itself is never
 -- stored. Rows are pruned once they no longer hold anyone back.
 CREATE TABLE IF NOT EXISTS rate_limits (

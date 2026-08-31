@@ -275,36 +275,4 @@ class SecurityTest extends TestCase
         $this->assertFalse(password_verify('wrong', $hash));
     }
 
-    /* =======================================================
-       Event Code Rate Limiting
-       ======================================================= */
-
-    private const MAX_EVENT_CODE_ATTEMPTS = 5;
-    private const EVENT_CODE_LOCKOUT_SECONDS = 30;
-
-    public function testEventCodeLockoutPolicyMatchesDocumentedValues(): void
-    {
-        // README and DESIGN both state 5 attempts / 30 seconds; they disagreed
-        // with each other and with the code before this was pinned.
-        $reflection = new \ReflectionClass(\App\Controllers\GameController::class);
-
-        $this->assertSame(5, $reflection->getConstant('MAX_EVENT_CODE_ATTEMPTS'));
-        $this->assertSame(30, $reflection->getConstant('EVENT_CODE_LOCKOUT_SECONDS'));
-    }
-
-    public function testEventCodeIsHashedNotPlaintext(): void
-    {
-        $code = 'MYSECRETEVENT2026';
-        $hash = password_hash($code, PASSWORD_BCRYPT);
-
-        // Must be bcrypt format
-        $this->assertTrue(str_starts_with($hash, '$2y$') || str_starts_with($hash, '$2b$'));
-
-        // Verification must work
-        $this->assertTrue(password_verify($code, $hash));
-        $this->assertFalse(password_verify('wrong', $hash));
-
-        // Hash must not reveal plaintext
-        $this->assertStringNotContainsString($code, $hash);
-    }
 }

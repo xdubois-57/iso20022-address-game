@@ -221,7 +221,7 @@ test.describe('generated assets', () => {
 });
 
 test.describe('public game endpoints', () => {
-    test('facts, deadline and event-code status are readable', async ({ page }) => {
+    test('facts and the deadline are readable', async ({ page }) => {
         const csrf = await session(page);
 
         const facts = await api(page, csrf, 'game/facts', {});
@@ -230,15 +230,17 @@ test.describe('public game endpoints', () => {
 
         const deadline = await api(page, csrf, 'game/deadline', {});
         expect(deadline.status()).toBe(200);
-
-        const gate = await api(page, csrf, 'game/event-code-status', {});
-        expect((await gate.json()).required).toBe(false);
     });
 
-    test('resetting the session clears the event-code unlock', async ({ page }) => {
+    test('the removed event-code endpoints stay removed', async ({ page }) => {
+        // The gate was taken out on purpose — the game is open to everyone —
+        // so its endpoints answering anything but 404 would mean the feature
+        // grew back.
         const csrf = await session(page);
-        const resp = await api(page, csrf, 'game/reset-session', {});
-        expect(resp.status()).toBe(200);
+        for (const action of ['game/event-code-status', 'game/verify-event-code', 'game/reset-session']) {
+            const resp = await api(page, csrf, action, {});
+            expect(resp.status(), `${action} must be gone`).toBe(404);
+        }
     });
 
     test('an unknown action is refused', async ({ page }) => {

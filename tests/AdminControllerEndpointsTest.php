@@ -29,7 +29,7 @@ use Tests\Support\UsesInMemoryDatabase;
  * The admin dashboard's endpoints, driven through the real controller.
  *
  * These were the least-covered code in the project: the browser suite only
- * logs in and reads the update panel, so facts, deadline, theme, event code,
+ * logs in and reads the update panel, so facts, deadline, theme,
  * leaderboard management and the game counter had no test touching them at
  * all. Each is covered here for both what it does and who it refuses — the
  * refusal half matters most, since every one of them mutates the running
@@ -122,7 +122,7 @@ class AdminControllerEndpointsTest extends TestCase
         return array_map(fn ($m) => [$m], [
             'changePin', 'getLeaderboardEntries', 'deleteLeaderboardEntry', 'purgeLeaderboard',
             'setDeadline', 'getDeadline', 'getFacts', 'addFact', 'updateFact', 'deleteFact',
-            'getGameStats', 'resetGameCounter', 'getEventCode', 'setEventCode',
+            'getGameStats', 'resetGameCounter',
             'getTheme', 'saveTheme',
         ]);
     }
@@ -254,40 +254,7 @@ class AdminControllerEndpointsTest extends TestCase
     }
 
     // -----------------------------------------------------------------
-    // Event code
-    // -----------------------------------------------------------------
-
-    public function testEventCodeIsHashedNeverReturnedAndCanBeCleared(): void
-    {
-        $this->asAdmin();
-
-        [$saved, $status] = $this->call('setEventCode', ['event_code' => 'LetMeIn2026']);
-        $this->assertSame(200, $status);
-        $this->assertTrue($saved['has_code']);
-
-        $stored = $this->settings->get('event_code');
-        $this->assertStringStartsWith('$2y$', (string) $stored, 'stored as a bcrypt hash');
-        $this->assertTrue(password_verify('LetMeIn2026', (string) $stored));
-
-        [$status_] = $this->call('getEventCode');
-        $this->assertTrue($status_['has_code']);
-        $this->assertArrayNotHasKey('event_code', $status_, 'the code itself must never come back');
-        $this->assertStringNotContainsString('LetMeIn2026', json_encode($status_));
-
-        [$clearedResp] = $this->call('setEventCode', ['event_code' => '']);
-        $this->assertFalse($clearedResp['has_code']);
-        $this->assertNull($this->settings->get('event_code'));
-    }
-
-    public function testAnOverlongEventCodeIsRefused(): void
-    {
-        $this->asAdmin();
-        [, $status] = $this->call('setEventCode', ['event_code' => str_repeat('a', 65)]);
-        $this->assertSame(400, $status);
-    }
-
-    // -----------------------------------------------------------------
-    // Leaderboard management and game counter
+    // Leaderboard management
     // -----------------------------------------------------------------
 
     private function seedLeaderboard(int $rows = 3): void

@@ -34,16 +34,15 @@ use Tests\Support\UsesInMemoryDatabase;
  * sending an array or object where an endpoint expects a string. Every
  * endpoint probed here used to die on that with an uncaught TypeError — an
  * HTTP 500 with a stack trace in the error log, triggerable by any visitor
- * on the unauthenticated ones (login, event code, name check, leaderboard
- * submit, share token, setup). Not an authentication bypass, but a crash on
+ * on the unauthenticated ones (login, name check, leaderboard submit, share
+ * token, setup). Not an authentication bypass, but a crash on
  * attacker-shaped input is a defect regardless, and the log noise it makes
  * buries the SECURITY: lines worth reading.
  *
  * The contract these tests pin: malformed shapes get the same orderly
- * refusal a wrong VALUE gets — never a fatal — and on the two endpoints
- * where an empty string is a command ("clear the deadline", "remove the
- * event code") a malformed value must be rejected outright rather than
- * coerced into that command.
+ * refusal a wrong VALUE gets — never a fatal — and where an empty string is
+ * itself a command ("clear the deadline") a malformed value must be rejected
+ * outright rather than coerced into that command.
  */
 class MalformedJsonInputTest extends TestCase
 {
@@ -176,20 +175,6 @@ class MalformedJsonInputTest extends TestCase
         $this->assertArrayNotHasKey('admin', $_SESSION, 'and it must certainly not log anyone in');
     }
 
-    public function testVerifyEventCodeWithAnArrayCodeIsAnOrdinaryRefusal(): void
-    {
-        $this->settings->setMany([
-            'event_code' => password_hash('real-code', PASSWORD_BCRYPT),
-            'event_code_timestamp' => (string) time(),
-        ]);
-
-        [$json, $status] = $this->invoke($this->game(['code' => ['x' => 1]]), 'verifyEventCode');
-
-        $this->assertSame(401, $status, 'an object code used to fatal in trim()');
-        $this->assertFalse($json['success']);
-        $this->assertArrayNotHasKey('event_code_ok', $_SESSION);
-    }
-
     public function testCheckNameWithAnArrayNameIsRejectedNotFatal(): void
     {
         [$json, $status] = $this->invoke($this->game(['name' => [1, 2, 3]]), 'checkName');
@@ -271,7 +256,7 @@ class MalformedJsonInputTest extends TestCase
     }
 
     // -----------------------------------------------------------------
-    // Admin endpoints where '' is a command — reject, never coerce
+    // Admin endpoint where '' is a command — reject, never coerce
     // -----------------------------------------------------------------
 
     public function testMalformedDeadlineDoesNotClearTheStoredOne(): void
@@ -286,20 +271,6 @@ class MalformedJsonInputTest extends TestCase
             '2026-11-14T18:00',
             $this->settings->get('unstructured_deadline'),
             "coercing a malformed deadline to '' would have CLEARED the real one"
-        );
-    }
-
-    public function testMalformedEventCodeDoesNotRemoveTheStoredOne(): void
-    {
-        $_SESSION['admin'] = true;
-        $this->settings->set('event_code', password_hash('keep-me', PASSWORD_BCRYPT));
-
-        [$json, $status] = $this->invoke($this->admin(['event_code' => ['x']]), 'setEventCode');
-
-        $this->assertSame(400, $status);
-        $this->assertNotNull(
-            $this->settings->get('event_code'),
-            "coercing a malformed code to '' would have REMOVED the gate"
         );
     }
 

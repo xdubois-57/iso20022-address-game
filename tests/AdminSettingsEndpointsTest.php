@@ -26,16 +26,16 @@ use PHPUnit\Framework\TestCase;
 use Tests\Support\UsesInMemoryDatabase;
 
 /**
- * The two admin endpoints that WRITE to the settings table, driven through
- * the real controller.
+ * The admin endpoints that WRITE to the settings table, driven through the
+ * real controller.
  *
- * Everything around them was already covered — AdminFeaturesTest and
- * EventCodeTest both read settings back, and both seed the rows with raw
- * INSERTs of their own. That is precisely how these two endpoints came to
- * carry a hand-written MySQL `ON DUPLICATE KEY UPDATE` that SQLite cannot
- * parse: no test ever asked the controller to do the writing, so on a
- * SQLite-backed instance (`composer serve`, the Playwright harness) setting
- * a deadline or an event code was a 500 and nothing said so.
+ * Everything around them was already covered by tests that read settings
+ * back after seeding the rows with raw INSERTs of their own. That is
+ * precisely how these endpoints came to carry a hand-written MySQL
+ * `ON DUPLICATE KEY UPDATE` that SQLite cannot parse: no test ever asked the
+ * controller to do the writing, so on a SQLite-backed instance
+ * (`composer serve`, the Playwright harness) setting a deadline was a 500
+ * and nothing said so.
  */
 class AdminSettingsEndpointsTest extends TestCase
 {
@@ -159,73 +159,6 @@ class AdminSettingsEndpointsTest extends TestCase
     }
 
     // -----------------------------------------------------------------
-    // Event code
-    // -----------------------------------------------------------------
-
-    public function testSetEventCodeStoresABcryptHashAndATimestamp(): void
-    {
-        $this->loginAsAdmin();
-
-        [$json, $status] = $this->call('setEventCode', ['event_code' => 'letmein']);
-
-        $this->assertSame(200, $status);
-        $this->assertTrue($json['has_code']);
-
-        $stored = AdminController::fetchEventCodeStatic();
-        $this->assertNotNull($stored);
-        $this->assertNotSame('letmein', $stored, 'the code must never be stored in clear');
-        $this->assertTrue(password_verify('letmein', $stored));
-        $this->assertGreaterThan(0, AdminController::fetchEventCodeTimestampStatic());
-    }
-
-    public function testChangingTheEventCodeReplacesBothRows(): void
-    {
-        $this->loginAsAdmin();
-        $this->call('setEventCode', ['event_code' => 'first']);
-        $firstStamp = AdminController::fetchEventCodeTimestampStatic();
-
-        $this->call('setEventCode', ['event_code' => 'second']);
-
-        $stored = AdminController::fetchEventCodeStatic();
-        $this->assertTrue(password_verify('second', $stored));
-        $this->assertFalse(password_verify('first', $stored));
-        $this->assertGreaterThanOrEqual($firstStamp, AdminController::fetchEventCodeTimestampStatic());
-    }
-
-    public function testEmptyEventCodeRemovesTheGateAndItsTimestamp(): void
-    {
-        $this->loginAsAdmin();
-        $this->call('setEventCode', ['event_code' => 'temporary']);
-
-        [$json, $status] = $this->call('setEventCode', ['event_code' => '']);
-
-        $this->assertSame(200, $status);
-        $this->assertFalse($json['has_code']);
-        $this->assertNull(AdminController::fetchEventCodeStatic());
-        $this->assertSame(0, AdminController::fetchEventCodeTimestampStatic());
-    }
-
-    public function testOverlongEventCodeIsRejectedAndNothingIsStored(): void
-    {
-        $this->loginAsAdmin();
-
-        [$json, $status] = $this->call('setEventCode', ['event_code' => str_repeat('a', 65)]);
-
-        $this->assertSame(400, $status);
-        $this->assertArrayHasKey('error', $json);
-        $this->assertNull(AdminController::fetchEventCodeStatic());
-    }
-
-    public function testSetEventCodeRefusesAnonymousCaller(): void
-    {
-        [$json, $status] = $this->call('setEventCode', ['event_code' => 'sneaky']);
-
-        $this->assertSame(401, $status);
-        $this->assertSame('Unauthorized', $json['error'] ?? null);
-        $this->assertNull(AdminController::fetchEventCodeStatic());
-    }
-
-    // -----------------------------------------------------------------
     // Theme reset
     // -----------------------------------------------------------------
 
@@ -264,18 +197,4 @@ class AdminSettingsEndpointsTest extends TestCase
         $this->assertSame(0, (int) $rows);
     }
 
-    public function testSettingAnEventCodeReleasesAnyoneLockedOutUnderTheOldOne(): void
-    {
-        $this->loginAsAdmin();
-        $this->memoryPdo()->prepare(
-            'INSERT INTO rate_limits (bucket, attempts, updated_at, locked_until) VALUES (?, ?, ?, ?)'
-        )->execute(['event_code:somecaller', 5, time(), time() + 30]);
-
-        $this->call('setEventCode', ['event_code' => 'brand-new']);
-
-        $remaining = $this->memoryPdo()
-            ->query("SELECT COUNT(*) FROM rate_limits WHERE bucket LIKE 'event_code:%'")
-            ->fetchColumn();
-        $this->assertSame(0, (int) $remaining);
-    }
 }

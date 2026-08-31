@@ -45,8 +45,10 @@ test.describe('admin', () => {
 
         await expect(page.locator('.admin-dashboard h2')).toHaveText('Admin Dashboard');
         await expect(page.locator('.admin-section', { hasText: 'Automatic Updates' })).toBeVisible();
-        await expect(page.locator('.admin-section', { hasText: 'Event Code' })).toBeVisible();
         await expect(page.locator('.admin-section', { hasText: 'Theme Colors' })).toBeVisible();
+        // Removed on purpose — the game is open to everyone, so the section
+        // reappearing would mean the feature grew back.
+        await expect(page.locator('.admin-section', { hasText: 'Event Code' })).toHaveCount(0);
     });
 
     test('logout returns to the game screen, and admin re-prompts for the PIN', async ({ page }) => {

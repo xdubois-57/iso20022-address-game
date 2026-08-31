@@ -299,10 +299,6 @@ import * as AdminUpdate from './admin-update.js';
         playerName = '';
         lastSubmittedEntryId = null;
         lastSubmittedPage = null;
-        // Clear the unlock on the server too. Resetting only the JavaScript state
-        // left the PHP session authorised, so on a shared kiosk the next player
-        // walked straight past the Event Code gate.
-        api('game/reset-session', {});
         showScreen('game');
         resetScreenSaverTimer();
     }
@@ -346,8 +342,8 @@ import * as AdminUpdate from './admin-update.js';
     /**
      * Fetch the deadline and tick the banner once a second.
      *
-     * This body was duplicated verbatim on the welcome card and the event-code
-     * gate. It also leaked: the interval was assigned inside an async callback
+     * This body used to be duplicated verbatim across two welcome screens.
+     * It also leaked: the interval was assigned inside an async callback
      * that resolved after the synchronous stopDeadlineCountdown() had already
      * run, so every re-render — and a kiosk re-renders on each inactivity reset
      * — stranded another 1 Hz timer writing to a detached node. Clearing
@@ -448,25 +444,11 @@ import * as AdminUpdate from './admin-update.js';
         stopDeadlineCountdown();
         stopFactRotation();
 
-        // Check if an event code is required and if session is verified
-        (async function () {
-            var status = await api('game/event-code-status', {});
-            if (status && status.required && !status.verified) {
-                renderEventCodeGate();
-            } else {
-                renderWelcomeCard();
-            }
-        })();
+        renderWelcomeCard();
     }
 
     /**
-     * The "Supported by PMPG" block that closes every .welcome-card.
-     *
-     * Shared rather than duplicated because there are two welcome cards, and
-     * the second one matters as much as the first: when an event code is
-     * configured, renderEventCodeGate() is the FIRST screen a player sees, so
-     * a block that only lived in renderWelcomeCard() would be invisible at
-     * exactly the events this game is built for.
+     * The "Supported by PMPG" block that closes the .welcome-card.
      *
      * Wholly static markup — no interpolation, so no escapeHtml() call to
      * make here. Anything dynamic added alongside it still needs one.
@@ -484,59 +466,6 @@ import * as AdminUpdate from './admin-update.js';
             + '<img src="' + PMPG_LOGO_SRC + '" alt="Payments Market Practice Group" '
             + 'width="1095" height="282">'
             + '</div>';
-    }
-
-    function renderEventCodeGate() {
-        var html = '<section class="game-welcome">';
-        html += '<div id="countdownBanner"></div>';
-        html += '<div class="welcome-card">';
-        html += '<h2>ISO 20022 Address Game</h2>';
-        html += '<p>Please enter the event code to access the game.</p>';
-        html += '<input type="text" id="eventCodeInput" placeholder="Enter event code" maxlength="64" class="name-input" autocomplete="off">';
-        html += '<button class="btn-primary btn-start" id="eventCodeSubmitBtn">Enter</button>';
-        html += '<p class="event-code-error hidden" id="eventCodeError">Invalid event code. Please try again.</p>';
-        html += endorsementHtml();
-        html += '</div>';
-        html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
-        html += '</section>';
-        appContainer.innerHTML = html;
-
-        startDeadlineCountdown();
-
-        // Fetch facts and start rotation
-        (async function () {
-            var data = await api('game/facts', {});
-            if (data && data.facts) {
-                factsCache = data.facts;
-                var factEl = document.getElementById('welcomeFactDisplay');
-                if (factEl && factsCache.length > 0) {
-                    startFactRotation(factEl);
-                }
-            }
-        })();
-
-        var input = document.getElementById('eventCodeInput');
-        document.getElementById('eventCodeSubmitBtn').addEventListener('click', async function () {
-            var code = input.value.trim();
-            if (!code) { input.style.borderColor = 'var(--game-danger)'; input.focus(); return; }
-            input.style.borderColor = '';
-            var resp = await api('game/verify-event-code', { code: code });
-            if (resp && resp.success) {
-                stopDeadlineCountdown();
-                stopFactRotation();
-                renderWelcomeCard();
-            } else {
-                var errorEl = document.getElementById('eventCodeError');
-                errorEl.textContent = (resp && resp.error) ? resp.error : 'Invalid event code. Please try again.';
-                errorEl.classList.remove('hidden');
-                input.value = '';
-                input.focus();
-            }
-        });
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') document.getElementById('eventCodeSubmitBtn').click();
-        });
-        input.focus();
     }
 
     function renderWelcomeCard() {
@@ -1476,16 +1405,6 @@ import * as AdminUpdate from './admin-update.js';
         html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
         html += '</div>';
 
-        // Event Code
-        html += '<div class="admin-section"><h3>Event Code</h3>';
-        html += '<p>Set a code that players must enter before accessing the game. Leave blank to disable.</p>';
-        html += '<div class="pin-change-form">';
-        html += '<input type="text" id="eventCodeAdminInput" placeholder="Event code (leave blank to disable)" maxlength="64" autocomplete="off">';
-        html += '<button class="btn-primary" id="saveEventCodeBtn">Save</button>';
-        html += '</div>';
-        html += '<p id="eventCodeStatus" class="deadline-status hidden"></p>';
-        html += '</div>';
-
         // Automatic Updates — rendered/wired by admin-update.js (its own
         // module so tests/js/admin-update.test.js can exercise it without a
         // build step); this is just the mount point.
@@ -1551,7 +1470,6 @@ import * as AdminUpdate from './admin-update.js';
         initDropzone();
         loadGameStats();
         loadAdminLeaderboard();
-        loadAdminEventCode();
         loadAdminDeadline();
         loadAdminFacts();
         loadAdminTheme();
@@ -1559,18 +1477,6 @@ import * as AdminUpdate from './admin-update.js';
     }
 
     var gamesChart = null;
-
-    async function loadAdminEventCode() {
-        var data = await api('admin/get-event-code');
-        if (!data) return;
-        var input = document.getElementById('eventCodeAdminInput');
-        // The server reports only whether a code exists — it no longer sends the
-        // bcrypt hash, so there is nothing here worth masking client-side.
-        if (input) {
-            input.placeholder = data.has_code ? '******** (code is set)' : 'Event code (leave blank to disable)';
-            input.value = '';
-        }
-    }
 
     async function loadGameStats() {
         var data = await api('admin/game-stats');
@@ -2001,22 +1907,6 @@ import * as AdminUpdate from './admin-update.js';
             } else {
                 disableKioskMode();
                 if (label) label.textContent = 'Disabled';
-            }
-        });
-
-        document.getElementById('saveEventCodeBtn').addEventListener('click', async function () {
-            var code = document.getElementById('eventCodeAdminInput').value.trim();
-            var data = await api('admin/set-event-code', { event_code: code });
-            if (data && data.success) {
-                var status = document.getElementById('eventCodeStatus');
-                status.textContent = code === '' ? 'Event code disabled.' : 'Event code saved.';
-                status.classList.remove('hidden');
-                // Clear the input for security (code is hashed, never displayed back)
-                if (code !== '') {
-                    document.getElementById('eventCodeAdminInput').value = '';
-                }
-            } else {
-                await showModal(data ? data.error : 'Error saving event code');
             }
         });
 

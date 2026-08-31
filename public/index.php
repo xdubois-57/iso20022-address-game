@@ -23,7 +23,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 /**
  * Current schema revision. Bump when initSchema() gains a table or column.
  */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /**
  * Run initSchema() at most once per session, and again after a version bump.
@@ -247,35 +247,14 @@ if ($method === 'POST') {
     }
     ensureSchema($db);
 
-    // Event Code gate, enforced here rather than in the browser. Everything that
-    // actually plays the game or records a result is behind it; the two
-    // event-code endpoints themselves must stay reachable so a player can get
-    // through, and admin routes carry their own authentication.
-    $eventCodeGatedActions = [
-        'game/check-name',
-        'game/complete',
-        'game/facts',
-        'game/scenario',
-        'game/validate',
-        'leaderboard/submit',
-        'share/token',
-    ];
-    if (in_array($action, $eventCodeGatedActions, true) && !GameController::isEventCodeSatisfied()) {
-        jsonError('An event code is required to play.', 403);
-        exit;
-    }
-
     match ($action) {
         // Game
         'game/check-name' => (new GameController())->checkName(),
         'game/complete' => (new GameController())->complete(),
         'game/deadline' => (new GameController())->getDeadline(),
-        'game/event-code-status' => (new GameController())->eventCodeStatus(),
         'game/facts' => (new GameController())->getFacts(),
-        'game/reset-session' => (new GameController())->resetSession(),
         'game/scenario' => (new GameController())->getScenario(),
         'game/validate' => (new GameController())->validate(),
-        'game/verify-event-code' => (new GameController())->verifyEventCode(),
 
         // Leaderboard
         'leaderboard/top' => (new LeaderboardController())->getTop(),
@@ -300,8 +279,6 @@ if ($method === 'POST') {
         'admin/delete-fact' => (new AdminController())->deleteFact(),
         'admin/game-stats' => (new AdminController())->getGameStats(),
         'admin/reset-game-counter' => (new AdminController())->resetGameCounter(),
-        'admin/get-event-code' => (new AdminController())->getEventCode(),
-        'admin/set-event-code' => (new AdminController())->setEventCode(),
         'admin/get-theme' => (new AdminController())->getTheme(),
         'admin/save-theme' => (new AdminController())->saveTheme(),
         'admin/reset-theme' => (new AdminController())->resetTheme(),

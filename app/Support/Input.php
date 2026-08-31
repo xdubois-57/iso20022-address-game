@@ -27,8 +27,8 @@ namespace App\Support;
  * every endpoint that fed such a field straight into trim(),
  * password_verify() or a string-typed parameter died with an uncaught
  * TypeError — an HTTP 500 with a stack trace in the error log, triggerable
- * by any visitor on the login, event-code, name-check, leaderboard-submit,
- * share-token and setup endpoints. Not an authentication bypass (the fatal
+ * by any visitor on the login, name-check, leaderboard-submit, share-token
+ * and setup endpoints. Not an authentication bypass (the fatal
  * happens before anything is evaluated), but a crash on attacker-shaped
  * input is a defect regardless, and the noise it writes to the log buries
  * the SECURITY: lines that matter.
@@ -40,10 +40,9 @@ namespace App\Support;
  * null stays the default) become the default instead.
  *
  * Deliberately NOT used for fields where an empty string is a command:
- * `admin/set-deadline` and `admin/set-event-code` both treat '' as "clear
- * the setting", so silently coercing a malformed value to '' there would
- * turn a broken request into a destructive one. Those two endpoints reject
- * non-strings explicitly instead.
+ * `admin/set-deadline` treats '' as "clear the deadline", so silently
+ * coercing a malformed value to '' there would turn a broken request into a
+ * destructive one. Such endpoints reject non-strings explicitly instead.
  */
 final class Input
 {

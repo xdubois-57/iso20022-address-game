@@ -108,19 +108,6 @@ class RateLimitModel
     }
 
     /**
-     * Forget every bucket in a scope.
-     *
-     * Changing the event code is documented as resetting rate limiting for all
-     * users; because buckets are per-address that means clearing the scope, not
-     * just the caller's own row.
-     */
-    public function clearScope(string $scope): void
-    {
-        $this->pdo->prepare('DELETE FROM rate_limits WHERE bucket LIKE ?')
-            ->execute([$scope . ':%']);
-    }
-
-    /**
      * Drop rows that are no longer holding anyone back.
      *
      * Called opportunistically so the table cannot grow without bound, and so

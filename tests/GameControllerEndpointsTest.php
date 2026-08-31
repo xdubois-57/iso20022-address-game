@@ -31,8 +31,8 @@ use Tests\Support\UsesInMemoryDatabase;
  *
  * The browser suite exercises the happy path over HTTP; what it cannot
  * reasonably reach is the refusal side — malformed mappings, unknown
- * scenarios, a wrong event code, the rate limiter — and that is where the
- * rules players could otherwise bend actually live.
+ * scenarios — and that is where the rules players could otherwise bend
+ * actually live.
  */
 class GameControllerEndpointsTest extends TestCase
 {
@@ -97,19 +97,6 @@ class GameControllerEndpointsTest extends TestCase
         return [json_decode((string) ob_get_clean(), true), http_response_code()];
     }
 
-    /**
-     * Stores a code the way AdminController::setEventCode() does — hash AND
-     * timestamp together. eventCodeStatus() compares that timestamp against
-     * the session's, so a code written without one reads as already verified.
-     */
-    private function setEventCode(string $code): void
-    {
-        $this->settings->setMany([
-            'event_code' => password_hash($code, PASSWORD_BCRYPT),
-            'event_code_timestamp' => (string) time(),
-        ]);
-    }
-
     private function seedScenario(): int
     {
         return (new ScenarioModel($this->memoryPdo()))->create([
@@ -121,10 +108,6 @@ class GameControllerEndpointsTest extends TestCase
             'AdtlAdrInf' => 'Floor 10',
         ]);
     }
-
-    // -----------------------------------------------------------------
-    // Scenarios
-    // -----------------------------------------------------------------
 
     public function testScenarioRequestReportsWhenNoneHaveBeenUploaded(): void
     {
@@ -314,70 +297,4 @@ class GameControllerEndpointsTest extends TestCase
         $this->assertSame(1, (new \App\Models\GameCounterModel($this->memoryPdo()))->getTotalCount());
     }
 
-    // -----------------------------------------------------------------
-    // Event code gate
-    // -----------------------------------------------------------------
-
-    public function testGateIsNotRequiredWhenNoCodeIsSet(): void
-    {
-        [$json] = $this->call('eventCodeStatus');
-
-        $this->assertFalse($json['required']);
-        $this->assertTrue($json['verified']);
-    }
-
-    public function testGateIsRequiredOnceACodeExists(): void
-    {
-        $this->setEventCode('OPENSESAME');
-
-        [$json] = $this->call('eventCodeStatus');
-
-        $this->assertTrue($json['required']);
-        $this->assertFalse($json['verified']);
-    }
-
-    public function testTheCorrectCodeUnlocksTheSessionAndTheWrongOneDoesNot(): void
-    {
-        $this->setEventCode('OPENSESAME');
-
-        [$wrong, $wrongStatus] = $this->call('verifyEventCode', ['code' => 'nope']);
-        $this->assertNotSame(200, $wrongStatus);
-        $this->assertNotTrue($wrong['success'] ?? false);
-
-        [$right, $rightStatus] = $this->call('verifyEventCode', ['code' => 'OPENSESAME']);
-        $this->assertSame(200, $rightStatus);
-        $this->assertTrue($right['success']);
-
-        [$status] = $this->call('eventCodeStatus');
-        $this->assertTrue($status['verified'], 'the session is now unlocked');
-    }
-
-    public function testResettingTheSessionRelocksTheGate(): void
-    {
-        $this->setEventCode('OPENSESAME');
-        $this->call('verifyEventCode', ['code' => 'OPENSESAME']);
-
-        [$json, $status] = $this->call('resetSession');
-        $this->assertSame(200, $status);
-        $this->assertTrue($json['success']);
-
-        [$after] = $this->call('eventCodeStatus');
-        $this->assertFalse($after['verified'], 'the next player must enter the code again');
-    }
-
-    public function testRepeatedWrongCodesEventuallyLockTheCallerOut(): void
-    {
-        $this->setEventCode('OPENSESAME');
-
-        $sawLockout = false;
-        for ($i = 0; $i < 8; $i++) {
-            [, $status] = $this->call('verifyEventCode', ['code' => 'wrong']);
-            if ($status === 429) {
-                $sawLockout = true;
-                break;
-            }
-        }
-
-        $this->assertTrue($sawLockout, 'brute-forcing the gate must be rate limited');
-    }
 }

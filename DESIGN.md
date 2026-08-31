@@ -132,26 +132,16 @@ Hall of Fame is for fun rather than adjudication.
 - Global "Stop" button always available for immediate reset
 - Custom overlay modals replace native `alert()` / `confirm()` to maintain fullscreen mode
 
-### Event Code Gate (Optional)
+### Access — open to everyone
 
-- **Configuration**: Admin sets a plaintext code (max 64 chars) which is hashed with bcrypt on save
-- **Status Check**: `POST game/event-code-status` returns `{required: true/false}` without revealing the code
-- **Verification**: `POST game/verify-event-code` with rate limiting:
-  - 5 failed attempts → 30-second lockout, keyed on a hash of the caller's
-    address in the `rate_limits` table, so discarding the session cookie does
-    not reset the counter
-  - `password_verify()` for secure constant-time comparison
-  - Success sets `$_SESSION['event_code_ok'] = true`
-- **Enforcement**: `GameController::isEventCodeSatisfied()` is consulted by
-  `public/index.php` before dispatching any gameplay, scoring or share action.
-  The gate is *not* a client-side screen: calling the endpoints directly without
-  a verified session returns 403. Admin sessions are exempt so an administrator
-  cannot be locked out of their own installation
-- **Session Persistence**: Once unlocked, the session can access the game until
-  `POST game/reset-session` clears it — which the client calls when the player
-  presses Stop or the inactivity timer fires. On a shared kiosk this re-locks
-  the gate for the next player
-- **Frontend**: Gate screen uses same `.welcome-card` styling as the main game box; error messages display inline with rate limit feedback
+There is deliberately **no access gate**. An optional event-code gate
+(bcrypt-hashed code, rate-limited verification, server-side enforcement in
+front of the gameplay endpoints) existed until schema v7 and was removed on
+purpose: the game must be playable by anyone who reaches it. Do not
+reintroduce a gate casually — its removal also removed the endpoints, the
+admin section, the session keys and the stored settings, and
+`Database::purgeRemovedEventCodeData()` deletes what older installs still
+carry.
 
 ### Kiosk Mode (Optional)
 - **Toggle**: Admin dashboard includes session-based kiosk mode switch
@@ -183,11 +173,8 @@ Hall of Fame is for fun rather than adjudication.
 ### PMPG Endorsement
 - The white welcome card closes with a `Supported by` label and the PMPG
   lockup, above a hairline rule (`.card-endorsement` in `app.css`)
-- Rendered by `endorsementHtml()` in `app.js`, called from **both**
-  `.welcome-card` renders — `renderWelcomeCard()` and `renderEventCodeGate()`.
-  The gate is the first screen a player sees whenever an event code is set, so
-  a block present on only one of them would be missing at exactly the events
-  this game is run at
+- Rendered by `endorsementHtml()` in `app.js` at the foot of
+  `renderWelcomeCard()` — the first screen every player sees
 - The logo is **not** a link. A kiosk runs in Guided Access, where an outbound
   navigation strands the player in a browser they cannot leave
 - `alt="Payments Market Practice Group"` is load-bearing, not decorative: the
@@ -255,8 +242,6 @@ Keys stored in `settings`:
 
 | Key | Value |
 |-----|-------|
-| `event_code` | bcrypt hash of the event code |
-| `event_code_timestamp` | when it was last changed (int), used to invalidate older sessions |
 | `unstructured_deadline` | admin-set countdown target, `YYYY-MM-DDTHH:MM` |
 | `color_primary`, `color_primary_hover`, `color_primary_light`, `color_bg`, `color_text` | theme palette, validated as hex |
 | `update_enabled`, `update_channel`, `update_github_owner`, `update_github_repo` | Automatic Updates configuration |
@@ -267,16 +252,13 @@ Keys stored in `settings`:
 Every write to this table goes through `App\Models\SettingsModel`, which is
 where the driver-specific upsert lives — MySQL has no `ON CONFLICT` and SQLite
 no `ON DUPLICATE KEY`. Writing either spelling inline in a controller is how
-`admin/set-deadline` and `admin/set-event-code` came to be hard errors on a
-SQLite-backed instance.
+`admin/set-deadline` once became a hard error on a SQLite-backed instance.
 
 ### 4.3 Session State
 
 | Key | Purpose | Set By | Cleared By |
 |-----|---------|--------|------------|
 | `admin` | Admin authentication | `admin/login` | `admin/logout`, session expiry |
-| `event_code_ok` | Event code unlocked | `game/verify-event-code` | `game/reset-session`, session expiry |
-| `event_code_verified_at` | Timestamp when verified | `game/verify-event-code` | `game/reset-session`, session expiry |
 | `csrf_token` | CSRF protection | Session init | Session expiry |
 | `schema_version` | Highest `SCHEMA_VERSION` this session has run `initSchema()` for | `ensureSchema()` in `public/index.php` | Session expiry, `SCHEMA_VERSION` bump |
 
@@ -286,29 +268,21 @@ discards. Failed-attempt counters are **not** among them: they live in the
 `rate_limits` table, keyed on a hash of the caller's address, precisely so that
 discarding the session cookie does not reset them.
 
-**Session Persistence:** Once verified, the session remains valid across page refreshes until:
-- Admin changes the event code (invalidates all sessions, via the stored timestamp)
-- Session expires
-- The player presses "Stop", or the inactivity timer fires — both call
-  `game/reset-session`, which clears the unlock on the server as well as in the
-  browser
-
-**Rate Limiting Reset:** When admin changes the event code, all rate limiting counters are reset for all users.
 
 ## 5. Security & GDPR
 
 - **Session cookie**: A single strictly necessary PHPSESSID cookie is used for CSRF protection and admin authentication. No tracking cookies.
 - **CSRF protection**: All POST requests validated via `hash_equals()` token comparison; violations logged with IP
 - **Pseudonymisation**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
-- **Rate limiting**: Address-keyed and stored in `rate_limits`, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); event code after 5 (30-second lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, never the address
+- **Rate limiting**: Address-keyed and stored in `rate_limits`, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, never the address
 - **Input validation**: Server-side bounds on score (0–100), time_seconds (0–3600), player name (1–50 chars)
 - **Input shape**: a JSON body's shape belongs to the caller, so every string
   field read from one goes through `App\Support\Input::string()` (scalars
   coerce exactly as PHP always did; arrays/objects become `''`), instead of
   fataling in `trim()`/`password_verify()` with a visitor-triggerable 500.
-  The two admin fields where `''` is itself a command — clearing the deadline
-  or the event code — reject non-strings outright rather than coerce, so a
-  malformed request can never become a destructive one.
+  Where `''` is itself a command — `admin/set-deadline`, whose empty string
+  clears the deadline — non-strings are rejected outright rather than coerced,
+  so a malformed request can never become a destructive one.
   `tests/MalformedJsonInputTest.php` pins all of it
 - **Retention**: `App\Models\RetentionCleanup` deletes leaderboard entries after
   365 days and rate-limit rows once they lock nobody out and have been idle for
@@ -324,14 +298,13 @@ discarding the session cookie does not reset them.
 - **Credentials**: `config/credentials.php` excluded from version control, protected by `.htaccess`. `app/`, `scripts/`, `storage/` and `uploads/` carry the same deny rules, for installs whose DocumentRoot is the project root
 - **Setup lockdown**: the unauthenticated, CSRF-exempt `setup/*` routes refuse to run once `config/credentials.php` or `config/db_config.json` exists. A database outage therefore cannot be used to repoint the installation or overwrite its encryption key
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
-- **Event Code**: Hashed with bcrypt (never in plaintext), rate limited (5 attempts / 30 sec), constant-time comparison via `password_verify()`, enforced server-side, and never returned to the client — `admin/get-event-code` reports only whether one is set
-- **Security logging**: Failed admin logins, event code attempts, and CSRF violations logged with remote IP address
+- **Security logging**: Failed admin logins and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: CSS/JS URLs include `?v={filemtime}` to force browser refresh on changes
 - **Client-side HTML sanitisation**: "Did you know?" facts carry admin-authored inline markup, so they are rendered as HTML rather than escaped. `public/assets/js/lib/sanitize.js` applies the same allowlist as `App\Models\HtmlSanitizer` before anything reaches the DOM, parsing with `DOMParser` (an inert document that never runs scripts) and rebuilding from allowed nodes only. The two implementations are deliberately kept in step — same tags, same attributes, same URL schemes, same treatment of `<script>`/`<style>` (dropped with their contents) and of a link whose `href` is rejected (unwrapped, not merely stripped). Sanitising on both ends means a fact written by an older version, or a missed server-side call, still cannot execute in a visitor's browser
 - **CSPRNG for index selection**: `lib/random.js` draws from `crypto.getRandomValues` with rejection sampling rather than `Math.random()`. Which fact appears first is not a secret; the point is that every avoidable finding a scanner raises is one more a reviewer must dismiss before reaching a real one
 - **Webhook signature**: `/webhook/github` requires `hash_equals('sha256=' . hash_hmac('sha256', $body, $secret), $header)` — the only CSRF-exempt, session-free route in the app, and the one place a bad signature is refused with 403 rather than a generic error
-- **Webhook secret**: `bin2hex(random_bytes(32))`, returned to the admin exactly once (in the generate response) and never again — `admin/get-update-settings` reports only whether one is set, same pattern as the event code
+- **Webhook secret**: `bin2hex(random_bytes(32))`, returned to the admin exactly once (in the generate response) and never again — `admin/get-update-settings` reports only whether one is set
 - **Update artifact source**: every download URL — the initial one and every redirect hop — is checked against a GitHub-only host allowlist (`App\Models\GitHubUrlValidator`) before a single byte is fetched
 
 ## 6. Automatic Updates
@@ -387,7 +360,7 @@ Where the mark appears, and who draws it:
 
 | Surface | Code |
 |---|---|
-| Welcome card, and the event-code gate | `endorsementHtml()` in `public/assets/js/app.js` |
+| Welcome card | `endorsementHtml()` in `public/assets/js/app.js` |
 | Page footer, every screen | `app/Views/layout.php` (`.footer-endorsement`) |
 | Apple touch icon | `App\Controllers\AppIconController` — the sunburst on a white disc |
 | Share card + home card | `App\Controllers\ShareController` |

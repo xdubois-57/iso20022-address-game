@@ -1394,8 +1394,8 @@ html, body {
 }
 
 /* =========================================================
-   "Supported by PMPG" — closes both .welcome-card renders
-   (renderWelcomeCard and renderEventCodeGate in app.js)
+   "Supported by PMPG" — closes the .welcome-card
+   (renderWelcomeCard in app.js)
    ========================================================= */
 .card-endorsement {
     margin-top: 1.75rem;
@@ -1617,12 +1617,6 @@ html, body {
    ========================================================= */
 .hidden {
     display: none !important;
-}
-
-.event-code-error {
-    color: var(--game-danger);
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
 }
 
 /* Landscape tablet optimisation */
