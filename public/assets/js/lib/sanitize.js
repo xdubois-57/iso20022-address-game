@@ -34,13 +34,13 @@
  */
 
 /** Mirrors HtmlSanitizer::ALLOWED_TAGS. */
-const ALLOWED_TAGS = ['A', 'B', 'STRONG', 'I', 'EM', 'BR'];
+const ALLOWED_TAGS = new Set(['A', 'B', 'STRONG', 'I', 'EM', 'BR']);
 
 /** Mirrors HtmlSanitizer::ALLOWED_ATTRIBUTES. */
 const ALLOWED_ATTRIBUTES = { A: ['href'] };
 
 /** Mirrors HtmlSanitizer::ALLOWED_SCHEMES. */
-const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:'];
+const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
 
 /**
  * Elements dropped WITH their contents, rather than unwrapped to their text.
@@ -66,7 +66,7 @@ const ALLOWED_SCHEMES = ['http:', 'https:', 'mailto:'];
  * code that merely looked like it agreed with the server. Both are still
  * removed as elements — they are simply not in ALLOWED_TAGS.
  */
-const DROP_WITH_CONTENT = ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'TEMPLATE', 'TITLE'];
+const DROP_WITH_CONTENT = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'TEMPLATE', 'TITLE']);
 
 /**
  * Whether an href is safe to keep — anything that is not an allowlisted
@@ -82,7 +82,7 @@ function isAllowedHref(href) {
     try {
         // A relative URL resolves against the base and inherits the page's
         // scheme, so it is judged by the same allowlist rather than trusted.
-        return ALLOWED_SCHEMES.includes(new URL(value, document.baseURI).protocol);
+        return ALLOWED_SCHEMES.has(new URL(value, document.baseURI).protocol);
     } catch {
         return false;
     }
@@ -121,11 +121,11 @@ function copyAllowedChildren(source, target) {
             return;
         }
 
-        if (DROP_WITH_CONTENT.includes(node.tagName)) {
+        if (DROP_WITH_CONTENT.has(node.tagName)) {
             return;
         }
 
-        if (!ALLOWED_TAGS.includes(node.tagName)) {
+        if (!ALLOWED_TAGS.has(node.tagName)) {
             // Unwrap: keep the words, discard the element.
             copyAllowedChildren(node, target);
             return;
