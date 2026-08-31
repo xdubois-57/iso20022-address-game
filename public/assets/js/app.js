@@ -80,6 +80,22 @@ import { createApi } from './lib/api.js';
     var currentFactIndex = -1;
     const FACT_ROTATION_INTERVAL = 20000;
     var kioskMode = false;
+
+    /**
+     * The deployment context, decided by the server from ?mode and written
+     * onto <body data-mode>: '' (mobile, desktop, iPad kiosk), 'hof' (the
+     * Hall of Fame wall) or 'play' (the standing play station).
+     *
+     * Read once, here, and never recomputed: the mode of a screen cannot
+     * change without a navigation, and re-reading it elsewhere would invite
+     * two parts of the app to disagree about which context they are in.
+     *
+     * Distinct from kioskMode, which is a session flag toggled from the Admin
+     * screen on the current device. A URL survives the reboot that a session
+     * flag does not — which is the whole reason this exists.
+     */
+    var displayMode = document.body.dataset.mode || '';
+
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
@@ -109,6 +125,9 @@ import { createApi } from './lib/api.js';
     const inactivityOverlay = document.getElementById('inactivityOverlay');
     const countdownTimer = document.getElementById('countdownTimer');
     const continueBtn = document.getElementById('continueBtn');
+    // Null on a dedicated screen: layout.php omits the nav and the hamburger
+    // outright for ?mode=hof and ?mode=play rather than hiding them, so every
+    // use below has to tolerate their absence.
     const stopBtn = document.getElementById('stopBtn');
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const headerNav = document.getElementById('headerNav');
@@ -232,25 +251,30 @@ import { createApi } from './lib/api.js';
         });
     });
 
-    stopBtn.addEventListener('click', function () {
-        closeHamburger();
-        resetSession();
-    });
+    if (stopBtn) {
+        stopBtn.addEventListener('click', function () {
+            closeHamburger();
+            resetSession();
+        });
+    }
 
     /* =======================================================
        Hamburger Menu (mobile)
        ======================================================= */
     function closeHamburger() {
+        if (!hamburgerBtn || !headerNav) return;
         hamburgerBtn.classList.remove('open');
         hamburgerBtn.setAttribute('aria-expanded', 'false');
         headerNav.classList.remove('open');
     }
 
-    hamburgerBtn.addEventListener('click', function () {
-        var isOpen = headerNav.classList.toggle('open');
-        hamburgerBtn.classList.toggle('open', isOpen);
-        hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
-    });
+    if (hamburgerBtn && headerNav) {
+        hamburgerBtn.addEventListener('click', function () {
+            var isOpen = headerNav.classList.toggle('open');
+            hamburgerBtn.classList.toggle('open', isOpen);
+            hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+        });
+    }
 
     /* =======================================================
        Inactivity Timer

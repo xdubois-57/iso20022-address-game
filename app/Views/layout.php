@@ -85,6 +85,18 @@ if (!function_exists('assetUrl')) {
     }
 }
 
+/**
+ * The display mode public/index.php resolved from ?mode, or '' for the three
+ * contexts that predate it (mobile, desktop, iPad kiosk).
+ *
+ * Defaulted here rather than assumed, because this file is included directly
+ * by tests and could be included by a future entry point: an undefined
+ * variable would emit a warning into the middle of the <body> tag.
+ */
+$layoutDisplayMode = isset($displayMode) && in_array($displayMode, ['hof', 'play'], true)
+    ? $displayMode
+    : '';
+
 // Load theme colors from DB (with graceful fallback to defaults)
 if (!isset($layoutTheme)) {
     $layoutTheme = \App\Models\ThemeModel::defaults();
@@ -264,10 +276,11 @@ if (!function_exists('getVersionInfo')) {
         <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
     </script>
 </head>
-<body>
+<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?>>
     <header class="game-header">
         <div class="header-content">
             <h1 class="logo">ISO 20022 Address Game</h1>
+            <?php if ($layoutDisplayMode === '') { ?>
             <button class="hamburger" id="hamburgerBtn" aria-label="Menu" aria-expanded="false">
                 <span></span><span></span><span></span>
             </button>
@@ -277,6 +290,7 @@ if (!function_exists('getVersionInfo')) {
                 <button class="nav-btn" data-screen="admin" aria-label="Admin">Admin</button>
                 <button class="nav-btn stop-btn" id="stopBtn" aria-label="Stop">Stop</button>
             </nav>
+            <?php } ?>
         </div>
     </header>
 
@@ -287,12 +301,23 @@ if (!function_exists('getVersionInfo')) {
     <?php $ver = getVersionInfo(); ?>
     <footer class="game-footer">
         <span class="footer-text">For entertainment only</span>
+        <?php
+        /**
+         * The wall drops Privacy and GitHub; the play station keeps them.
+         *
+         * On a wall nobody touches, both links are dead weight that only ever
+         * gets tapped by accident — and GitHub would navigate a kiosk-locked
+         * browser somewhere it cannot come back from. A player standing at the
+         * play station, by contrast, must still be able to reach Privacy.
+         */
+        if ($layoutDisplayMode !== 'hof') { ?>
         <span class="footer-separator">&bull;</span>
         <a href="#" data-screen="privacy" class="footer-link">Privacy</a>
         <span class="footer-separator" id="footerGithubSep">&bull;</span>
         <a href="https://github.com/xdubois-57/iso20022-address-game"
            target="_blank" rel="noopener"
            class="footer-link" id="footerGithubLink">GitHub</a>
+        <?php } ?>
         <!--
             The endorsement rides in the layout rather than in any single
             screen, so it holds on every page — not just the welcome card.

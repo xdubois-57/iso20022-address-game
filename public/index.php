@@ -291,6 +291,27 @@ if ($action === 'admin/export') {
     exit;
 }
 
+/**
+ * The display mode, resolved here rather than in the browser.
+ *
+ * A strict allowlist, and anything else falls silently back to the default —
+ * a typo in the URL of an unattended screen has to serve the ordinary game,
+ * not an error page nobody is there to read.
+ *
+ * 'kiosk' is deliberately absent. The iPad kiosk is switched on from the Admin
+ * screen and stays a session flag; nothing here touches it.
+ *
+ * Resolved server-side because layout.php renders the nav: hiding it in
+ * JavaScript afterwards would flash the menus on every load and leave the
+ * buttons in the DOM, reachable by keyboard. This is a guard rail, not a
+ * security boundary — the API routes stay open and the leaderboard data is
+ * public either way.
+ */
+$displayMode = $_GET['mode'] ?? '';
+if (!is_string($displayMode) || !in_array($displayMode, ['', 'hof', 'play'], true)) {
+    $displayMode = '';
+}
+
 // Serve the SPA shell
 require __DIR__ . '/../app/Views/layout.php';
 

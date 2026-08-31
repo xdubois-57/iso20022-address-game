@@ -1782,3 +1782,20 @@ html, body {
     margin-top: 0.5rem;
     min-height: 1.2em;
 }
+
+/* =========================================================
+   Display modes — the two dedicated screens
+
+   Everything below applies only under body[data-mode="hof"] or
+   body[data-mode="play"], both of which the server sets from ?mode. The
+   three contexts that predate them (mobile, desktop, iPad kiosk) render
+   with no data-mode at all, so none of these rules can reach them.
+   ========================================================= */
+
+/* The nav is gone from the markup, not merely hidden, so the header has one
+   child left. Centring it stops the title from hugging the left edge of a
+   42-inch screen as though something were missing beside it. */
+body[data-mode="hof"] .header-content,
+body[data-mode="play"] .header-content {
+    justify-content: center;
+}
