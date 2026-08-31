@@ -22,6 +22,17 @@ import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts } from '
 import { setSanitizedHtml } from './lib/sanitize.js';
 import { randomIndex } from './lib/random.js';
 import { createApi } from './lib/api.js';
+import {
+    createArrivalTracker,
+    createBannerQueue,
+    diffArrivals,
+    enqueueBanners,
+    nextBanner,
+    releaseBanner,
+    backoffDelay,
+    resolveDisplayData,
+    rowsThatFit,
+} from './lib/board.js';
 
 (function () {
     'use strict';
@@ -218,6 +229,12 @@ import { createApi } from './lib/api.js';
        Screen Router
        ======================================================= */
     function showScreen(name) {
+        // The wall renders one thing and never navigates. Nothing on that
+        // screen calls this — there is no nav and no handler — but a future
+        // caller reaching it by accident would replace the board with a
+        // welcome card on a display nobody is watching.
+        if (displayMode === 'hof') return;
+
         window.scrollTo(0, 0);
         dismissScreenSaver();
         // Update nav active state
@@ -2314,6 +2331,272 @@ import { createApi } from './lib/api.js';
     }
 
     /* =======================================================
+       The Hall of Fame wall (?mode=hof)
+
+       A vertical 42-inch panel that has to live on its own all evening with
+       nobody attending it. The screen is a touch screen, but no part of what
+       follows binds a single handler: an elbow against the glass must do
+       nothing at all.
+
+       The decision-making — who is new, what to show when a request fails,
+       how long to wait before retrying — lives in lib/board.js, where it can
+       be tested without a screen. What is left here is rendering.
+       ======================================================= */
+    const WALL_POLL_MS = 5000;
+    const WALL_MAX_BACKOFF_MS = 30000;
+    const WALL_BANNER_MS = 4000;
+    const WALL_HIGHLIGHT_MS = 6000;
+    const WALL_PODIUM_SIZE = 3;
+    const WALL_MEDALS = ['🥇', '🥈', '🥉'];
+    // The server caps this at 50 anyway; asking for it plainly documents that
+    // the page never needs more than one screen's worth.
+    const WALL_FETCH_LIMIT = 50;
+
+    var wallTracker = null;
+    var wallQueue = null;
+    var wallPollTimer = null;
+    var wallBannerTimer = null;
+    var wallHighlightTimer = null;
+    var wallFailures = 0;
+    var wallData = null;
+    var wallStale = false;
+    var wallHighlightIds = [];
+    // How many rows below the podium the viewport can hold. Seeded with a
+    // value that is plainly a guess and replaced by a measurement on the
+    // first render — never left as a constant, because a 42-inch portrait
+    // panel is 1080x1920 on one machine and 2160x3840 on the next.
+    var wallRowCapacity = 10;
+
+    function formatWallTime(seconds) {
+        var mins = Math.floor(seconds / 60);
+        var secs = seconds % 60;
+        return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+
+    function wallPodiumHtml(entries) {
+        // Rendered 2-1-3 so the winner stands in the middle, as on a podium;
+        // the CSS gives the centre column its extra height.
+        var order = [1, 0, 2];
+        var html = '<div class="wall-podium">';
+        order.forEach(function (i) {
+            var entry = entries[i];
+            if (!entry) return;
+            html += '<div class="wall-pod wall-pod-' + (i + 1) + '">'
+                + '<div class="wall-pod-medal">' + WALL_MEDALS[i] + '</div>'
+                + '<div class="wall-pod-name">' + escapeHtml(entry.player_name) + '</div>'
+                + '<div class="wall-pod-score">' + entry.game_score + '</div>'
+                + '<div class="wall-pod-time">' + formatWallTime(entry.time_seconds) + '</div>'
+                + '</div>';
+        });
+        return html + '</div>';
+    }
+
+    function wallListHtml(entries) {
+        if (entries.length === 0) return '';
+
+        var html = '<div class="wall-list"><table><thead><tr>'
+            + '<th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
+        entries.forEach(function (entry) {
+            var fresh = wallHighlightIds.indexOf(entry.id) !== -1 ? ' class="wall-fresh"' : '';
+            html += '<tr' + fresh + ' data-entry-id="' + entry.id + '">'
+                + '<td>' + entry.rank + '</td>'
+                + '<td>' + escapeHtml(entry.player_name) + '</td>'
+                + '<td>' + entry.game_score + '</td></tr>';
+        });
+        return html + '</tbody></table></div>';
+    }
+
+    function renderWall() {
+        var entries = (wallData && wallData.entries) || [];
+        var podium = entries.slice(0, WALL_PODIUM_SIZE);
+        var rest = entries.slice(WALL_PODIUM_SIZE, WALL_PODIUM_SIZE + wallRowCapacity);
+
+        var html = '<section class="wall-screen" id="wallScreen">';
+        html += '<h2 class="wall-title">Hall of Fame</h2>';
+
+        if (entries.length === 0) {
+            html += '<p class="wall-empty">The first score of the evening goes here.</p>';
+        } else {
+            html += wallPodiumHtml(podium);
+            html += wallListHtml(rest);
+        }
+
+        // Always present, even while empty: the banner appearing must not
+        // reflow the table underneath it every four seconds.
+        html += '<div class="wall-banner-zone" id="wallBannerZone"></div>';
+        html += '<span class="wall-stale" id="wallStaleDot"' + (wallStale ? '' : ' hidden')
+            + ' title="Showing the last data received"></span>';
+        html += '</section>';
+
+        appContainer.innerHTML = html;
+        measureWallCapacity();
+    }
+
+    /**
+     * Work out how many rows actually fit, from what was just laid out.
+     *
+     * The list is a flex child with `min-height: 0; overflow: hidden`, so its
+     * own height is decided by the space left over and NOT by how many rows
+     * are inside it. That is what makes this safe to act on: measuring a box
+     * that grew with its content would give a different answer after each
+     * redraw and oscillate forever. The re-entry guard below is a belt to
+     * that brace — a stylesheet edit should not be able to hang a wall.
+     */
+    var wallMeasuring = false;
+
+    function measureWallCapacity() {
+        if (wallMeasuring) return;
+
+        var list = document.querySelector('.wall-list');
+        if (!list) return;
+
+        var row = list.querySelector('tbody tr');
+        if (!row) return;
+
+        var head = list.querySelector('thead');
+        var headHeight = head ? head.getBoundingClientRect().height : 0;
+        var available = list.clientHeight - headHeight;
+
+        var capacity = rowsThatFit(available, row.getBoundingClientRect().height);
+        if (capacity > 0 && capacity !== wallRowCapacity) {
+            wallRowCapacity = capacity;
+            wallMeasuring = true;
+            try {
+                renderWall();
+            } finally {
+                wallMeasuring = false;
+            }
+        }
+    }
+
+    /**
+     * Show the queued banners one after another, about four seconds each.
+     *
+     * Serialised rather than overlapped: several players can finish between
+     * two polls, and two names on top of each other would deny both of them
+     * the moment.
+     */
+    function pumpWallBanners() {
+        if (wallBannerTimer) return;
+
+        var banner = nextBanner(wallQueue);
+        if (!banner) return;
+
+        var zone = document.getElementById('wallBannerZone');
+        if (!zone) { releaseBanner(wallQueue); return; }
+
+        zone.innerHTML = '<div class="wall-banner"><strong>'
+            + escapeHtml(banner.name) + '</strong> just made the board — rank '
+            + banner.rank + '</div>';
+
+        wallBannerTimer = setTimeout(function () {
+            wallBannerTimer = null;
+            releaseBanner(wallQueue);
+            var z = document.getElementById('wallBannerZone');
+            if (z) z.replaceChildren();
+            pumpWallBanners();
+        }, WALL_BANNER_MS);
+    }
+
+    function wallCelebrate() {
+        if (!boundConfetti) return;
+        // boundConfetti was created with disableForReducedMotion, so this
+        // already honours the viewer's preference without a second check.
+        boundConfetti({ particleCount: 90, spread: 80, origin: { y: 0.35 } });
+        setTimeout(function () {
+            boundConfetti({ particleCount: 45, angle: 60, spread: 55, origin: { x: 0, y: 0.5 } });
+            boundConfetti({ particleCount: 45, angle: 120, spread: 55, origin: { x: 1, y: 0.5 } });
+        }, 250);
+    }
+
+    function applyWallArrivals(arrivals) {
+        if (arrivals.highlightIds.length > 0) {
+            wallHighlightIds = arrivals.highlightIds.slice();
+            clearTimeout(wallHighlightTimer);
+            wallHighlightTimer = setTimeout(function () {
+                wallHighlightIds = [];
+                renderWall();
+            }, WALL_HIGHLIGHT_MS);
+        }
+
+        if (arrivals.banners.length > 0) {
+            enqueueBanners(wallQueue, arrivals.banners);
+        }
+
+        if (arrivals.highlightIds.length > 0 || arrivals.banners.length > 0) {
+            wallCelebrate();
+        }
+    }
+
+    /**
+     * One poll of /board/data.
+     *
+     * A plain GET, not the api() helper: that one POSTs with a CSRF token
+     * bound to a session which expires in 24 minutes, and this page runs for
+     * eight hours (see BoardController for the whole argument).
+     */
+    async function wallPoll() {
+        var body = null;
+        try {
+            var resp = await fetch('/board/data?limit=' + WALL_FETCH_LIMIT, {
+                cache: 'no-store',
+                credentials: 'omit',
+            });
+            if (resp.ok) body = await resp.json();
+        } catch (e) {
+            body = null;
+        }
+
+        if (body && Array.isArray(body.entries)) {
+            wallFailures = 0;
+        } else {
+            wallFailures++;
+        }
+
+        var resolved = resolveDisplayData(wallData, body, wallFailures);
+        var wasStale = wallStale;
+        wallStale = resolved.stale;
+
+        if (resolved.data !== wallData || wallStale !== wasStale) {
+            wallData = resolved.data;
+            renderWall();
+        }
+
+        if (body) {
+            // Only the rows actually drawn count as "visible": an arrival that
+            // landed below the fold gets a banner, not a highlight nobody can
+            // see.
+            var visible = WALL_PODIUM_SIZE + wallRowCapacity;
+            var arrivals = diffArrivals(wallTracker, body, visible);
+            if (!arrivals.firstLoad) {
+                applyWallArrivals(arrivals);
+            }
+            pumpWallBanners();
+        }
+
+        // Scheduled from the end of the previous attempt rather than on a
+        // fixed interval, so a slow response cannot pile requests on top of
+        // each other on an evening when the server is already struggling.
+        var delay = wallFailures === 0
+            ? WALL_POLL_MS
+            : backoffDelay(wallFailures, WALL_POLL_MS, WALL_MAX_BACKOFF_MS);
+        wallPollTimer = setTimeout(wallPoll, delay);
+    }
+
+    function startWall() {
+        wallTracker = createArrivalTracker();
+        wallQueue = createBannerQueue();
+        renderWall();
+        wallPoll();
+
+        // Re-measure when the panel is rotated or the browser window changes;
+        // the row count is a property of the viewport, never a constant.
+        window.addEventListener('resize', function () {
+            measureWallCapacity();
+        });
+    }
+
+    /* =======================================================
        Kiosk Mode
        ======================================================= */
     function exitFullscreen() {
@@ -2459,6 +2742,10 @@ import { createApi } from './lib/api.js';
     /* =======================================================
        Init
        ======================================================= */
-    showScreen('game');
+    if (displayMode === 'hof') {
+        startWall();
+    } else {
+        showScreen('game');
+    }
 
 })();

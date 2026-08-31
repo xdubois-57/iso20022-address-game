@@ -268,7 +268,7 @@ if (!function_exists('getVersionInfo')) {
     // rather than root-absolute ('/assets/...') so an install served from a
     // subdirectory resolves exactly as the <script src> below already does.
     $moduleVersions = [];
-    foreach (['scoring', 'address', 'format', 'sanitize', 'random', 'api'] as $lib) {
+    foreach (['scoring', 'address', 'format', 'sanitize', 'random', 'api', 'board'] as $lib) {
         $moduleVersions['./assets/js/lib/' . $lib . '.js'] = './' . assetUrl('assets/js/lib/' . $lib . '.js');
     }
     ?>

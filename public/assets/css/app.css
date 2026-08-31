@@ -1826,3 +1826,225 @@ body[data-mode="play"] .header-content {
     margin-top: 0.5rem;
     min-height: 1.2em;
 }
+
+/* ---------------------------------------------------------
+   The Hall of Fame wall (?mode=hof)
+
+   A vertical 42-inch panel, watched from across a room and left running for
+   a whole evening. Two consequences run through everything below.
+
+   Nothing is interactive. The panel is a touch screen, but no handler is
+   bound anywhere on it, and pointer-events:none makes that structural rather
+   than a promise: an elbow against the glass cannot start anything.
+
+   Nothing is a permanent bright block. A monitor showing the same lit
+   rectangle for eight hours keeps a ghost of it afterwards, and no amount of
+   care later undoes that. Hence translucent panels rather than solid fills,
+   and a container that drifts a few pixels over a six-minute cycle so no
+   edge stays on the same phosphor all night. Cheap now, impossible to
+   retrofit.
+   --------------------------------------------------------- */
+body[data-mode="hof"] .game-main {
+    max-width: none;
+    padding: 0.5rem 2vw 0;
+    /* The header and footer take the rest; this is what the composition gets
+       to fill, and the flex chain below depends on it being a known height. */
+    height: calc(100vh - 132px);
+    min-height: 0;
+}
+
+.wall-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    /* Structural, not decorative: an accidental touch must reach nothing. */
+    pointer-events: none;
+    animation: wall-drift 360s ease-in-out infinite;
+    /* Bounded and centred. Left to fill a 1080px-wide panel edge to edge, the
+       score column ends up an arm's length from the name it belongs to, and
+       the eye has to travel the whole width of the screen to pair them. */
+    width: 100%;
+    max-width: min(1100px, 88vw);
+    margin: 0 auto;
+}
+
+/* A few pixels, very slowly. Large enough that no boundary sits on one line
+   of pixels all evening, small enough that nobody watching notices. */
+@keyframes wall-drift {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(4px, 3px); }
+    50%  { transform: translate(0, 6px); }
+    75%  { transform: translate(-4px, 3px); }
+    100% { transform: translate(0, 0); }
+}
+
+.wall-title {
+    text-align: center;
+    font-size: clamp(2rem, 4.5vh, 4rem);
+    margin: 0 0 1.5vh;
+    letter-spacing: 0.02em;
+}
+
+.wall-empty {
+    text-align: center;
+    font-size: clamp(1.2rem, 2.5vh, 2rem);
+    opacity: 0.8;
+}
+
+/* --- podium ------------------------------------------------ */
+.wall-podium {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr 1fr;
+    align-items: end;
+    gap: 1.5vw;
+    margin-bottom: 2vh;
+    flex: 0 0 auto;
+}
+
+.wall-pod {
+    /* Translucent rather than a solid card: see the burn-in note above. */
+    background: rgb(255 255 255 / 22%);
+    border-radius: 14px;
+    padding: 1.6vh 1vw;
+    text-align: center;
+}
+
+.wall-pod-1 {
+    padding-top: 3vh;
+    background: rgb(255 255 255 / 30%);
+}
+
+.wall-pod-medal {
+    font-size: clamp(1.6rem, 3.5vh, 3rem);
+    line-height: 1;
+}
+
+.wall-pod-name {
+    font-weight: 700;
+    font-size: clamp(1rem, 2.2vh, 1.9rem);
+    margin-top: 0.6vh;
+    overflow-wrap: anywhere;
+}
+
+.wall-pod-score {
+    font-size: clamp(1.4rem, 3.2vh, 2.8rem);
+    font-weight: 700;
+}
+
+.wall-pod-time {
+    font-size: clamp(0.8rem, 1.6vh, 1.3rem);
+    opacity: 0.75;
+}
+
+/* --- the rest of the table --------------------------------- */
+
+/* min-height:0 and overflow:hidden are what make this box's height a
+   property of the space left over rather than of the rows inside it — which
+   is what lets measureWallCapacity() read it without the answer changing
+   every time it redraws. */
+.wall-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    /* Enough separation from the world map behind it to stay readable from
+       across a room, and nowhere near a solid bright panel. */
+    background: rgb(255 255 255 / 16%);
+    border-radius: 14px;
+    padding: 1vh 1vw;
+}
+
+.wall-list table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(0.9rem, 2vh, 1.7rem);
+}
+
+.wall-list th {
+    text-align: left;
+    font-size: clamp(0.7rem, 1.4vh, 1.1rem);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+    padding: 0 0.6vw 0.6vh;
+}
+
+.wall-list th:last-child {
+    text-align: right;
+}
+
+.wall-list td {
+    padding: 0.9vh 0.6vw;
+    border-bottom: 1px solid rgb(255 255 255 / 25%);
+}
+
+.wall-list td:first-child {
+    width: 3.5em;
+    opacity: 0.65;
+}
+
+.wall-list td:last-child {
+    text-align: right;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* A new arrival, for a few seconds. Not a solid highlight — the same row can
+   hold the colour repeatedly over an evening. */
+.wall-fresh td {
+    background: rgb(255 215 0 / 32%);
+}
+
+/* --- the arrivals banner ----------------------------------- */
+
+/* Always laid out, empty or not: the banner must not push the table around
+   every four seconds. */
+.wall-banner-zone {
+    flex: 0 0 auto;
+    min-height: 7vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1vh;
+}
+
+.wall-banner {
+    background: rgb(255 255 255 / 30%);
+    border-radius: 12px;
+    padding: 1.2vh 2vw;
+    font-size: clamp(1rem, 2.4vh, 2rem);
+    text-align: center;
+    animation: wall-banner-in 0.4s ease-out;
+}
+
+@keyframes wall-banner-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- staleness -------------------------------------------- */
+
+/* Deliberately tiny and in a corner. When the network drops, the wall keeps
+   showing the last good data — a board frozen two minutes ago is worth
+   infinitely more than a blank screen or an error page in front of fifty
+   people — and this dot is the whole of the admission that it has. */
+.wall-stale {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--game-orange, #ffa500);
+    opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wall-screen {
+        animation: none;
+    }
+
+    .wall-banner {
+        animation: none;
+    }
+}

@@ -143,3 +143,171 @@ test.describe('display modes — the dedicated screens', () => {
         await expect(page.locator('.footer-endorsement')).toHaveCount(1);
     });
 });
+
+// Serial, and seeded exactly once with as few entries as the assertions need.
+//
+// leaderboard/submit is rate-limited to ten successful submissions per five
+// minutes per address, and that budget is shared with every other spec in the
+// run — board-data.spec.js and gameplay.spec.js both spend from it. Seeding
+// generously here does not fail this file, it fails gameplay.spec.js several
+// minutes later, which is a miserable thing to debug. Five is what a podium
+// plus a couple of rows costs; the tests that need a full board serve one
+// through page.route instead.
+test.describe.serial('the wall (?mode=hof)', () => {
+    const SEEDED = 5;
+
+    test.beforeAll(async ({ browser }) => {
+        const page = await browser.newPage();
+        try {
+            await page.goto('/');
+            const csrf = await page.evaluate(
+                () => document.querySelector('meta[name="csrf-token"]')?.content || ''
+            );
+
+            for (let i = 0; i < SEEDED; i++) {
+                const resp = await page.request.post('/index.php', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Action': 'leaderboard/submit',
+                        'X-CSRF-Token': csrf,
+                    },
+                    data: JSON.stringify({
+                        player_name: `Wall Player ${i}`,
+                        score: 95 - i,
+                        time_seconds: 40 + i,
+                    }),
+                });
+                expect((await resp.json()).success, `seeding entry ${i}`).toBe(true);
+            }
+        } finally {
+            await page.close();
+        }
+    });
+
+    test('shows a podium and a ranked list, and nothing to click', async ({ page }) => {
+        await page.goto('/?mode=hof');
+
+        await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');
+        await expect(page.locator('.wall-pod')).toHaveCount(3);
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+
+        // The winner stands in the middle of the podium, not on the left.
+        const podiumOrder = await page.locator('.wall-pod').evaluateAll(
+            (nodes) => nodes.map((n) => n.className)
+        );
+        expect(podiumOrder[1]).toContain('wall-pod-1');
+
+        // No pagination and no navigation: this screen renders one thing.
+        await expect(page.locator('.pagination')).toHaveCount(0);
+        await expect(page.locator('.btn-page')).toHaveCount(0);
+        await expect(page.locator('.nav-btn')).toHaveCount(0);
+        // Scoped to the board itself: the layout always carries the
+        // inactivity overlay's hidden button, which is not part of this
+        // screen and is not what "nothing to click" is about.
+        await expect(page.locator('#appContainer button')).toHaveCount(0);
+        await expect(page.locator('#appContainer a')).toHaveCount(0);
+    });
+
+    test('an accidental touch anywhere on the board does nothing', async ({ page }) => {
+        await page.goto('/?mode=hof');
+        await expect(page.locator('.wall-pod').first()).toBeVisible();
+
+        const before = await page.locator('#appContainer').innerHTML();
+
+        // pointer-events:none means a real tap never lands on the board at
+        // all, so the click is dispatched with force and the assertion is that
+        // it still changes nothing.
+        await page.locator('.wall-screen').click({ force: true, position: { x: 40, y: 40 } });
+        await page.locator('.wall-title').click({ force: true });
+        await page.locator('.wall-list tbody tr').first().click({ force: true });
+
+        await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');
+        expect(await page.locator('#appContainer').innerHTML()).toBe(before);
+    });
+
+    test('the row count comes from the viewport, not from a constant', async ({ page }) => {
+        // A full board, served rather than submitted: leaderboard/submit is
+        // rate-limited to ten per five minutes, and what is under test here is
+        // how many rows the page decides to draw, not how they got there.
+        await page.route('**/board/data*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                window_hours: 24,
+                total_count: 50,
+                server_time: '2026-05-01T20:00:00+00:00',
+                entries: Array.from({ length: 50 }, (_, i) => ({
+                    id: i + 1,
+                    rank: i + 1,
+                    player_name: `Filler ${i + 1}`,
+                    game_score: 1000 - i,
+                    time_seconds: 60,
+                    created_at: '2026-05-01 20:00:00',
+                })),
+                recent: [],
+            }),
+        }));
+
+        // A 42-inch portrait panel is 1080x1920 on one machine and 2160x3840
+        // on the next, so a hard-coded row count would leave either a gaping
+        // hole or a list running off the bottom edge.
+        await page.setViewportSize({ width: 1080, height: 1920 });
+        await page.goto('/?mode=hof');
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+        const tall = await page.locator('.wall-list tbody tr').count();
+
+        await page.setViewportSize({ width: 1080, height: 700 });
+        await page.goto('/?mode=hof');
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+        const short = await page.locator('.wall-list tbody tr').count();
+
+        expect(short).toBeGreaterThan(0);
+        expect(tall).toBeGreaterThan(short);
+    });
+
+    test('a failed poll leaves the last good board on screen', async ({ page }) => {
+        await page.goto('/?mode=hof');
+        await expect(page.locator('.wall-pod')).toHaveCount(3);
+
+        const shown = await page.locator('.wall-list, .wall-podium').first().innerHTML();
+
+        // Every subsequent poll fails, exactly as a dropped venue network
+        // would look from inside the page.
+        await page.route('**/board/data*', (route) => route.abort('failed'));
+
+        // Long enough for several attempts (5s, then a growing backoff) — the
+        // board must still be there afterwards, never a blank screen and never
+        // an error page.
+        await expect(page.locator('#wallStaleDot')).toBeVisible({ timeout: 60_000 });
+        await expect(page.locator('.wall-pod')).toHaveCount(3);
+        expect(await page.locator('.wall-list, .wall-podium').first().innerHTML()).toBe(shown);
+
+        // …and it recovers on its own once the network returns, with no
+        // intervention, which is the property the evening depends on.
+        await page.unroute('**/board/data*');
+        await expect(page.locator('#wallStaleDot')).toBeHidden({ timeout: 60_000 });
+    });
+
+    test('an empty board says so rather than showing an error', async ({ page }) => {
+        // Served an empty board rather than emptied for real: purging the
+        // leaderboard would destroy the fixture the serial tests above share,
+        // and what is under test here is the rendering of an empty response.
+        await page.route('**/board/data*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                window_hours: 24,
+                total_count: 0,
+                server_time: '2026-05-01T20:00:00+00:00',
+                entries: [],
+                recent: [],
+            }),
+        }));
+
+        await page.goto('/?mode=hof');
+
+        await expect(page.locator('.wall-empty')).toBeVisible();
+        await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');
+        await expect(page.locator('.wall-pod')).toHaveCount(0);
+    });
+});
