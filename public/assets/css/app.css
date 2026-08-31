@@ -2179,3 +2179,87 @@ body[data-mode="hof"] .game-main {
         animation: none;
     }
 }
+
+/* ---------------------------------------------------------
+   On-screen keyboard (?mode=play only)
+
+   72px keys, roughly 35mm on a 42-inch 1080p panel. The game is played
+   standing, at arm's length, sometimes by two people leaning in at once; the
+   44px that suits a phone held in the hand is too small to hit reliably here.
+   --------------------------------------------------------- */
+body[data-mode="play"] .welcome-card {
+    max-width: min(1000px, 92vw);
+}
+
+/* The name field is the only one in the whole player journey, and on this
+   panel it is read from a couple of paces back. */
+body[data-mode="play"] .name-input {
+    font-size: clamp(1.2rem, 3vh, 2rem);
+    padding: 1rem;
+    text-align: center;
+}
+
+body[data-mode="play"] .profanity-warning {
+    font-size: clamp(1rem, 2.2vh, 1.4rem);
+}
+
+.touch-keyboard {
+    margin-top: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.touch-key-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.touch-key {
+    min-width: 72px;
+    min-height: 72px;
+    padding: 0 0.6rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: var(--game-white);
+    color: var(--game-dark-green);
+    border: 1px solid var(--game-light-peppermint);
+    border-radius: 10px;
+    cursor: pointer;
+    /* No 300ms wait and no double-tap zoom on a screen where every input is
+       a tap. */
+    touch-action: manipulation;
+}
+
+.touch-key:active {
+    background: var(--game-light-peppermint);
+    transform: translateY(2px);
+}
+
+/* Visibly a second register rather than more letters, so the eye skips it
+   unless it is looking for one. */
+.touch-key-row-accents .touch-key {
+    background: var(--game-light-peppermint);
+    font-size: 1.35rem;
+}
+
+.touch-key-wide {
+    min-width: 240px;
+}
+
+.touch-key-go {
+    background: var(--game-emerald);
+    color: var(--game-white);
+    border-color: var(--game-emerald);
+    min-width: 160px;
+}
+
+/* A tall card plus a keyboard can exceed even a large panel once the refusal
+   message appears. Scrolling is the honest fallback — the alternative is a
+   Start key the player cannot reach. */
+body[data-mode="play"] .game-welcome {
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+}

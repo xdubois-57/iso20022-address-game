@@ -530,6 +530,9 @@ import {
         if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
+        // Below the button, which puts it below the spot the profanity
+        // warning is inserted into as well — see renderTouchKeyboard().
+        if (displayMode === 'play') html += touchKeyboardHtml();
         html += endorsementHtml();
         html += '</div>';
         html += '<div id="welcomeFactDisplay" class="fact-display-card"></div>';
@@ -568,6 +571,14 @@ import {
                 nameInput.value = '';
                 playerName = '';
                 nameInput.focus();
+                // On the play station the on-screen keyboard sits below all
+                // of this and makes the card tall. The refusal has to be
+                // READ, or the player simply types the same name again — so
+                // make sure it is actually on screen.
+                if (displayMode === 'play') {
+                    try { warn.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+                    catch (e) { warn.scrollIntoView(false); }
+                }
                 return;
             }
             stopDeadlineCountdown();
@@ -578,6 +589,136 @@ import {
             if (e.key === 'Enter') document.getElementById('startGameBtn').click();
         });
         nameInput.focus();
+
+        if (displayMode === 'play') bindTouchKeyboard(nameInput);
+    }
+
+    /* =======================================================
+       On-screen keyboard (?mode=play only)
+
+       Not a convenience. Windows only offers its own touch keyboard when it
+       detects NO physical keyboard, and the play station has one — plugged
+       in, tucked out of sight. Windows therefore concludes the user can type
+       and shows nothing, so without this component the field stays empty no
+       matter what a player taps, and there is no way to start a game.
+
+       Only in play mode. A phone and an iPad both raise a perfectly good
+       system keyboard of their own; putting this one in front of it would be
+       a regression for the three contexts that already work.
+       ======================================================= */
+
+    /**
+     * QWERTY, because the event is in Miami, the audience international and
+     * the game in English. For the handful of letters in a first name,
+     * recognising the layout at a glance beats every other consideration.
+     */
+    const TOUCH_KEY_ROWS = [
+        ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+        ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', "'"],
+        ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '-'],
+    ];
+
+    /**
+     * The accented characters, which are not a nicety either.
+     *
+     * A payments standards forum fills a room with Scandinavian, Irish,
+     * German, French, Portuguese and Spanish names. Without these keys every
+     * one of them goes up on the wall misspelt, in front of the person whose
+     * name it is.
+     */
+    const TOUCH_ACCENT_ROWS = [
+        ['Á', 'À', 'Â', 'É', 'È', 'Ê', 'Í', 'Ó', 'Ô', 'Ú'],
+        ['Ü', 'Ö', 'Ä', 'Ñ', 'Ç', 'Ø', 'Å', 'Æ'],
+    ];
+
+    function touchKeyHtml(label, action, value, extraClass) {
+        return '<button type="button" class="touch-key' + (extraClass ? ' ' + extraClass : '')
+            + '" data-key-action="' + action + '"'
+            + (value === null ? '' : ' data-key-value="' + escapeHtml(value) + '"')
+            + '>' + escapeHtml(label) + '</button>';
+    }
+
+    function touchKeyboardHtml() {
+        var html = '<div class="touch-keyboard" id="touchKeyboard">';
+
+        TOUCH_KEY_ROWS.concat(TOUCH_ACCENT_ROWS).forEach(function (row, i) {
+            html += '<div class="touch-key-row' + (i >= TOUCH_KEY_ROWS.length ? ' touch-key-row-accents' : '') + '">';
+            row.forEach(function (label) {
+                html += touchKeyHtml(label, 'char', label, null);
+            });
+            html += '</div>';
+        });
+
+        html += '<div class="touch-key-row">';
+        html += touchKeyHtml('space', 'char', ' ', 'touch-key-wide');
+        html += touchKeyHtml('⌫', 'backspace', null, null);
+        html += touchKeyHtml('clear', 'clear', null, null);
+        html += touchKeyHtml('Start', 'start', null, 'touch-key-go');
+        html += '</div>';
+
+        return html + '</div>';
+    }
+
+    /**
+     * Should the next character be a capital?
+     *
+     * Every key shows an uppercase letter, as keyboards do, but inserting
+     * uppercase for all of them would put RAFAEL COSTA on the wall. So the
+     * first letter of each word is capitalised and the rest are not, which is
+     * what a phone keyboard does and what produces a name that looks like a
+     * name. It gets "van Dijk" wrong; all-caps gets every name wrong.
+     */
+    function startsAWord(value) {
+        return value === '' || /[\s'-]$/.test(value);
+    }
+
+    /**
+     * Wire the keys to the REAL input rather than to a state of their own.
+     *
+     * Writing into the field itself is what lets the existing validation, the
+     * maxlength and the profanity check keep working untouched — none of them
+     * need to know this keyboard exists. maxLength is the one thing that has
+     * to be enforced by hand, because the attribute only constrains typing,
+     * not assignment.
+     */
+    function bindTouchKeyboard(nameInput) {
+        var keyboard = document.getElementById('touchKeyboard');
+        if (!keyboard || !nameInput) return;
+
+        function insert(text) {
+            var max = parseInt(nameInput.getAttribute('maxlength'), 10) || 50;
+            var next = nameInput.value + text;
+            if (next.length > max) return;
+            nameInput.value = next;
+            // The border turns red on an empty submit; typing should take
+            // that back, exactly as it does with a physical keyboard.
+            nameInput.style.borderColor = '';
+        }
+
+        keyboard.querySelectorAll('.touch-key').forEach(function (key) {
+            // The caret must stay in the field. A button takes focus on
+            // press, which would move it away and leave the player unable to
+            // see where their next character is going.
+            key.addEventListener('mousedown', function (e) { e.preventDefault(); });
+
+            key.addEventListener('click', function () {
+                var action = this.dataset.keyAction;
+
+                if (action === 'char') {
+                    var ch = this.dataset.keyValue;
+                    insert(startsAWord(nameInput.value) ? ch.toUpperCase() : ch.toLowerCase());
+                } else if (action === 'backspace') {
+                    nameInput.value = nameInput.value.slice(0, -1);
+                } else if (action === 'clear') {
+                    nameInput.value = '';
+                } else if (action === 'start') {
+                    document.getElementById('startGameBtn').click();
+                    return;
+                }
+
+                nameInput.focus();
+            });
+        });
     }
 
     function startGame() {
