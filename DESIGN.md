@@ -219,6 +219,15 @@ Two supporting choices, for the same reason:
   ago is worth far more than a blank screen or an error page in front of fifty
   people, and the cap is what brings it back within seconds of the network
   returning.
+- **Every value from `/board/data` is neutralised before it is concatenated
+  into the wall's markup.** The player name goes through `escapeHtml()`; the
+  four numbers — `game_score`, `time_seconds`, `rank` and the `id` that lands
+  inside a `data-entry-id` attribute — go through `boardNumber()` in
+  `lib/board.js`, which yields a finite number or 0. `BoardController` already
+  casts all four to `(int)`, so this looks redundant and is not: the wall
+  trusts a *response*, and an unattended screen polling the same URL all
+  evening is the wrong place to assume the far end is still what was deployed.
+  A field arriving as a string would otherwise reach `innerHTML` as markup.
 
 ### Fun Facts
 - **Database**: 10 default facts about ISO 20022 created on fresh install
@@ -363,6 +372,13 @@ discarding the session cookie does not reset them.
 - **Security logging**: Failed admin logins and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
 - **Cache busting**: every asset URL carries `?v={filemtime}.{release commit}`, and the shell that mints them is explicitly `no-store`. All three parts are load-bearing. The mtime alone fails a deploy whose FTP client preserves timestamps — the URL is unchanged, so a browser keeps its stale copy; the release commit from `config/version.php` covers that, and the mtime in turn covers a file edited between releases. The `no-store` on the shell is what stops a cached page from handing out the *previous* set of stamps forever, which no amount of versioning downstream can recover from. `app.js`'s `import`s are versioned through an import map (`layout.php`), since a module specifier the browser resolves itself would otherwise carry no version at all; `tests/AssetCacheBustingTest.php` fails if an import is added without a matching map entry
+- **Untrusted numbers at a render boundary**: the Hall of Fame wall polls
+  `/board/data` unattended for hours and builds its rows by string
+  concatenation. Names are escaped; the numbers pass through `boardNumber()`
+  (`lib/board.js`), which returns a finite number or 0, so a field that arrived
+  as a string cannot reach `innerHTML` — or the `data-entry-id` attribute — as
+  markup. See § *Display modes* for why the server-side `(int)` cast is not
+  considered sufficient on its own
 - **Client-side HTML sanitisation**: "Did you know?" facts carry admin-authored inline markup, so they are rendered as HTML rather than escaped. `public/assets/js/lib/sanitize.js` applies the same allowlist as `App\Models\HtmlSanitizer` before anything reaches the DOM, parsing with `DOMParser` (an inert document that never runs scripts) and rebuilding from allowed nodes only. The two implementations are deliberately kept in step — same tags, same attributes, same URL schemes, same treatment of `<script>`/`<style>` (dropped with their contents) and of a link whose `href` is rejected (unwrapped, not merely stripped). Sanitising on both ends means a fact written by an older version, or a missed server-side call, still cannot execute in a visitor's browser
 - **CSPRNG for index selection**: `lib/random.js` draws from `crypto.getRandomValues` with rejection sampling rather than `Math.random()`. Which fact appears first is not a secret; the point is that every avoidable finding a scanner raises is one more a reviewer must dismiss before reaching a real one
 

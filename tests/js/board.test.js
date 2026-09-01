@@ -26,6 +26,7 @@ import {
     backoffDelay,
     createArrivalTracker,
     createBannerQueue,
+    boardNumber,
     diffArrivals,
     enqueueBanners,
     nextBanner,
@@ -306,5 +307,65 @@ describe('rowsThatFit', () => {
         // The same row height on a 1080x1920 panel and on a 2160x3840 one.
         expect(rowsThatFit(1400, 70)).toBe(20);
         expect(rowsThatFit(2800, 70)).toBe(40);
+    });
+});
+
+describe('boardNumber', () => {
+    it('passes a number through unchanged', () => {
+        expect(boardNumber(512)).toBe(512);
+        expect(boardNumber(0)).toBe(0);
+        expect(boardNumber(-3)).toBe(-3);
+    });
+
+    it('turns a numeric string into a number', () => {
+        // The server casts to (int) today. This is about what the wall does
+        // with a response, not about what the server currently sends.
+        expect(boardNumber('512')).toBe(512);
+        expect(boardNumber(' 7 ')).toBe(7);
+    });
+
+    it('refuses anything that is not a finite number', () => {
+        expect(boardNumber(undefined)).toBe(0);
+        expect(boardNumber(null)).toBe(0);
+        expect(boardNumber('abc')).toBe(0);
+        expect(boardNumber(NaN)).toBe(0);
+        expect(boardNumber(Infinity)).toBe(0);
+        expect(boardNumber(-Infinity)).toBe(0);
+        expect(boardNumber({})).toBe(0);
+        expect(boardNumber([1, 2])).toBe(0);
+    });
+
+    it('leaves no character that could close a tag or open one', () => {
+        // The reason this function exists: the wall concatenates these values
+        // straight into innerHTML, one of them inside an attribute.
+        const hostile = [
+            '<script>alert(1)</script>',
+            '" onmouseover="alert(1)',
+            '1"><img src=x onerror=alert(1)>',
+            "'; alert(1); //",
+        ];
+        for (const value of hostile) {
+            expect(boardNumber(value)).toBe(0);
+            expect(String(boardNumber(value))).not.toMatch(/[<>"'&]/);
+        }
+    });
+
+    it('keeps a hostile row out of the banner a compromised response could carry', () => {
+        const tracker = createArrivalTracker();
+        diffArrivals(tracker, { entries: [] }, 5);
+
+        const { banners } = diffArrivals(tracker, {
+            entries: [],
+            recent: [{
+                id: 1,
+                player_name: 'Mallory',
+                rank: '<img src=x onerror=alert(1)>',
+                game_score: '"><script>alert(1)</script>',
+            }],
+        }, 0);
+
+        expect(banners).toHaveLength(1);
+        expect(banners[0].rank).toBe(0);
+        expect(banners[0].score).toBe(0);
     });
 });
