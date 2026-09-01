@@ -110,8 +110,8 @@ export function diffArrivals(tracker, data, visibleCount) {
                 // The rank the SERVER computed. Deriving it from a position in
                 // this array would be wrong for anyone outside the top slice,
                 // which is precisely who these banners are about.
-                rank: Number(row.rank) || 0,
-                score: Number(row.game_score) || 0,
+                rank: boardNumber(row.rank),
+                score: boardNumber(row.game_score),
             });
         }
     }
@@ -219,4 +219,25 @@ export function resolveDisplayData(previous, incoming, failures) {
 export function rowsThatFit(availableHeight, rowHeight) {
     if (!(rowHeight > 0) || !(availableHeight > 0)) return 0;
     return Math.max(0, Math.floor(availableHeight / rowHeight));
+}
+
+/**
+ * A number from a /board/data row, safe to concatenate into markup.
+ *
+ * The wall builds its HTML by string concatenation and escapes the one field
+ * that is obviously prose — the player name. The numbers looked exempt: the
+ * server casts every one of them to `(int)` before it emits them. But the
+ * wall trusts a *response*, not a database, and an unattended screen that
+ * polls the same URL all evening is exactly the wrong place to assume the
+ * thing on the other end is still the thing that was deployed. A field that
+ * arrives as a string lands in innerHTML as markup.
+ *
+ * So the numbers are made numbers here, at the boundary where they enter the
+ * page, rather than trusted to have been numbers already. Anything that is
+ * not a finite number becomes 0 — a wrong score on screen for one row beats
+ * a script tag on a wall nobody is watching.
+ */
+export function boardNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
 }

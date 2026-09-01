@@ -30,6 +30,7 @@ import {
     nextBanner,
     releaseBanner,
     backoffDelay,
+    boardNumber,
     resolveDisplayData,
     rowsThatFit,
 } from './lib/board.js';
@@ -2806,8 +2807,9 @@ import {
     var wallRowCapacity = 10;
 
     function formatWallTime(seconds) {
-        var mins = Math.floor(seconds / 60);
-        var secs = seconds % 60;
+        var total = Math.max(0, boardNumber(seconds));
+        var mins = Math.floor(total / 60);
+        var secs = Math.floor(total % 60);
         return mins + ':' + (secs < 10 ? '0' : '') + secs;
     }
 
@@ -2822,7 +2824,7 @@ import {
             html += '<div class="wall-pod wall-pod-' + (i + 1) + '">'
                 + '<div class="wall-pod-medal">' + WALL_MEDALS[i] + '</div>'
                 + '<div class="wall-pod-name">' + escapeHtml(entry.player_name) + '</div>'
-                + '<div class="wall-pod-score">' + entry.game_score + '</div>'
+                + '<div class="wall-pod-score">' + boardNumber(entry.game_score) + '</div>'
                 + '<div class="wall-pod-time">' + formatWallTime(entry.time_seconds) + '</div>'
                 + '</div>';
         });
@@ -2835,11 +2837,12 @@ import {
         var html = '<div class="wall-list"><table><thead><tr>'
             + '<th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
         entries.forEach(function (entry) {
-            var fresh = wallHighlightIds.indexOf(entry.id) !== -1 ? ' class="wall-fresh"' : '';
-            html += '<tr' + fresh + ' data-entry-id="' + entry.id + '">'
-                + '<td>' + entry.rank + '</td>'
+            var id = boardNumber(entry.id);
+            var fresh = wallHighlightIds.indexOf(id) !== -1 ? ' class="wall-fresh"' : '';
+            html += '<tr' + fresh + ' data-entry-id="' + id + '">'
+                + '<td>' + boardNumber(entry.rank) + '</td>'
                 + '<td>' + escapeHtml(entry.player_name) + '</td>'
-                + '<td>' + entry.game_score + '</td></tr>';
+                + '<td>' + boardNumber(entry.game_score) + '</td></tr>';
         });
         return html + '</tbody></table></div>';
     }
