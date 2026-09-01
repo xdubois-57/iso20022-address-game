@@ -22,6 +22,76 @@ class ShareControllerTest extends TestCase
        Token round-trip (encrypt → URL-safe → reverse → decrypt)
        ======================================================= */
 
+    /* =======================================================
+       GD share card — the fallback path, drawn on hosts without Imagick
+       ======================================================= */
+
+    /**
+     * The score card's GD path was the one render path nothing exercised:
+     * CI has Imagick, so the browser tests take the other branch and this
+     * code only ever runs on the hosts least able to report a problem.
+     * Called directly so the assertion holds whether or not Imagick is
+     * installed, rather than passing by not running.
+     */
+    private function renderGdScoreCard(): \GdImage
+    {
+        $m = new \ReflectionMethod(\App\Controllers\ShareController::class, 'buildShareImageGd');
+        $m->setAccessible(true);
+        $png = $m->invoke(new \App\Controllers\ShareController(), '4200', 'Alice');
+
+        $img = @imagecreatefromstring($png);
+        $this->assertNotFalse($img, 'the GD path must return a decodable PNG');
+
+        return $img;
+    }
+
+    public function testGdScoreCardIsA1200x630Png(): void
+    {
+        $img = $this->renderGdScoreCard();
+
+        $this->assertSame(1200, imagesx($img), 'the size every social network expects');
+        $this->assertSame(630, imagesy($img));
+
+        imagedestroy($img);
+    }
+
+    public function testGdScoreCardCarriesTheEndorsementPlate(): void
+    {
+        // A host without Imagick posting share cards with no PMPG lockup
+        // would be a half-applied rebrand, so both paths must draw it. The
+        // white plate is the part that is theme-independent — it is allocated
+        // as pure white on either path — which makes it the thing worth
+        // asserting on.
+        $img = $this->renderGdScoreCard();
+
+        $rgb = imagecolorat($img, 600, 527);
+        $this->assertSame(
+            [255, 255, 255],
+            [($rgb >> 16) & 0xFF, ($rgb >> 8) & 0xFF, $rgb & 0xFF],
+            'the lockup plate must be drawn at the foot of the GD card'
+        );
+
+        imagedestroy($img);
+    }
+
+    public function testGdScoreCardDrawsNothingWhereTheCaptionUsedToBe(): void
+    {
+        // The "Supported by" caption sat centred just above the plate. It was
+        // removed on every surface at once; this pins the GD one, which no
+        // browser test reaches. Compared against a point on the same row far
+        // from anything drawn, so the assertion holds whatever theme the
+        // instance running the suite happens to have.
+        $img = $this->renderGdScoreCard();
+
+        $this->assertSame(
+            imagecolorat($img, 100, 509),
+            imagecolorat($img, 600, 509),
+            'the caption strip must be bare background'
+        );
+
+        imagedestroy($img);
+    }
+
     public function testTokenRoundTrip(): void
     {
         $payload = json_encode(['s' => 5000, 'n' => 'Alice']);
