@@ -501,7 +501,7 @@ import {
     }
 
     /**
-     * The "Supported by PMPG" block that closes the .welcome-card.
+     * The PMPG endorsement block that closes the .welcome-card.
      *
      * Wholly static markup — no interpolation, so no escapeHtml() call to
      * make here. Anything dynamic added alongside it still needs one.
@@ -510,12 +510,13 @@ import {
      * where an outbound navigation strands the player in a browser they
      * cannot leave.
      *
-     * The alt text is not decorative: the logo *is* the statement of support,
-     * so a screen reader has to announce it rather than skip it.
+     * The alt text is not decorative, and it carries more weight now that the
+     * visible "Supported by" label has been dropped: the lockup alone is the
+     * whole statement, so a screen reader has to announce it rather than skip
+     * it.
      */
     function endorsementHtml() {
         return '<div class="card-endorsement">'
-            + '<span class="endorsement-label">Supported by</span>'
             + '<img src="' + PMPG_LOGO_SRC + '" alt="Payments Market Practice Group" '
             + 'width="1095" height="282">'
             + '</div>';

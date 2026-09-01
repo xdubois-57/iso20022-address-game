@@ -143,8 +143,14 @@ class DisplayModeShellTest extends TestCase
         // The whole reason the footer is not simply dropped: on a wall, the
         // endorsement is what that space is for.
         $this->assertStringContainsString('footer-endorsement', $html);
-        $this->assertStringContainsString('Supported by', $html);
         $this->assertStringContainsString('alt="Payments Market Practice Group"', $html);
+
+        // The lockup stands on its own: the visible label was dropped. Matched
+        // as element text (`>Supported by<`) rather than as a bare substring,
+        // because the OpenGraph description in the same document still says
+        // the game is supported by the PMPG — that is prose, not a label, and
+        // it stays.
+        $this->assertStringNotContainsString('>Supported by<', $html);
     }
 
     public function testPlayFooterKeepsPrivacyAndGithub(): void

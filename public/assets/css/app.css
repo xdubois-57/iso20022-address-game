@@ -203,15 +203,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
     margin: 0.4rem 0 0.35rem;
-}
-
-.footer-endorsement .footer-text {
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    opacity: 0.75;
 }
 
 .footer-endorsement img {
@@ -1301,7 +1293,7 @@ html, body {
 }
 
 /* =========================================================
-   "Supported by PMPG" — closes the .welcome-card
+   The PMPG lockup — closes the .welcome-card
    (renderWelcomeCard in app.js)
    ========================================================= */
 .card-endorsement {
@@ -1312,15 +1304,6 @@ html, body {
        rather than as another accent. Fixed hex on purpose — it must stay
        neutral against a white card whatever the admin sets the theme to. */
     border-top: 1px solid #EDEBF2;
-}
-
-.card-endorsement .endorsement-label {
-    display: block;
-    font-size: 0.65rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #8E8AA0;
-    margin: 0 0 0.55rem;
 }
 
 .card-endorsement img {

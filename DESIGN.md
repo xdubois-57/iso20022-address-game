@@ -117,9 +117,9 @@ Hall of Fame is for fun rather than adjudication.
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
 - Dynamic 1200×630 PNG share card generated server-side (Imagick, GD fallback)
 - Share card features theme-branded colors with decorative balloons
-- The card closes with `Supported by` and the PMPG lockup on a white plate.
-  This is the branding's most public surface — a LinkedIn post shows it to
-  people who never open the game — so both render paths draw it
+- The card closes with the PMPG lockup on a white plate, with no label above
+  it. This is the branding's most public surface — a LinkedIn post shows it to
+  people who never open the game — so both render paths draw the same thing
 - **Balloons are kept off it.** `ShareController::exclusionZones()` reserves
   the centre text block *and* the endorsement strip, and
   `planBalloons()` — extracted from the drawing code precisely so it can be
@@ -246,15 +246,19 @@ Two supporting choices, for the same reason:
 - **API**: Public `GET /api/game/facts` endpoint returns all facts
 
 ### PMPG Endorsement
-- The white welcome card closes with a `Supported by` label and the PMPG
-  lockup, above a hairline rule (`.card-endorsement` in `app.css`)
+- The white welcome card closes with the PMPG lockup above a hairline rule
+  (`.card-endorsement` in `app.css`). The lockup stands alone: the `Supported
+  by` label that used to sit above it was removed on 2026-09-01 at the
+  maintainer's request, on every surface at once
 - Rendered by `endorsementHtml()` in `app.js` at the foot of
   `renderWelcomeCard()` — the first screen every player sees
 - The logo is **not** a link. A kiosk runs in Guided Access, where an outbound
   navigation strands the player in a browser they cannot leave
-- `alt="Payments Market Practice Group"` is load-bearing, not decorative: the
-  logo *is* the statement of support, so a screen reader must announce it
-- The page footer carries the same `Supported by` + lockup pair at ~24px
+- `alt="Payments Market Practice Group"` is load-bearing, not decorative, and
+  more so since the label went: the lockup *is* the whole statement now, and a
+  screen reader that skipped it would find nothing else on screen saying who
+  supports the game
+- The page footer carries the same bare lockup at ~24px
   (`.footer-endorsement`), in `app/Views/layout.php` — so it holds on every
   screen, not only the welcome card. Hidden below 768px, where both logos
   would otherwise land in one short viewport; the card keeps its own
@@ -387,9 +391,19 @@ discarding the session cookie does not reset them.
 The rule, so the next person does not have to reconstruct it:
 
 **The PMPG supports the game. Xavier Dubois and Niel Buchan wrote it and
-maintain it.** Every piece of wording has to leave both halves standing. The
-agreed phrasing is *"Supported by"*, and nothing may imply that the PMPG
-authors, publishes or operates the game.
+maintain it.** Every piece of wording has to leave both halves standing, and
+nothing may imply that the PMPG authors, publishes or operates the game.
+
+The agreed phrasing is *"Supported by"*, and it still reads that way wherever
+the relationship is stated in prose: the README's legal notice, the Privacy
+screen, and the OpenGraph and Twitter descriptions. What it no longer does is
+label the logo. The `Supported by` caption that sat above the lockup on the
+welcome card, the footer and the share card was removed on 2026-09-01 at the
+maintainer's request; the four surfaces now show the mark on its own. If that
+ever needs revisiting, note what the caption was doing: it was the thing that
+stopped a bare lockup reading as "the PMPG publishes this", which is precisely
+the reading the agreement rules out. The prose statements are what carry that
+weight now.
 
 Where the mark appears, and who draws it:
 
@@ -406,9 +420,9 @@ Four things that are easy to get wrong:
 1. **The mark is not covered by the GPL.** The licence grants rights over this
    project's source code, not over the Payments Market Practice Group's
    trademarks. A fork receives the code and no right to the mark, and must
-   strip `pmpg-logo.png`, `pmpg-mark.png` and the "Supported by" wording
-   before redistributing. README § *Third-party assets* says so in the place a
-   forker will actually look.
+   strip `pmpg-logo.png`, `pmpg-mark.png` and the endorsement wording that
+   remains in prose before redistributing. README § *Third-party assets* says
+   so in the place a forker will actually look.
 2. **The PMPG is not a data controller.** The Privacy screen says it endorses
    the game and does not operate it; § 1 Data Controller names only the two
    authors. Naming the PMPG there would be an inaccurate GDPR declaration. The

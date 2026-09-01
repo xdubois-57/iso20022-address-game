@@ -331,7 +331,6 @@ if (!function_exists('getVersionInfo')) {
             Guided Access cannot come back from an outbound navigation.
         -->
         <div class="footer-endorsement">
-            <span class="footer-text">Supported by</span>
             <img src="<?= assetUrl('assets/images/pmpg-logo.png') ?>"
                  alt="Payments Market Practice Group" width="1095" height="282">
         </div>

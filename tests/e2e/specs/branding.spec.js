@@ -48,7 +48,9 @@ test.describe('PMPG branding', () => {
         const footerLogo = page.locator('.game-footer .footer-endorsement img');
         await expect(footerLogo).toBeVisible();
         await expect(footerLogo).toHaveAttribute('alt', PMPG_ALT);
-        await expect(page.locator('.footer-endorsement .footer-text')).toHaveText('Supported by');
+        // No label before it any more; the lockup stands alone.
+        await expect(page.locator('.footer-endorsement .footer-text')).toHaveCount(0);
+        await expect(page.locator('.footer-endorsement')).not.toContainText('Supported by');
         expect(await footerLogo.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
 
         // Asserted on a second screen on purpose. The SPA swaps out
