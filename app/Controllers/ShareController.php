@@ -47,7 +47,6 @@ class ShareController
     /** Endorsement strip geometry. */
     private const ENDORSE_LOGO_W = 260;
     private const ENDORSE_LOGO_BOTTOM_MARGIN = 28;
-    private const ENDORSE_LABEL_OFFSET = 205;
 
     /** Logo height, from the asset's own 1095×282 aspect ratio. */
     private static function endorseLogoHeight(): int
@@ -84,7 +83,11 @@ class ShareController
                 (int) (($w - 700) / 2) + 700,
                 (int) (($h - 360) / 2) + 360,
             ],
-            // "Supported by" + the lockup, with room around them.
+            // The lockup, with room around it. The band deliberately keeps
+            // the headroom it had when a "Supported by" label sat above the
+            // logo: nothing is drawn there any more, but the clearance is
+            // what stops a balloon crowding the mark, and ShareCardLayoutTest
+            // pins the result over 300 seeds against these very bounds.
             [
                 (int) (($w - self::ENDORSE_LOGO_W) / 2) - 40,
                 $logoTop - 60,
@@ -334,9 +337,9 @@ class ShareController
 
         // ── 4. Endorsement strip at the foot of the card ────────────────────
         // This is the most public surface the branding has: a LinkedIn post
-        // shows this image to people who will never open the game.
-        $drawText('Supported by', 22, '#ffffff', self::ENDORSE_LABEL_OFFSET);
-
+        // shows this image to people who will never open the game. The lockup
+        // stands on its own here — the "Supported by" label above it was
+        // dropped, on both render paths, so the two cannot drift.
         $logoPath = __DIR__ . '/../../public/assets/images/pmpg-logo.png';
         if (is_file($logoPath)) {
             $logo = new \Imagick($logoPath);
@@ -412,7 +415,7 @@ class ShareController
         // The endorsement, on this path too. A host without Imagick posting
         // share cards with no PMPG logo would be exactly the sort of
         // half-applied rebrand the icon iteration guarded against.
-        $this->drawEndorsementGd($img, $w, $h, $fontBold, $darkGreen);
+        $this->drawEndorsementGd($img, $w, $h);
 
         ob_start();
         imagepng($img, null, 6);
@@ -444,13 +447,13 @@ class ShareController
     }
 
     /**
-     * Draw "Supported by" and the PMPG lockup at the foot of a GD canvas.
+     * Draw the PMPG lockup at the foot of a GD canvas.
      *
      * Shared by the score card and the home card so the two cannot drift.
      *
      * @param \GdImage $img
      */
-    private function drawEndorsementGd($img, int $w, int $h, ?string $fontBold, int $textColor): void
+    private function drawEndorsementGd($img, int $w, int $h): void
     {
         $logoW   = self::ENDORSE_LOGO_W;
         $logoH   = self::endorseLogoHeight();
@@ -470,10 +473,6 @@ class ShareController
             10,
             $plate
         );
-
-        if ($fontBold) {
-            $this->ttfCentered($img, 20, $fontBold, 'Supported by', $w, $logoTop - 26, $textColor);
-        }
 
         $logoPath = __DIR__ . '/../../public/assets/images/pmpg-logo.png';
         if (!is_file($logoPath)) {
@@ -527,7 +526,7 @@ class ShareController
             $this->gdCentered($img, 5, 'Play Now!', $w, 390, $emerald);
         }
 
-        $this->drawEndorsementGd($img, $w, $h, $fontBold, $darkGreen);
+        $this->drawEndorsementGd($img, $w, $h);
 
         // Render PNG to buffer
         ob_start();

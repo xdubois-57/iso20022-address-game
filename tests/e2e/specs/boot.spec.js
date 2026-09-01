@@ -64,12 +64,17 @@ test.describe('boot', () => {
         const logo = page.locator('.welcome-card .card-endorsement img');
         await expect(logo).toBeVisible();
 
-        // The alt is asserted rather than merely checked non-empty: the logo
-        // is what states the endorsement, so a screen reader has to announce
-        // it. An empty alt would hide the support from exactly the users who
-        // cannot see the image.
+        // The alt is asserted rather than merely checked non-empty, and it
+        // matters more since the visible "Supported by" label was dropped:
+        // the lockup alone now carries the endorsement, so a screen reader
+        // has to announce it. An empty alt would hide the support from
+        // exactly the users who cannot see the image.
         await expect(logo).toHaveAttribute('alt', 'Payments Market Practice Group');
-        await expect(page.locator('.welcome-card .endorsement-label')).toHaveText('Supported by');
+
+        // The label is gone on purpose. Asserted rather than merely deleted,
+        // so it cannot creep back in unnoticed.
+        await expect(page.locator('.welcome-card .endorsement-label')).toHaveCount(0);
+        await expect(page.locator('.welcome-card .card-endorsement')).not.toContainText('Supported by');
 
         // Not a link: a kiosk in Guided Access cannot come back from an
         // outbound navigation.
