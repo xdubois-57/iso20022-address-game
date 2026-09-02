@@ -559,6 +559,14 @@ regenerate one will actually read it.
 | **End-to-end** | Playwright against a throwaway SQLite instance |
 | **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
 
+`.github/workflows/codeql.yml` runs separately, on push, on pull request and
+weekly. **CodeQL does not support PHP**, so the only language it analyses is
+`javascript-typescript` — everything under `app/`, which is the majority of
+this application's logic, is not covered by it. Its results land in the
+repository's Security tab; the PHP is covered by PHPStan, SonarCloud and the
+passive DAST scan instead. The workflow says all of this in its own header,
+because a green badge is a claim somebody will read as more than it is.
+
 ### SonarCloud setup
 
 Analysis is configured by `sonar-project.properties`
