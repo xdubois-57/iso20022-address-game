@@ -240,6 +240,7 @@ by design.
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
 | `board_window_hours` | Admin → Display modes → Wall window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
+| `sharing_enabled` | Admin → Sharing | `1` | Whether the end-of-game screen offers the sharing controls. See [Sharing](#sharing). |
 
 `board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
 Fame served to phones, to desktop browsers and to the iPad kiosk stays
@@ -276,6 +277,42 @@ Worth doing once, on the real machines, and not on the day:
 - Play a full game **with a finger only**, name included, without touching the
   physical keyboard.
 - Confirm that pressing the wall does nothing whatsoever.
+
+## Sharing
+
+Sharing is **on** by default and can be switched off from Admin → *Sharing*.
+
+With it off, the end-of-game screen renders none of the four sharing surfaces:
+the "Challenge a Friend" button, the LinkedIn link, the copy-link button, and
+the kiosk QR block. They are not hidden with CSS — they are not in the DOM at
+all, no handler is bound to them, and no share token is minted.
+
+### What it does **not** do
+
+The switch is an **interface decision, not an access control**, and it is worth
+being blunt about that because the difference is where the damage would be. The
+five server routes keep answering exactly as before, whatever the setting says:
+
+| Route | Still answers | Why |
+|---|---|---|
+| `/share?d=…` | yes | A link a player already posted lives in somebody's feed. Breaking it breaks their post, not this installation's future. |
+| `/share/go?d=…` | yes | Same, for a QR code somebody has already photographed. |
+| `/share/image?d=…` | yes | The preview image those two links point at. |
+| `/share/home-image` | yes | **Not score sharing.** This is the site's own OpenGraph image, used by every link to the game — closing it would degrade the preview of a link that has nothing to do with anyone's score. |
+| `share/token` (POST) | yes | Nothing in the UI calls it with sharing off; it stays available so the route surface does not change under an existing client. |
+
+So: do not describe this switch as a security measure, and do not use it as
+one. Anyone holding a token can still resolve it. What the switch controls is
+whether this installation *offers* sharing to the player in front of it.
+
+### Relationship to `?mode=play`
+
+Two independent mechanisms, both of which have to hold. The play station has
+never shared, and still never shares whatever `sharing_enabled` says: its
+end-of-game screen is a different screen entirely, because `navigator.share`
+opens an operating-system sheet on top of a locked kiosk that the next player
+then has to dismiss. Switching sharing back on does not give the play station
+share buttons.
 
 ## Excel File Format
 

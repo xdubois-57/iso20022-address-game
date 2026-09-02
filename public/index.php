@@ -253,6 +253,8 @@ if ($method === 'POST') {
         'admin/get-deadline' => (new AdminController())->getDeadline(),
         'admin/get-board-window' => (new AdminController())->getBoardWindow(),
         'admin/set-board-window' => (new AdminController())->setBoardWindow(),
+        'admin/get-sharing' => (new AdminController())->getSharing(),
+        'admin/set-sharing' => (new AdminController())->setSharing(),
         'admin/get-facts' => (new AdminController())->getFacts(),
         'admin/add-fact' => (new AdminController())->addFact(),
         'admin/update-fact' => (new AdminController())->updateFact(),
@@ -332,6 +334,24 @@ $displayMode = $_GET['mode'] ?? '';
 if (!is_string($displayMode) || !in_array($displayMode, ['', 'hof', 'play'], true)) {
     $displayMode = '';
 }
+
+/**
+ * Whether the interface offers sharing, resolved here and carried to the
+ * browser on <body>, exactly as $displayMode is.
+ *
+ * One read, on the request that already talks to the database to render the
+ * page, rather than an extra round trip from the SPA — and the same mechanism
+ * the front end already understands, instead of a second one beside it.
+ *
+ * INTERFACE ONLY. Every share route above this line — /share, /share/go,
+ * /share/image, /share/home-image — and the `share/token` POST action are
+ * declared without reference to this flag and answer identically whether it
+ * is on or off. That is deliberate and load-bearing: a link a player already
+ * posted must keep working, /share/home-image is the site's own OpenGraph
+ * image rather than anyone's score, and hiding a feature is a product
+ * decision rather than an access control. Do not turn this into one.
+ */
+$sharingEnabled = AdminController::sharingEnabledStatic();
 
 // Serve the SPA shell
 require __DIR__ . '/../app/Views/layout.php';

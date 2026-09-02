@@ -543,6 +543,93 @@ class AdminController
         return (new SettingsModel(Database::getInstance()->getPdo()))->get('unstructured_deadline');
     }
 
+    /**
+     * The settings key behind the sharing switch, and its default.
+     *
+     * '1' is the default on purpose: a fresh installation behaves exactly as
+     * every installation did before this key existed. Turning sharing off is
+     * a deliberate act, never something an upgrade does on somebody's behalf.
+     */
+    public const SHARING_ENABLED_KEY = 'sharing_enabled';
+
+    /**
+     * Whether the interface offers sharing. Read by public/index.php, which
+     * hands the answer to the shell.
+     *
+     * This governs WHAT IS RENDERED, and nothing else. The five share routes —
+     * /share, /share/go, /share/image, /share/home-image and the
+     * `share/token` action — answer identically whatever this returns, and
+     * they must keep doing so:
+     *
+     *  - a link a player has already posted has to keep working, or this
+     *    switch breaks something living in somebody's LinkedIn feed;
+     *  - /share/home-image is not score sharing at all, it is the site's own
+     *    OpenGraph image, so closing it would degrade the preview of every
+     *    link to the game, including links that have nothing to do with a
+     *    player's score;
+     *  - and this is a product decision about what the UI offers, not an
+     *    access control. Nothing here is a security boundary, and describing
+     *    it as one would invite somebody to rely on it as though it were.
+     *
+     * Anything other than the stored '0' reads as enabled: an absent key, an
+     * empty value and a row somebody typed by hand all fall to the behaviour
+     * that was there before.
+     */
+    public static function sharingEnabledStatic(): bool
+    {
+        $pdo = Database::getInstance()->getPdo();
+        if ($pdo === null) {
+            return true;
+        }
+
+        return (new SettingsModel($pdo))->get(self::SHARING_ENABLED_KEY) !== '0';
+    }
+
+    /**
+     * POST /api/admin/get-sharing — is the sharing UI offered?
+     */
+    public function getSharing(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $this->jsonResponse(['sharing_enabled' => self::sharingEnabledStatic()]);
+    }
+
+    /**
+     * POST /api/admin/set-sharing — show or hide the sharing UI.
+     *
+     * Stored as '1'/'0' rather than deleted when switched back on, so the
+     * setting reads the same whether it was never touched or deliberately
+     * re-enabled.
+     */
+    public function setSharing(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $raw = $this->getJsonInput()['sharing_enabled'] ?? null;
+
+        // Rejected rather than coerced: (bool) of anything is a value, and a
+        // malformed request must not silently decide this either way.
+        if (!is_bool($raw) && $raw !== 0 && $raw !== 1 && $raw !== '0' && $raw !== '1') {
+            $this->jsonResponse(['error' => 'sharing_enabled must be true or false.'], 400);
+            return;
+        }
+
+        $enabled = $raw === true || $raw === 1 || $raw === '1';
+
+        (new SettingsModel(Database::getInstance()->getPdo()))
+            ->set(self::SHARING_ENABLED_KEY, $enabled ? '1' : '0');
+
+        $this->jsonResponse(['success' => true, 'sharing_enabled' => $enabled]);
+    }
+
+
     private function fetchDeadline(): ?string
     {
         return self::fetchDeadlineStatic();

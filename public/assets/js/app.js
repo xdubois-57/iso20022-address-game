@@ -108,6 +108,27 @@ import {
      */
     var displayMode = document.body.dataset.mode || '';
 
+    /**
+     * Whether this installation offers sharing, decided by the server from
+     * the `sharing_enabled` setting and written onto <body data-sharing>.
+     *
+     * Read once here, like displayMode, and for the same reason. The
+     * attribute is ABSENT unless sharing has been switched off, so the
+     * default reads as enabled and a default installation is untouched.
+     *
+     * What this governs is what gets RENDERED. It is not an access control
+     * and must never be described as one: /share, /share/go, /share/image,
+     * /share/home-image and the share/token action all keep answering, so a
+     * link a player already posted goes on working and the site's own
+     * OpenGraph preview goes on being generated.
+     *
+     * Orthogonal to the play station's own refusal to share. ?mode=play
+     * blocks the whole share path for a different reason — navigator.share
+     * opens an OS sheet on top of a locked-down kiosk — and it does so
+     * whatever this flag says.
+     */
+    var sharingEnabled = document.body.dataset.sharing !== 'off';
+
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
@@ -1259,7 +1280,14 @@ import {
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
         html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
-        if (kioskMode) {
+        // Nothing rendered at all when sharing is off — not hidden with CSS.
+        // A display:none button is still in the DOM, still reachable by
+        // keyboard, and still there for anyone reading the markup, which is
+        // not what "the interface does not offer this" means.
+        if (!sharingEnabled) {
+            // Deliberately empty: no QR block, no share buttons, no status
+            // line. The score, the round badges and Play Again all stay.
+        } else if (kioskMode) {
             html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
         } else {
             // Mobile: native share button, Desktop: LinkedIn + Copy Link side by side
@@ -1325,6 +1353,13 @@ import {
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {
             showScreen('game');
         });
+
+        // No element was rendered above, so nothing is looked up and no
+        // handler is bound — and, just as importantly, share/token is never
+        // called, so an installation with sharing off mints no tokens.
+        if (!sharingEnabled) {
+            return;
+        }
 
         if (kioskMode) {
             renderKioskShareQr(finalGameScore);
@@ -1849,6 +1884,30 @@ import {
 
         html += '</div>';
 
+        // Sharing — a product switch, and labelled as one.
+        //
+        // The sentence about existing links is not decoration. Without it an
+        // administrator switching this off will believe they have revoked
+        // something, and will be wrong: every link already posted keeps
+        // working, by design.
+        html += '<div class="admin-section sharing-section"><h3>Sharing</h3>';
+        html += '<p>Whether the end-of-game screen offers the share buttons, the LinkedIn link, '
+            + 'the copy-link button and the kiosk QR code.</p>';
+        // Its own class family, not the kiosk toggle's. The two switches look
+        // identical on purpose — one switch shape in the panel — but they are
+        // different controls, and sharing a class name made `.kiosk-toggle`
+        // stop meaning "the kiosk toggle" to everything that selects on it.
+        html += '<label class="admin-switch">';
+        html += '<input type="checkbox" id="sharingToggle">';
+        html += '<span class="admin-switch-slider"></span>';
+        html += '<span class="admin-switch-label" id="sharingLabel">Loading\u2026</span>';
+        html += '</label>';
+        html += '<p class="sharing-note" id="sharingNote"><strong>Links already shared keep working.</strong> '
+            + 'This hides the buttons; it does not revoke anything. A score link a player has already '
+            + 'posted still opens, and the site\u2019s own social preview image is still generated.</p>';
+        html += '<p class="sharing-status" id="sharingStatus"></p>';
+        html += '</div>';
+
         // Game Counter section
         html += '<div class="admin-section"><h3>\uD83C\uDFAE Game Counter</h3>';
         html += '<div class="game-counter-info">';
@@ -1921,6 +1980,7 @@ import {
         renderDisplayModeUrls();
         loadAdminDeadline();
         loadAdminBoardWindow();
+        loadAdminSharing();
         loadAdminFacts();
         loadAdminTheme();
     }
@@ -1997,6 +2057,45 @@ import {
                     setTimeout(function () { self.textContent = original; }, 1500);
                 });
             });
+        });
+    }
+
+    /**
+     * The sharing switch's current value, and its handler.
+     *
+     * Read from the server rather than from the shell's own data-sharing
+     * attribute: an administrator on a page loaded before the change would
+     * otherwise see the stale value they just moved away from.
+     */
+    async function loadAdminSharing() {
+        var toggle = document.getElementById('sharingToggle');
+        var label = document.getElementById('sharingLabel');
+        if (!toggle) return;
+
+        var data = await api('admin/get-sharing');
+        var enabled = !data || data.sharing_enabled !== false;
+        toggle.checked = enabled;
+        if (label) label.textContent = enabled ? 'Enabled' : 'Disabled';
+
+        toggle.addEventListener('change', async function () {
+            var status = document.getElementById('sharingStatus');
+            var wanted = toggle.checked;
+
+            var saved = await api('admin/set-sharing', { sharing_enabled: wanted });
+            if (!saved || !saved.success) {
+                // Put the switch back where the server still has it, rather
+                // than leaving it showing a state that was never stored.
+                toggle.checked = !wanted;
+                if (status) status.textContent = (saved && saved.error) || 'Could not save the setting.';
+                return;
+            }
+
+            if (label) label.textContent = saved.sharing_enabled ? 'Enabled' : 'Disabled';
+            if (status) {
+                status.textContent = saved.sharing_enabled
+                    ? 'Saved \u2014 the share buttons are offered again. Reload a player\u2019s page to see it.'
+                    : 'Saved \u2014 the share buttons are hidden. Links already shared keep working.';
+            }
         });
     }
 

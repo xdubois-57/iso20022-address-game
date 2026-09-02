@@ -682,8 +682,13 @@ html, body {
     margin-bottom: 0.5rem;
 }
 
-/* ===== Kiosk Mode Toggle ===== */
-.kiosk-toggle {
+/* ===== Toggle switches (kiosk mode, sharing) =====
+   One switch shape in the admin panel, two separate controls. The selectors
+   are grouped rather than the class reused: `.kiosk-toggle` has to go on
+   meaning the kiosk toggle and nothing else, or anything selecting on it
+   silently starts matching two switches. */
+.kiosk-toggle,
+.admin-switch {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -691,10 +696,12 @@ html, body {
     -webkit-user-select: none;
     user-select: none;
 }
-.kiosk-toggle input {
+.kiosk-toggle input,
+.admin-switch input {
     display: none;
 }
-.kiosk-slider {
+.kiosk-slider,
+.admin-switch-slider {
     position: relative;
     width: 48px;
     height: 26px;
@@ -703,7 +710,8 @@ html, body {
     transition: background 0.3s;
     flex-shrink: 0;
 }
-.kiosk-slider::after {
+.kiosk-slider::after,
+.admin-switch-slider::after {
     content: '';
     position: absolute;
     top: 3px;
@@ -714,13 +722,16 @@ html, body {
     border-radius: 50%;
     transition: transform 0.3s;
 }
-.kiosk-toggle input:checked + .kiosk-slider {
+.kiosk-toggle input:checked + .kiosk-slider,
+.admin-switch input:checked + .admin-switch-slider {
     background: var(--game-emerald);
 }
-.kiosk-toggle input:checked + .kiosk-slider::after {
+.kiosk-toggle input:checked + .kiosk-slider::after,
+.admin-switch input:checked + .admin-switch-slider::after {
     transform: translateX(22px);
 }
-.kiosk-label {
+.kiosk-label,
+.admin-switch-label {
     font-weight: 600;
     color: var(--game-dark-green);
 }
@@ -1807,6 +1818,27 @@ body[data-mode="play"] .header-content {
     font-size: 0.9rem;
     margin-top: 0.5rem;
     min-height: 1.2em;
+}
+
+/* ---------------------------------------------------------
+   Sharing switch (Admin)
+
+   Reuses .kiosk-toggle's slider wholesale — one switch shape in the panel
+   rather than a second that looks almost the same. Only the two lines of
+   prose beneath it need styling of their own.
+   --------------------------------------------------------- */
+.sharing-note {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--game-dark-green);
+    border-left: 3px solid var(--game-light-peppermint);
+    padding-left: 0.75rem;
+}
+.sharing-status {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    min-height: 1.2em;
+    color: var(--game-emerald);
 }
 
 /* ---------------------------------------------------------

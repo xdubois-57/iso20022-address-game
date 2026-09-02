@@ -97,6 +97,23 @@ $layoutDisplayMode = isset($displayMode) && in_array($displayMode, ['hof', 'play
     ? $displayMode
     : '';
 
+/**
+ * Whether the interface offers sharing, resolved by public/index.php from the
+ * `sharing_enabled` setting.
+ *
+ * Carried on <body> like the display mode, and — like it — the attribute is
+ * ABSENT in the ordinary case. A default installation therefore renders the
+ * byte-identical <body> tag it rendered before this setting existed, and
+ * "no attribute" keeps meaning "behave as you always did".
+ *
+ * Defaulted to true when the variable is undefined, for the same reason
+ * $layoutDisplayMode is defaulted: this file is included directly by tests,
+ * and an undefined variable would emit a warning into the middle of the
+ * <body> tag. Defaulting the OTHER way would also hide the share buttons in
+ * every such context, which is a strange thing for a missing variable to do.
+ */
+$layoutSharingEnabled = !isset($sharingEnabled) || (bool) $sharingEnabled;
+
 // Load theme colors from DB (with graceful fallback to defaults)
 if (!isset($layoutTheme)) {
     $layoutTheme = \App\Models\ThemeModel::defaults();
@@ -276,7 +293,7 @@ if (!function_exists('getVersionInfo')) {
         <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
     </script>
 </head>
-<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?>>
+<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?><?= $layoutSharingEnabled ? '' : ' data-sharing="off"' ?>>
     <header class="game-header">
         <div class="header-content">
             <h1 class="logo">ISO 20022 Address Game</h1>
