@@ -368,6 +368,18 @@ class Database
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_locked_until ON rate_limits (locked_until)');
     }
 
+    /**
+     * The ten facts a brand-new installation starts with.
+     *
+     * Two of them state the deadline, and they have to agree with
+     * GameController::DEFAULT_DEADLINE — the screen saver shows the countdown
+     * and a rotating fact side by side, so a fact naming a different date
+     * makes the game contradict itself in front of a room.
+     *
+     * Seeded ONCE, on an empty table (see below). An installation that
+     * already has facts keeps the wording it was seeded with, whatever this
+     * list later says; an administrator edits those from Admin → Did You Know.
+     */
     private function seedDefaultFacts(): void
     {
         // Seed default facts only if the table is empty (first-time setup)
@@ -377,11 +389,11 @@ class Database
                 'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
                 'Over 70 countries have already adopted ISO 20022 for cross-border payments',
                 'The transition to structured addresses improves payment processing speed by up to 40%',
-                'Unstructured addresses will be phased out starting November 14, 2026',
+                'Unstructured addresses will be phased out starting November 28, 2027',
                 'ISO 20022 enables richer data exchange between financial institutions worldwide',
                 'The new standard supports 207 address formats across all world regions',
                 'Structured addresses reduce payment failures and processing errors significantly',
-                'November 2026 is the deadline for complete migration to ISO 20022 structured addresses',
+                'November 2027 is the deadline for complete migration to ISO 20022 structured addresses',
                 'ISO 20022 provides a common language for financial messaging globally',
                 'The 2026 release ensures interoperability between all payment systems worldwide'
             ];

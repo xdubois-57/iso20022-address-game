@@ -22,18 +22,24 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 ## Legal notice
 
-This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**, and is supported by the **Payments Market Practice Group (PMPG)**. It is developed and maintained by its authors; the PMPG endorses it but does not operate it.
+This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained by its authors.
+
+This notice names no supporting organisation, and does not deny one either — the
+same silence the Privacy screen keeps. Both said more at different times, and
+both said something that later stopped being true. Do not reintroduce either
+sentence: neither "supported by the PMPG" here, nor "not affiliated with or
+endorsed by any organisation" anywhere.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
 
 ## Features
 
-- **Supported by the PMPG** — The Payments Market Practice Group endorses the
-  game. Its lockup appears on its own — no caption above it — on the welcome
-  card, the page footer, the app icon and the share card; the endorsement is
-  stated in words in the legal notice, the Privacy screen and the page's
-  social-preview descriptions. The game remains the work of its authors, and
-  the mark is not covered by the GPL — see [Legal notice](#legal-notice) and
+- **PMPG lockup** — The mark appears on its own — no caption above it — on the
+  welcome card, the page footer, the app icon and the share card, and the
+  endorsement is stated in words in the page's OpenGraph and Twitter
+  descriptions. The legal notice and the Privacy screen name no supporting
+  organisation. The game remains the work of its authors, and the mark is not
+  covered by the GPL — see [Legal notice](#legal-notice) and
   [Third-party assets](#third-party-assets)
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
@@ -154,6 +160,26 @@ Enable **Kiosk Mode** for unattended public displays:
 for an iPad you prepare by hand, and exactly wrong for an unattended screen —
 which is why the wall and the play station use a URL instead. See
 **Display modes** below.
+
+### The deadline countdown
+
+The countdown targets **28 November 2027 at 00:00** unless an administrator
+saves a date of their own under Admin → *Unstructured Address Deadline*. A
+saved date always wins.
+
+Nothing writes that default into the database at install time, so it is the
+constant `GameController::DEFAULT_DEADLINE` that is in force until somebody
+saves one. Two consequences, both intended:
+
+- An installation that never set its own date **moves to the new value when it
+  is updated**. There is no migration to prevent that, on purpose — an install
+  that had accepted the previous default had accepted "whatever this project
+  says the deadline is".
+- The ten "Did You Know" facts are seeded **once**, on an empty table. An
+  installation created before this change keeps the facts it was seeded with,
+  two of which still name November 2026. Nothing rewrites them — edit them from
+  Admin → *Did You Know — Quick Facts*, or the screen saver will show a
+  countdown to one date beside a fact naming another.
 
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
@@ -455,8 +481,8 @@ redistributing a modified version.
 Concretely, that means `public/assets/images/pmpg-logo.png`,
 `public/assets/images/pmpg-mark.png`, every block that renders them — the
 welcome card, the page footer, the app icon and the share card — and the
-sentences naming the PMPG in the legal notice, the Privacy screen and the
-OpenGraph and Twitter descriptions.
+sentences naming the PMPG in the OpenGraph and Twitter descriptions. The legal
+notice and the Privacy screen no longer name it.
 
 #### Address formatter
 
