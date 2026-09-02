@@ -758,13 +758,13 @@ import {
         if (currentRound > TOTAL_ROUNDS) { showFinalScore(); return; }
         resetInactivityTimer();
 
-        appContainer.innerHTML = '<p style="text-align:center;padding:2rem;">Loading round ' +
+        appContainer.innerHTML = '<p class="screen-notice">Loading round ' +
             currentRound + ' / ' + TOTAL_ROUNDS + '...</p>';
 
         var data = await api('game/scenario', { exclude_ids: playedScenarioIds });
         if (!data || data.error) {
             if (currentRound > 1) { showFinalScore(); return; }
-            appContainer.innerHTML = '<div style="text-align:center;padding:2rem;">' +
+            appContainer.innerHTML = '<div class="screen-notice">' +
                 '<h2>No Scenarios Available</h2>' +
                 '<p>' + escapeHtml(data ? data.error : 'Network error') + '</p>' +
                 '<button class="btn-primary" onclick="location.reload()">Retry</button></div>';
@@ -1293,11 +1293,11 @@ import {
             // Mobile: native share button, Desktop: LinkedIn + Copy Link side by side
             // Both sets rendered; JavaScript shows/hides based on device
             html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
-            html += '<div class="share-actions-row" id="desktopShareRow" style="display:none;">';
+            html += '<div class="share-actions-row is-collapsed" id="desktopShareRow">';
             html += '<a class="btn-share btn-linkedin" id="linkedinShareBtn" href="#" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>Share on LinkedIn</a>';
             html += '<button class="btn-share btn-share-copy" id="copyLinkBtn">\uD83D\uDCCB Copy Link</button>';
             html += '</div>';
-            html += '<p id="copyLinkStatus" style="font-size:0.85rem;min-height:1.2rem;margin:0;color:var(--game-emerald);"></p>';
+            html += '<p id="copyLinkStatus" class="copy-link-status"></p>';
         }
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -1680,7 +1680,7 @@ import {
         page = page || 1;
 
         appContainer.innerHTML = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>' +
-            '<p style="text-align:center;">Loading...</p></section>';
+            '<p class="text-centred">Loading...</p></section>';
 
         var data = await api('leaderboard/top', { page: page });
         if (!data) return;
@@ -1968,15 +1968,15 @@ import {
         html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
         html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
         html += '<div id="uploadStatus" class="upload-status hidden"></div>';
-        html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
-        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary" style="text-decoration:none;display:inline-block;">\u2B07 Download Example Excel</a>';
+        html += '<div class="admin-button-row">';
+        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary btn-secondary-link">\u2B07 Download Example Excel</a>';
         html += '<button class="btn-secondary" id="exportScenariosBtn">\u2B07 Export Current Scenarios</button>';
         html += '</div></div>';
 
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
         html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
-        html += '<div style="margin-top:1rem;"><button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
+        html += '<div class="admin-purge-row"><button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
         html += '</div>';
 
         html += '<button class="btn-secondary" id="adminLogoutBtn">Logout</button>';
@@ -2818,7 +2818,7 @@ import {
         html += '</ul>';
 
         html += '<h3>3. Categories of Personal Data Collected</h3>';
-        html += '<div class="overflow-auto"><table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
+        html += '<div class="overflow-auto"><table class="leaderboard-table privacy-data-table"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
         html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Database, encrypted at rest (AES-256-GCM)</td><td>365 days, then automatically deleted</td></tr>';
         html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>365 days</td></tr>';
         html += '<tr><td>Share token (name + score)</td><td>Social sharing URL generation</td><td>Client-side only, encrypted in URL parameter</td><td>Not stored server-side; expires when URL is no longer shared</td></tr>';
@@ -2933,10 +2933,11 @@ import {
             overlay.className = 'overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
-                // pre-line, so a message can use blank lines to separate what
-                // will happen from what it will cost. escapeHtml() still runs:
-                // the text is laid out by CSS, never by markup in the string.
-                '<p style="margin-bottom:1.5rem;font-size:1.05rem;white-space:pre-line;">'
+                // .overlay-message-multiline keeps white-space:pre-line, so a
+                // message can use blank lines to separate what will happen from
+                // what it will cost. escapeHtml() still runs: the text is laid
+                // out by CSS, never by markup in the string.
+                '<p class="overlay-message overlay-message-multiline">'
                 + escapeHtml(message) + '</p>' +
                 '<button class="btn-primary" id="modalOkBtn">OK</button>' +
                 '</div>';
@@ -2961,8 +2962,8 @@ import {
             overlay.className = 'overlay confirm-overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
-                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
-                '<div style="display:flex;gap:0.75rem;justify-content:center;">' +
+                '<p class="overlay-message">' + escapeHtml(message) + '</p>' +
+                '<div class="overlay-actions">' +
                 '<button class="btn-secondary" id="confirmCancelBtn">Cancel</button>' +
                 '<button class="btn-danger" id="confirmOkBtn">Confirm</button>' +
                 '</div></div>';

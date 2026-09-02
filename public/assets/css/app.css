@@ -1520,6 +1520,93 @@ html, body {
     display: none !important;
 }
 
+/* ---------------------------------------------------------
+   Classes that replaced style="..." attributes
+
+   style-src no longer carries 'unsafe-inline' (public/index.php uses a
+   per-request nonce instead), and a nonce authorises <style> and <script>
+   ELEMENTS — never style ATTRIBUTES, which are simply blocked. Every inline
+   style the application emitted therefore lives here now.
+
+   Note .is-collapsed below has NO !important, unlike .hidden above. The
+   elements using it are re-shown by JavaScript assigning
+   element.style.display, which is CSSOM and stays allowed under the policy —
+   but an !important rule would beat that assignment and the element would
+   never appear.
+   --------------------------------------------------------- */
+.is-collapsed {
+    display: none;
+}
+
+.screen-notice {
+    text-align: center;
+    padding: 2rem;
+}
+
+.text-centred {
+    text-align: center;
+}
+
+.copy-link-status {
+    font-size: 0.85rem;
+    min-height: 1.2rem;
+    margin: 0;
+    color: var(--game-emerald);
+}
+
+.admin-button-row {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* An <a> styled as a button: it needs the two properties a real <button>
+   already has. */
+.btn-secondary-link {
+    text-decoration: none;
+    display: inline-block;
+}
+
+.admin-purge-row {
+    margin-top: 1rem;
+}
+
+.privacy-data-table {
+    margin-bottom: 1rem;
+}
+
+/* The custom confirm/alert overlay's text and its button row. */
+.overlay-message {
+    margin-bottom: 1.5rem;
+    font-size: 1.05rem;
+}
+
+/* Lets a confirmation use blank lines to separate what will happen from what
+   it costs. The text is still escaped; only its layout comes from CSS. */
+.overlay-message-multiline {
+    white-space: pre-line;
+}
+
+.overlay-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+/* Moved off the element in layout.php. Fixed and click-through, so the
+   confetti never intercepts a tap on the screen underneath it — which on a
+   kiosk would be the whole page. */
+.confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+}
+
 /* Landscape tablet optimisation */
 @media (max-width: 1024px) {
     .game-layout {

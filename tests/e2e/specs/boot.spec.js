@@ -104,9 +104,58 @@ test.describe('boot', () => {
         expect(csp).toContain("form-action 'self'");
         expect(csp).toContain("base-uri 'self'");
 
+        // No blanket permission for inline script or style. 'unsafe-inline'
+        // allows ANY inline block the page ends up containing, an injected one
+        // included, which is close to having no script policy at all.
+        expect(csp, "'unsafe-inline' must not come back").not.toContain('unsafe-inline');
+        // …and 'unsafe-hashes' is the tempting way to bring style attributes
+        // back, which would undo most of the benefit.
+        expect(csp).not.toContain('unsafe-hashes');
+
+        // A per-request nonce instead, in both directives.
+        const nonce = /'nonce-([A-Za-z0-9+/=]+)'/.exec(csp);
+        expect(nonce, 'the policy must carry a nonce').not.toBeNull();
+        expect(csp.match(/'nonce-[A-Za-z0-9+/=]+'/g)).toHaveLength(2);
+
+        // The same nonce reaches the markup — if the header and the page
+        // disagreed, every inline block would be blocked and the page would
+        // arrive unstyled with no import map.
+        //
+        // Read through the .nonce IDL PROPERTY, not getAttribute('nonce').
+        // Browsers deliberately blank the content attribute once the element
+        // is parsed — "nonce hiding", which stops a page from being made to
+        // leak its own nonce through a CSS attribute selector — while keeping
+        // the real value on the element. getAttribute() therefore returns ''
+        // on a page whose nonces are perfectly correct.
+        const inlineNonces = await page.evaluate(
+            () => [...document.querySelectorAll('script, style')]
+                .map((el) => el.nonce)
+                .filter((value) => value)
+        );
+        expect(inlineNonces.length, 'the shell has inline blocks to authorise').toBeGreaterThan(0);
+        for (const value of inlineNonces) {
+            expect(value).toBe(nonce[1]);
+        }
+
         // And the page still works under it: a violation surfaces as a
         // first-party console error, which the test above fails on.
         await expect(page.locator('#startGameBtn')).toBeVisible();
+    });
+
+    test('the nonce is different on every request', async ({ page }) => {
+        // A nonce a page could predict is a nonce an injection can quote.
+        const read = async () => {
+            const response = await page.goto('/');
+            return /'nonce-([A-Za-z0-9+/=]+)'/.exec(
+                response.headers()['content-security-policy']
+            )[1];
+        };
+
+        const first = await read();
+        const second = await read();
+
+        expect(first).not.toBe(second);
+        expect(first.length).toBeGreaterThanOrEqual(20);
     });
 
     test('the bundled address formatter loads and drives country-specific layouts', async ({ page }) => {

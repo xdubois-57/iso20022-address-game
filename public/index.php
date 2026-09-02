@@ -102,8 +102,22 @@ function sendSecurityHeaders(): void
     //                           page, the import map's module paths included.
     header(
         "Content-Security-Policy: default-src 'self'; "
-        . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        . "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        // A per-request nonce instead of 'unsafe-inline'. The blanket
+        // permission allowed ANY inline script the page ended up containing,
+        // an injected one included, which is close to having no script policy
+        // at all. Only the few inline blocks this application actually serves
+        // carry the nonce (see App\Support\Csp).
+        //
+        // The CDN host stays: a host-source and a nonce coexist, so the
+        // external PicoCSS/Dropzone/Chart.js/QR scripts still load by host
+        // while inline blocks need the secret. (Only 'strict-dynamic' would
+        // disable the host allowlist, and it is not used here.)
+        //
+        // Browsers that understand a nonce ignore 'unsafe-inline' when one is
+        // present, so leaving it in would have been dead weight that merely
+        // looked permissive to a reader and to a scanner.
+        . "script-src 'self' 'nonce-" . \App\Support\Csp::nonce() . "' https://cdn.jsdelivr.net; "
+        . "style-src 'self' 'nonce-" . \App\Support\Csp::nonce() . "' https://cdn.jsdelivr.net; "
         . "img-src 'self' data:; font-src 'self'; "
         . "connect-src 'self' https://cdn.jsdelivr.net; "
         . "frame-ancestors 'none'; form-action 'self'; base-uri 'self';"

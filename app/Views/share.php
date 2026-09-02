@@ -30,7 +30,7 @@ $shareUrl = \App\Support\Url::currentUrl();
     <meta name="twitter:title" content="<?= htmlspecialchars($ogTitle, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="twitter:image" content="<?= htmlspecialchars($ogImageUrl, ENT_QUOTES, 'UTF-8') ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($ogDescription, ENT_QUOTES, 'UTF-8') ?>">
-    <script>setTimeout(function(){window.location.replace(<?= json_encode($homeUrl) ?>);},3000);</script>
+    <script<?= \App\Support\Csp::nonceAttribute() ?>>setTimeout(function(){window.location.replace(<?= json_encode($homeUrl) ?>);},3000);</script>
 </head>
 <body>
     <p>Redirecting to <a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>">ISO 20022 Address Game</a>...</p>

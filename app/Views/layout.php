@@ -182,7 +182,7 @@ if (!function_exists('getVersionInfo')) {
     $pRgb = \App\Models\ThemeModel::hexToRgb($p) ?? [1, 169, 144];
     $picoFocus = 'rgba(' . $pRgb[0] . ',' . $pRgb[1] . ',' . $pRgb[2] . ',0.25)';
     ?>
-    <style>
+    <style<?= \App\Support\Csp::nonceAttribute() ?>>
         :root {
             --game-peppermint: <?= htmlspecialchars($bg, ENT_QUOTES) ?>;
             --game-dark-green: <?= htmlspecialchars($tx, ENT_QUOTES) ?>;
@@ -289,7 +289,7 @@ if (!function_exists('getVersionInfo')) {
         $moduleVersions['./assets/js/lib/' . $lib . '.js'] = './' . assetUrl('assets/js/lib/' . $lib . '.js');
     }
     ?>
-    <script type="importmap">
+    <script type="importmap"<?= \App\Support\Csp::nonceAttribute() ?>>
         <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
     </script>
 </head>
@@ -356,9 +356,10 @@ if (!function_exists('getVersionInfo')) {
     </footer>
 
     <!-- Dedicated confetti canvas (iOS Safari fix: avoids position:fixed clipping) -->
-    <canvas id="confettiCanvas"
-            style="position:fixed;top:0;left:0;width:100%;height:100%;
-                   pointer-events:none;z-index:9999;"></canvas>
+    <!-- Styled by .confetti-canvas in app.css rather than a style attribute:
+         style-src no longer carries 'unsafe-inline', which blocks attributes
+         outright (a nonce authorises elements, never attributes). -->
+    <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
 
     <!-- Inactivity overlay -->
     <div id="inactivityOverlay" class="overlay hidden">

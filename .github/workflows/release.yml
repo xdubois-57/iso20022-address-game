@@ -54,7 +54,16 @@ jobs:
     with:
       evidence: true
 
-  # CodeQL's SARIF, captured as a file as well as published.
+  # CodeQL's SARIF, captured as a FILE for the evidence pack and deliberately
+  # not uploaded.
+  #
+  # This repository runs CodeQL through GitHub's DEFAULT SETUP, which is what
+  # feeds the Security tab and what covers javascript-typescript and actions.
+  # An advanced configuration cannot upload alongside it — GitHub rejects the
+  # SARIF outright ("CodeQL analyses from advanced configurations cannot be
+  # processed when the default setup is enabled") — so `upload: never` below is
+  # not a preference, it is the only way this job can coexist with it. The
+  # analysis still runs and still produces the SARIF the pack wants.
   #
   # Re-run here rather than reached for across workflows: an artifact from
   # another workflow's run is addressable only by digging through the API for
@@ -62,7 +71,7 @@ jobs:
   # was produced by THIS pass over THIS commit.
   #
   # It analyses javascript-typescript only — CodeQL does not support PHP, so
-  # everything under app/ is outside it. See .github/workflows/codeql.yml.
+  # everything under app/ is outside it, here and in the default setup alike.
   codeql-evidence:
     name: CodeQL evidence
     runs-on: ubuntu-latest
@@ -85,6 +94,10 @@ jobs:
         with:
           category: '/language:javascript-typescript'
           output: codeql-sarif
+          # See the job comment: the repository's default setup owns the
+          # Security tab, and uploading from here is refused by GitHub rather
+          # than merely redundant.
+          upload: never
 
       - name: Upload the SARIF as evidence
         uses: actions/upload-artifact@v7

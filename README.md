@@ -392,7 +392,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **CSRF protection**: Token-based validation on all POST requests
 - **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
-- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. The CSP names `frame-ancestors`, `form-action` and `base-uri` explicitly, because none of the three falls back to `default-src` — omitting them leaves them unset rather than restricted
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. The CSP names `frame-ancestors`, `form-action` and `base-uri` explicitly, because none of the three falls back to `default-src` — omitting them leaves them unset rather than restricted. It carries **no `'unsafe-inline'`**: a per-request nonce (`App\Support\Csp`) authorises the few inline `<script>` and `<style>` blocks the application actually serves, so an injected one does not run. A nonce cannot authorise `style="…"` *attributes*, so those were moved into CSS classes rather than bought back with `'unsafe-hashes'`
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
@@ -663,12 +663,19 @@ times:
 | **Dynamic scan** | Passive OWASP ZAP scan over HTTPS, gated at Medium — see [Dynamic application security testing](#dynamic-application-security-testing) |
 | **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
 
-`.github/workflows/codeql.yml` runs separately, on push, on pull request and
-weekly. **CodeQL does not support PHP**, so the only language it analyses is
-`javascript-typescript` — everything under `app/`, which is the majority of
-this application's logic, is not covered by it. Its results land in the
-repository's Security tab; the PHP is covered by PHPStan, SonarCloud and the
-passive DAST scan instead. The workflow says all of this in its own header,
+CodeQL runs through GitHub's **default setup**, configured in the repository's
+settings rather than by a workflow file in this repo. It covers
+`javascript-typescript` and `actions`, and publishes to the Security tab.
+
+There is deliberately no `codeql.yml` here: GitHub refuses a SARIF upload from
+an advanced configuration while the default setup is enabled, so a workflow
+file would analyse the code and then fail on the upload every single run. The
+release pipeline still produces CodeQL's SARIF for its evidence pack, with
+`upload: never`, for the same reason.
+
+**CodeQL does not support PHP.** Everything under `app/` — the majority of this
+application's logic — is therefore outside it, whichever setup runs. The PHP is
+covered by PHPStan, SonarCloud and the passive DAST scan. Worth stating plainly,
 because a green badge is a claim somebody will read as more than it is.
 
 ### SonarCloud setup

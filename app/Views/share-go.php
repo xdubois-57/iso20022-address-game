@@ -27,7 +27,7 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Share Result - ISO 20022 Address Game</title>
-    <style>
+    <style<?= \App\Support\Csp::nonceAttribute() ?>>
         html, body {
             margin: 0; padding: 0;
             font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
@@ -123,6 +123,12 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
         }
         @media (max-width: 360px) { .share-row { grid-template-columns: 1fr; } }
         .copy-status { font-size: 0.85rem; color: <?= $sgPrimary ?>; min-height: 1.2rem; margin-top: 0.25rem; }
+        /* Replaces the style="display:none;" attributes these three elements
+           carried. style-src no longer allows attributes (a nonce authorises
+           elements, never attributes), and this page's script re-shows them by
+           assigning element.style.display, which is CSSOM and stays allowed —
+           so deliberately NO !important here, or that assignment would lose. */
+        .is-collapsed { display: none; }
     </style>
 </head>
 <body>
@@ -133,9 +139,9 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
 
         <p class="status-text" id="statusText">Opening share dialog...</p>
 
-        <div class="actions" id="actions" style="display:none;">
+        <div class="actions is-collapsed" id="actions">
             <!-- Desktop only: LinkedIn + Copy Link side by side -->
-            <div class="share-row" id="desktopShareRow" style="display:none;">
+            <div class="share-row is-collapsed" id="desktopShareRow">
                 <a class="btn btn-linkedin" id="linkedinBtn" href="#" target="_blank" rel="noopener">
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136
@@ -150,12 +156,12 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
                 <button class="btn btn-linkedin" id="copyBtn">📋 Copy Link</button>
             </div>
             <!-- Mobile: native share button matching game over page style -->
-            <button class="btn-share" id="mobileShareBtn" style="display:none;">📤 Challenge a Friend</button>
+            <button class="btn-share is-collapsed" id="mobileShareBtn">📤 Challenge a Friend</button>
             <a class="btn" href="/">🎮 Play the Game</a>
         </div>
         <p class="copy-status" id="copyStatus"></p>
     </div>
-    <script>
+    <script<?= \App\Support\Csp::nonceAttribute() ?>>
         var shareUrl = <?= json_encode($shareUrl) ?>;
         var shareTitle = <?= json_encode($shareTitle) ?>;
         var shareText = <?= json_encode($shareText) ?>;
