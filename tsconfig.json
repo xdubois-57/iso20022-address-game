@@ -1,0 +1,41 @@
+{
+    // TypeScript is a CHECKER here, never a build step.
+    //
+    // `noEmit` is the whole point: nothing is compiled, nothing is bundled,
+    // and production still ships the plain unbundled JavaScript in
+    // public/assets/js/ exactly as written. No .ts file exists in this
+    // repository and none should — `allowJs` + `checkJs` point tsc at the
+    // JavaScript that is already there and ask it what it can prove.
+    //
+    // What that buys is the PHPStan-shaped half of the checking that Vitest
+    // and Playwright cannot do: unresolved identifiers, wrong argument counts,
+    // properties that do not exist on the thing being touched.
+    //
+    //   npm run typecheck
+    //
+    // `strict: false` on purpose. This code was written without types; turning
+    // strictness on would bury the findings worth acting on under thousands
+    // about implicit `any`. The two checks below are kept because they catch
+    // real mistakes rather than missing annotations.
+    "compilerOptions": {
+        "target": "ES2020",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "allowJs": true,
+        "checkJs": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "strict": false,
+        "strictNullChecks": false,
+        "noImplicitAny": false,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    // The application's own JavaScript. Not tests/ (Vitest and Playwright
+    // bring their own globals and their own expectations), and not
+    // public/assets/js/vendor/, which is a third-party file committed
+    // verbatim — findings in it are not ours to fix and would only pad the
+    // baseline.
+    "include": ["public/assets/js/**/*.js"],
+    "exclude": ["public/assets/js/vendor/**"]
+}

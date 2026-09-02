@@ -42,6 +42,41 @@ jobs:
       - name: Run tests
         run: composer test
 
+  # Defects the three test suites cannot see, because they are in code that
+  # never runs under them: unresolved identifiers, wrong argument counts,
+  # properties that do not exist on the thing being touched.
+  #
+  # Both halves are BASELINED (phpstan-baseline.neon, js-typecheck-baseline.json).
+  # Green means "no NEW finding", never "no findings" — see README.md
+  # § Static analysis, and read the header of either baseline before
+  # regenerating one.
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+
+      - name: PHPStan
+        run: composer run analyse
+
+      - name: TypeScript (checker only, nothing is emitted)
+        run: npm run typecheck
+
   js-tests:
     name: JavaScript unit tests
     runs-on: ubuntu-latest

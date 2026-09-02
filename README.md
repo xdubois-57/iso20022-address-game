@@ -486,6 +486,67 @@ npm run e2e
 PHP built-in server, runs the suite, and tears everything down — including on
 failure or Ctrl-C. It never touches a real `config/` directory or database.
 
+## Static analysis
+
+Two checkers, both looking for **defects rather than style**: unresolved
+identifiers, wrong argument counts, properties that do not exist on the thing
+being touched. This is the class of mistake the three test suites cannot see,
+because it lives in code they never run.
+
+```bash
+composer run analyse    # PHPStan level 6 over app/ and public/index.php
+npm run typecheck       # tsc --noEmit over public/assets/js/
+```
+
+There is deliberately **no ESLint and no PHP_CodeSniffer**. Reformatting a
+codebase produces a very large diff, no fewer bugs, and a review nobody can
+read.
+
+TypeScript here is a **checker, never a build step**. `tsconfig.json` sets
+`allowJs`, `checkJs` and `noEmit`; nothing is compiled, nothing is bundled, and
+production still ships the plain unbundled JavaScript in `public/assets/js/`
+exactly as it is written. There is no `.ts` file in this repository and there
+should not be one.
+
+### The baselines
+
+Both commands pass today, and neither of them passes because the code is clean.
+
+| File | Findings accepted | Produced by |
+|---|---|---|
+| `phpstan-baseline.neon` | **76** | `composer run analyse:baseline` |
+| `js-typecheck-baseline.json` | **82** (30 distinct file/code/message groups) | `npm run typecheck:baseline` |
+
+Most of the JavaScript ones are one shape: `app.js` is close to three thousand
+lines and reaches for `.value`, `.disabled` or `.tagName` on the generic
+`Element` that `getElementById()` and `querySelector()` return. That is real
+debt, it is worth paying down, and paying it down is a different piece of work
+from installing the tools. Without a baseline the job would be red permanently,
+everybody would learn to ignore it, and a permanently ignored gate is worse
+than no gate — it costs a minute on every push and buys nothing.
+
+So **green means "no NEW finding", never "no findings"**.
+
+PHPStan has this mechanism built in. `tsc` does not, so
+`scripts/js-typecheck.mjs` adds the same contract on top of it: it runs `tsc`,
+groups what comes back, and fails only on an occurrence beyond what the
+baseline accepts. It indexes by **file + error code + message, never by line
+number** — a line-keyed baseline would report every pre-existing finding below
+an edit as new, which is how a baseline mechanism becomes useless in one
+afternoon.
+
+#### Regenerating one
+
+> Regenerate a baseline **only** to deliberately accept existing debt you are
+> not fixing right now. **Never** to silence a finding your own change just
+> introduced — fix that one instead.
+>
+> A baseline regenerated to hide a regression turns the whole gate into
+> decoration while leaving everybody sure it is working.
+
+Both files carry that warning in their own header, where somebody about to
+regenerate one will actually read it.
+
 ## Continuous Integration
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`:
@@ -493,6 +554,7 @@ failure or Ctrl-C. It never touches a real `config/` directory or database.
 | Job | What it does |
 |---|---|
 | **PHP** | PHPUnit on 8.1 and 8.4 — the floor this project advertises and the current release |
+| **Static analysis** | PHPStan and `tsc`, both against their baselines — see [Static analysis](#static-analysis) |
 | **JavaScript** | Vitest unit suite |
 | **End-to-end** | Playwright against a throwaway SQLite instance |
 | **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |

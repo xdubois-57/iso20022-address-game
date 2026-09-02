@@ -9,7 +9,9 @@
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
         "e2e": "./scripts/e2e.sh",
-        "e2e:install": "playwright install --with-deps chromium"
+        "e2e:install": "playwright install --with-deps chromium",
+        "typecheck": "node scripts/js-typecheck.mjs",
+        "typecheck:baseline": "node scripts/js-typecheck.mjs --generate-baseline"
     },
     "engines": {
         "node": ">=20"
@@ -18,6 +20,7 @@
         "@playwright/test": "^1.56.0",
         "@vitest/coverage-v8": "^3.2.0",
         "jsdom": "^25.0.0",
+        "typescript": "^5.9.3",
         "vitest": "^3.2.0"
     }
 }
