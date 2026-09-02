@@ -396,6 +396,19 @@ test.describe.serial('the wall (?mode=hof)', () => {
     });
 
     test('a failed poll leaves the last good board on screen', async ({ page }) => {
+        // This test asks for more time than the suite's default budget allows
+        // it, and used to get away with it only because the waits below
+        // resolved early. It contains TWO waits of up to 60 s — one for the
+        // board to notice it is stale, one for it to recover — inside a 60 s
+        // test timeout, so a wall that legitimately took forty seconds to go
+        // stale would have been reported as a harness timeout rather than as
+        // the behaviour it actually is.
+        //
+        // test.slow() rather than a hard-coded number: it triples whatever the
+        // configured timeout is, so this keeps scaling with a coverage or
+        // security-scan run the way every other budget in the config does.
+        test.slow();
+
         await gotoMode(page, 'hof');
         await expect(page.locator('.wall-pod')).toHaveCount(3);
 

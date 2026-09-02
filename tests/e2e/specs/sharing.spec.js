@@ -274,12 +274,19 @@ test.describe.serial('the sharing switch', () => {
         );
     });
 
-    test('the play station shares under neither setting', async ({ page }) => {
-        // Two orthogonal mechanisms, and both have to hold. ?mode=play refuses
-        // for a reason of its own — navigator.share opens an OS sheet on top
-        // of a locked kiosk that the next player then has to dismiss — so
-        // switching sharing back ON must not hand it share buttons.
-        for (const enabled of [true, false]) {
+    // Two orthogonal mechanisms, and both have to hold. ?mode=play refuses for
+    // a reason of its own — navigator.share opens an OS sheet on top of a
+    // locked kiosk that the next player then has to dismiss — so switching
+    // sharing back ON must not hand it share buttons, and switching it off
+    // must not be what stops it either.
+    //
+    // ONE TEST PER SETTING, not a loop inside one test. Each case plays a
+    // whole five-round game, so the looped version took two games in one
+    // 60-second budget and ran at about 90% of it — a shape that passes on a
+    // quiet machine and flakes on a loaded runner. Splitting also says which
+    // setting failed, instead of leaving that to be read off a stack trace.
+    for (const enabled of [true, false]) {
+        test(`the play station shares with sharing_enabled=${enabled}: it does not`, async ({ page }) => {
             await setSharing(page, enabled);
             await stubSubmission(page);
             await playAGame(page, await modeUrl(page, 'play'), `Play ${enabled}`);
@@ -292,9 +299,8 @@ test.describe.serial('the sharing switch', () => {
                     `${selector} with sharing_enabled=${enabled}`
                 ).toHaveCount(0);
             }
-            await page.unrouteAll({ behavior: 'ignoreErrors' });
-        }
-    });
+        });
+    }
 
     test('the admin panel says what the switch does not do', async ({ page }) => {
         // Set explicitly rather than inherited: the test above deliberately
