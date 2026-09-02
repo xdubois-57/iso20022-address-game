@@ -392,7 +392,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **CSRF protection**: Token-based validation on all POST requests
 - **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
-- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. The CSP names `frame-ancestors`, `form-action` and `base-uri` explicitly, because none of the three falls back to `default-src` — omitting them leaves them unset rather than restricted
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed

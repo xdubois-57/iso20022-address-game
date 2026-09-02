@@ -88,6 +88,27 @@ test.describe('boot', () => {
         }
     });
 
+    test('the security headers name the directives that do not fall back', async ({ page }) => {
+        // frame-ancestors, form-action and base-uri are NOT covered by
+        // default-src. A CSP that omits them leaves them unset, not
+        // restricted — which is what the passive ZAP scan reports as
+        // "Failure to Define Directive with No Fallback", and it is right to.
+        //
+        // Asserted over real HTTP because these are response headers: no unit
+        // test can see them, and public/index.php cannot be included from one.
+        const response = await page.goto('/');
+        const csp = response.headers()['content-security-policy'];
+
+        expect(csp, 'the shell must carry a CSP at all').toBeTruthy();
+        expect(csp).toContain("frame-ancestors 'none'");
+        expect(csp).toContain("form-action 'self'");
+        expect(csp).toContain("base-uri 'self'");
+
+        // And the page still works under it: a violation surfaces as a
+        // first-party console error, which the test above fails on.
+        await expect(page.locator('#startGameBtn')).toBeVisible();
+    });
+
     test('the bundled address formatter loads and drives country-specific layouts', async ({ page }) => {
         await page.goto('/');
 

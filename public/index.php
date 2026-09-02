@@ -83,12 +83,30 @@ function sendSecurityHeaders(): void
     header('X-Frame-Options: DENY');
     // unpkg.com is no longer referenced: the one script served from it is now
     // bundled locally, so it comes out of every directive.
+    //
+    // frame-ancestors, form-action and base-uri are spelled out because they
+    // DO NOT fall back to default-src. Leaving them out is not "covered by
+    // default-src 'self'", it is unset — which the passive scan reports, and
+    // is right to.
+    //
+    //   frame-ancestors 'none'  the modern half of the X-Frame-Options: DENY
+    //                           above; that header is obsolete and ignored by
+    //                           browsers that read this one.
+    //   form-action 'self'      both forms in this application post to their
+    //                           own origin (the setup form, and the Dropzone
+    //                           upload that posts to index.php). Naming it
+    //                           stops an injected form from posting a PIN or
+    //                           an upload somewhere else.
+    //   base-uri 'self'         there is no <base> tag; this stops an injected
+    //                           one from re-pointing every relative URL on the
+    //                           page, the import map's module paths included.
     header(
         "Content-Security-Policy: default-src 'self'; "
         . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         . "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
         . "img-src 'self' data:; font-src 'self'; "
-        . "connect-src 'self' https://cdn.jsdelivr.net;"
+        . "connect-src 'self' https://cdn.jsdelivr.net; "
+        . "frame-ancestors 'none'; form-action 'self'; base-uri 'self';"
     );
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
