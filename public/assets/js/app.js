@@ -108,6 +108,27 @@ import {
      */
     var displayMode = document.body.dataset.mode || '';
 
+    /**
+     * Whether this installation offers sharing, decided by the server from
+     * the `sharing_enabled` setting and written onto <body data-sharing>.
+     *
+     * Read once here, like displayMode, and for the same reason. The
+     * attribute is ABSENT unless sharing has been switched off, so the
+     * default reads as enabled and a default installation is untouched.
+     *
+     * What this governs is what gets RENDERED. It is not an access control
+     * and must never be described as one: /share, /share/go, /share/image,
+     * /share/home-image and the share/token action all keep answering, so a
+     * link a player already posted goes on working and the site's own
+     * OpenGraph preview goes on being generated.
+     *
+     * Orthogonal to the play station's own refusal to share. ?mode=play
+     * blocks the whole share path for a different reason — navigator.share
+     * opens an OS sheet on top of a locked-down kiosk — and it does so
+     * whatever this flag says.
+     */
+    var sharingEnabled = document.body.dataset.sharing !== 'off';
+
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
@@ -737,13 +758,13 @@ import {
         if (currentRound > TOTAL_ROUNDS) { showFinalScore(); return; }
         resetInactivityTimer();
 
-        appContainer.innerHTML = '<p style="text-align:center;padding:2rem;">Loading round ' +
+        appContainer.innerHTML = '<p class="screen-notice">Loading round ' +
             currentRound + ' / ' + TOTAL_ROUNDS + '...</p>';
 
         var data = await api('game/scenario', { exclude_ids: playedScenarioIds });
         if (!data || data.error) {
             if (currentRound > 1) { showFinalScore(); return; }
-            appContainer.innerHTML = '<div style="text-align:center;padding:2rem;">' +
+            appContainer.innerHTML = '<div class="screen-notice">' +
                 '<h2>No Scenarios Available</h2>' +
                 '<p>' + escapeHtml(data ? data.error : 'Network error') + '</p>' +
                 '<button class="btn-primary" onclick="location.reload()">Retry</button></div>';
@@ -1259,17 +1280,24 @@ import {
         html += '<div class="result-actions">';
         html += '<button class="btn-primary" id="submitFinalScoreBtn">Submit to Hall of Fame</button>';
         html += '<button class="btn-secondary" id="playAgainFinalBtn">Play Again</button>';
-        if (kioskMode) {
+        // Nothing rendered at all when sharing is off — not hidden with CSS.
+        // A display:none button is still in the DOM, still reachable by
+        // keyboard, and still there for anyone reading the markup, which is
+        // not what "the interface does not offer this" means.
+        if (!sharingEnabled) {
+            // Deliberately empty: no QR block, no share buttons, no status
+            // line. The score, the round badges and Play Again all stay.
+        } else if (kioskMode) {
             html += '<div class="kiosk-qr-container" id="kioskQrContainer"><p class="kiosk-qr-label">Scan to share your score</p><div id="kioskQrCode"></div></div>';
         } else {
             // Mobile: native share button, Desktop: LinkedIn + Copy Link side by side
             // Both sets rendered; JavaScript shows/hides based on device
             html += '<button class="btn-share" id="shareScoreBtn">\uD83D\uDCE4 Challenge a Friend</button>';
-            html += '<div class="share-actions-row" id="desktopShareRow" style="display:none;">';
+            html += '<div class="share-actions-row is-collapsed" id="desktopShareRow">';
             html += '<a class="btn-share btn-linkedin" id="linkedinShareBtn" href="#" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>Share on LinkedIn</a>';
             html += '<button class="btn-share btn-share-copy" id="copyLinkBtn">\uD83D\uDCCB Copy Link</button>';
             html += '</div>';
-            html += '<p id="copyLinkStatus" style="font-size:0.85rem;min-height:1.2rem;margin:0;color:var(--game-emerald);"></p>';
+            html += '<p id="copyLinkStatus" class="copy-link-status"></p>';
         }
         html += '</div></div></section>';
         appContainer.innerHTML = html;
@@ -1325,6 +1353,13 @@ import {
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {
             showScreen('game');
         });
+
+        // No element was rendered above, so nothing is looked up and no
+        // handler is bound — and, just as importantly, share/token is never
+        // called, so an installation with sharing off mints no tokens.
+        if (!sharingEnabled) {
+            return;
+        }
 
         if (kioskMode) {
             renderKioskShareQr(finalGameScore);
@@ -1645,7 +1680,7 @@ import {
         page = page || 1;
 
         appContainer.innerHTML = '<section class="leaderboard-screen"><h2>Hall of Fame</h2>' +
-            '<p style="text-align:center;">Loading...</p></section>';
+            '<p class="text-centred">Loading...</p></section>';
 
         var data = await api('leaderboard/top', { page: page });
         if (!data) return;
@@ -1832,6 +1867,16 @@ import {
             + 'Fullscreen triggered by the page needs someone to click something first, and after a '
             + 'reboot at three in the morning there is nobody there to click it. '
             + '<code>--kiosk</code> comes back fullscreen on its own and keeps the address bar out of reach.</p>';
+        // Regenerating is a silent breaking change to two screens nobody is
+        // watching, so the button says what it costs before it is pressed and
+        // the panel reprints everything the moment it is done.
+        html += '<div class="display-mode-token"><h5>Screen address token</h5>';
+        html += '<p>The <code>&amp;t=</code> in the URLs above. It makes the two addresses '
+            + 'unguessable so a visitor does not wander onto the wall. It is <strong>not</strong> a '
+            + 'login: the addresses stop being guessable, they do not become private.</p>';
+        html += '<button class="btn-danger" id="regenerateDisplayTokenBtn">Regenerate</button>';
+        html += '<p class="display-mode-token-status" id="regenerateTokenStatus"></p>';
+        html += '</div>';
         html += '</div>';
 
         // 3. The wall's time window, moved here from its own section in
@@ -1847,6 +1892,30 @@ import {
         html += '<p id="boardWindowStatus" class="board-window-status"></p>';
         html += '</div>';
 
+        html += '</div>';
+
+        // Sharing — a product switch, and labelled as one.
+        //
+        // The sentence about existing links is not decoration. Without it an
+        // administrator switching this off will believe they have revoked
+        // something, and will be wrong: every link already posted keeps
+        // working, by design.
+        html += '<div class="admin-section sharing-section"><h3>Sharing</h3>';
+        html += '<p>Whether the end-of-game screen offers the share buttons, the LinkedIn link, '
+            + 'the copy-link button and the kiosk QR code.</p>';
+        // Its own class family, not the kiosk toggle's. The two switches look
+        // identical on purpose — one switch shape in the panel — but they are
+        // different controls, and sharing a class name made `.kiosk-toggle`
+        // stop meaning "the kiosk toggle" to everything that selects on it.
+        html += '<label class="admin-switch">';
+        html += '<input type="checkbox" id="sharingToggle">';
+        html += '<span class="admin-switch-slider"></span>';
+        html += '<span class="admin-switch-label" id="sharingLabel">Loading\u2026</span>';
+        html += '</label>';
+        html += '<p class="sharing-note" id="sharingNote"><strong>Links already shared keep working.</strong> '
+            + 'This hides the buttons; it does not revoke anything. A score link a player has already '
+            + 'posted still opens, and the site\u2019s own social preview image is still generated.</p>';
+        html += '<p class="sharing-status" id="sharingStatus"></p>';
         html += '</div>';
 
         // Game Counter section
@@ -1899,15 +1968,15 @@ import {
         html += '<p>Upload an Excel file (.xlsx) with scenario data.</p>';
         html += '<form class="dropzone" id="excelDropzone" action="index.php"></form>';
         html += '<div id="uploadStatus" class="upload-status hidden"></div>';
-        html += '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">';
-        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary" style="text-decoration:none;display:inline-block;">\u2B07 Download Example Excel</a>';
+        html += '<div class="admin-button-row">';
+        html += '<a href="assets/Scenarios.xlsx" download class="btn-secondary btn-secondary-link">\u2B07 Download Example Excel</a>';
         html += '<button class="btn-secondary" id="exportScenariosBtn">\u2B07 Export Current Scenarios</button>';
         html += '</div></div>';
 
         // Hall of Fame management
         html += '<div class="admin-section"><h3>Hall of Fame Management</h3>';
         html += '<div id="adminLeaderboard"><p>Loading entries...</p></div>';
-        html += '<div style="margin-top:1rem;"><button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
+        html += '<div class="admin-purge-row"><button class="btn-danger" id="purgeBtn">Purge All Entries</button></div>';
         html += '</div>';
 
         html += '<button class="btn-secondary" id="adminLogoutBtn">Logout</button>';
@@ -1919,8 +1988,10 @@ import {
         loadGameStats();
         loadAdminLeaderboard();
         renderDisplayModeUrls();
+        bindRegenerateDisplayToken();
         loadAdminDeadline();
         loadAdminBoardWindow();
+        loadAdminSharing();
         loadAdminFacts();
         loadAdminTheme();
     }
@@ -1946,14 +2017,49 @@ import {
         },
     ];
 
-    function renderDisplayModeUrls() {
+    /**
+     * Build one screen's URL, token included.
+     *
+     * The token is a query parameter like any other, so it goes through
+     * encodeURIComponent even though it is hex — a helper that only escapes
+     * the values it expects is a helper that stops escaping the day the value
+     * changes shape.
+     */
+    function displayModeUrl(mode, token) {
+        return window.location.origin + '/?mode=' + mode
+            + (token ? '&t=' + encodeURIComponent(token) : '');
+    }
+
+    /**
+     * Fetch the token and (re)draw the two screens' URLs, QR codes and launch
+     * commands.
+     *
+     * Takes the token as an argument so regeneration can hand in the value the
+     * server just returned and repaint without a reload — the whole point
+     * being that putting two screens back on air is thirty seconds of work,
+     * not a hunt for where the new address went.
+     */
+    async function renderDisplayModeUrls(knownToken) {
+        var container = document.getElementById('displayModeUrls');
+        if (!container) return;
+
+        var token = knownToken;
+        if (!token) {
+            var data = await api('admin/get-display-token');
+            token = (data && data.token) || '';
+        }
+
+        drawDisplayModeUrls(token);
+    }
+
+    function drawDisplayModeUrls(token) {
         var container = document.getElementById('displayModeUrls');
         var commands = document.getElementById('displayModeCommands');
         if (!container) return;
 
         var html = '';
         DISPLAY_MODE_SCREENS.forEach(function (screen) {
-            var url = window.location.origin + '/?mode=' + screen.mode;
+            var url = displayModeUrl(screen.mode, token);
             html += '<div class="display-mode-row">';
             html += '<div class="display-mode-qr" id="displayModeQr_' + screen.mode + '"></div>';
             html += '<div class="display-mode-info">';
@@ -1969,7 +2075,7 @@ import {
 
         if (commands) {
             var cmdText = DISPLAY_MODE_SCREENS.map(function (screen) {
-                return 'chrome --kiosk --app="' + window.location.origin + '/?mode=' + screen.mode + '"';
+                return 'chrome --kiosk --app="' + displayModeUrl(screen.mode, token) + '"';
             }).join('\n');
             commands.innerHTML = '<pre>' + escapeHtml(cmdText) + '</pre>'
                 + '<button class="btn-secondary display-mode-copy" data-copy="'
@@ -1982,7 +2088,7 @@ import {
             var target = document.getElementById('displayModeQr_' + screen.mode);
             if (!target || typeof qrcode !== 'function') return;
             var qr = qrcode(0, 'M');
-            qr.addData(window.location.origin + '/?mode=' + screen.mode);
+            qr.addData(displayModeUrl(screen.mode, token));
             qr.make();
             target.innerHTML = qr.createSvgTag(3, 0);
         });
@@ -1997,6 +2103,94 @@ import {
                     setTimeout(function () { self.textContent = original; }, 1500);
                 });
             });
+        });
+    }
+
+    /**
+     * What the confirmation says, in one place so it cannot drift from what
+     * the button does.
+     *
+     * Every clause is load-bearing. Regenerating does not break the two
+     * screens loudly — they fall back to the ordinary game WITH MENUS, on
+     * purpose, because an error page in front of a room is worse. That makes
+     * it a silent failure, and a silent failure that nobody warned you about
+     * is the kind you diagnose at seven in the evening with a queue forming.
+     */
+    const REGENERATE_TOKEN_WARNING =
+        'Regenerate the screen address token?\n\n'
+        + 'The Hall of Fame wall and the play station will drop back to the ordinary game '
+        + 'with menus, immediately and WITHOUT ANY WARNING ON THEIR SCREENS \u2014 they show no '
+        + 'error, they just stop being dedicated screens.\n\n'
+        + 'You will have to reopen both of them with the new addresses, which appear here as '
+        + 'soon as you confirm.';
+
+    function bindRegenerateDisplayToken() {
+        var btn = document.getElementById('regenerateDisplayTokenBtn');
+        if (!btn) return;
+
+        btn.addEventListener('click', async function () {
+            var status = document.getElementById('regenerateTokenStatus');
+
+            var confirmed = await showConfirm(REGENERATE_TOKEN_WARNING);
+            if (!confirmed) return;
+
+            var data = await api('admin/regenerate-display-token');
+            if (!data || !data.success || !data.token) {
+                if (status) status.textContent = (data && data.error) || 'Could not regenerate the token.';
+                return;
+            }
+
+            // Repainted from the value the server just returned, with no
+            // reload: getting two screens back on air has to be thirty
+            // seconds of work, not a hunt for where the new address went.
+            // Only the URL rows and the command block are redrawn. This
+            // button lives outside them and survives, so it is NOT rebound —
+            // doing so would add a second listener and pop two confirmations
+            // on the next press.
+            drawDisplayModeUrls(data.token);
+            if (status) {
+                status.textContent = 'New token in force. Reopen both screens with the addresses above '
+                    + '\u2014 until you do, they are showing the ordinary game.';
+            }
+        });
+    }
+
+    /**
+     * The sharing switch's current value, and its handler.
+     *
+     * Read from the server rather than from the shell's own data-sharing
+     * attribute: an administrator on a page loaded before the change would
+     * otherwise see the stale value they just moved away from.
+     */
+    async function loadAdminSharing() {
+        var toggle = document.getElementById('sharingToggle');
+        var label = document.getElementById('sharingLabel');
+        if (!toggle) return;
+
+        var data = await api('admin/get-sharing');
+        var enabled = !data || data.sharing_enabled !== false;
+        toggle.checked = enabled;
+        if (label) label.textContent = enabled ? 'Enabled' : 'Disabled';
+
+        toggle.addEventListener('change', async function () {
+            var status = document.getElementById('sharingStatus');
+            var wanted = toggle.checked;
+
+            var saved = await api('admin/set-sharing', { sharing_enabled: wanted });
+            if (!saved || !saved.success) {
+                // Put the switch back where the server still has it, rather
+                // than leaving it showing a state that was never stored.
+                toggle.checked = !wanted;
+                if (status) status.textContent = (saved && saved.error) || 'Could not save the setting.';
+                return;
+            }
+
+            if (label) label.textContent = saved.sharing_enabled ? 'Enabled' : 'Disabled';
+            if (status) {
+                status.textContent = saved.sharing_enabled
+                    ? 'Saved \u2014 the share buttons are offered again. Reload a player\u2019s page to see it.'
+                    : 'Saved \u2014 the share buttons are hidden. Links already shared keep working.';
+            }
         });
     }
 
@@ -2594,15 +2788,22 @@ import {
         var html = '<section class="privacy-screen"><article>';
         html += '<h2>Privacy Notice &amp; GDPR Compliance</h2>';
         html += '<p><em>Last updated: May 2026</em></p>';
-        // The PMPG endorses the game; it does not run it. That distinction is
-        // the whole point of this paragraph, and it has to survive editing:
-        // the previous wording ("not affiliated with or endorsed by any
-        // organisation") became false the moment the logo went on the home
-        // screen, and a reader who saw both would trust neither. Note that
-        // section 1 below still names ONLY the authors as data controllers —
-        // the PMPG processes nothing, and naming it there would be an
-        // inaccurate GDPR declaration.
-        html += '<p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>, and is supported by the <strong>Payments Market Practice Group (PMPG)</strong>. It is developed and maintained by its authors; the PMPG endorses it but does not operate it.</p>';
+        // This screen says who made the game and stops there. It names no
+        // supporting organisation, and — just as deliberately — it does not
+        // DENY one either.
+        //
+        // Both halves have been got wrong here before. The wording that
+        // preceded this one ("not affiliated with or endorsed by any
+        // organisation") became false the moment a lockup went onto the home
+        // screen, and a reader seeing both would have trusted neither; the
+        // wording that replaced it named a supporter this page has no reason
+        // to speak for. Silence is the only position that cannot go stale.
+        // Do not reintroduce either sentence.
+        //
+        // Section 1 below still names ONLY the authors as data controllers.
+        // No third party processes anything here, and naming one there would
+        // be an inaccurate GDPR declaration.
+        html += '<p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>. It is developed and maintained by its authors.</p>';
         html += '<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License</a> for more details.</p>';
 
         html += '<h3>1. Data Controller</h3>';
@@ -2617,7 +2818,7 @@ import {
         html += '</ul>';
 
         html += '<h3>3. Categories of Personal Data Collected</h3>';
-        html += '<div class="overflow-auto"><table class="leaderboard-table" style="margin-bottom:1rem;"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
+        html += '<div class="overflow-auto"><table class="leaderboard-table privacy-data-table"><thead><tr><th>Data</th><th>Purpose</th><th>Storage</th><th>Retention</th></tr></thead><tbody>';
         html += '<tr><td>Player name</td><td>Display on Hall of Fame leaderboard</td><td>Database, encrypted at rest (AES-256-GCM)</td><td>365 days, then automatically deleted</td></tr>';
         html += '<tr><td>Game score &amp; time</td><td>Leaderboard ranking</td><td>Database (not personal data)</td><td>365 days</td></tr>';
         html += '<tr><td>Share token (name + score)</td><td>Social sharing URL generation</td><td>Client-side only, encrypted in URL parameter</td><td>Not stored server-side; expires when URL is no longer shared</td></tr>';
@@ -2732,7 +2933,12 @@ import {
             overlay.className = 'overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
-                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
+                // .overlay-message-multiline keeps white-space:pre-line, so a
+                // message can use blank lines to separate what will happen from
+                // what it will cost. escapeHtml() still runs: the text is laid
+                // out by CSS, never by markup in the string.
+                '<p class="overlay-message overlay-message-multiline">'
+                + escapeHtml(message) + '</p>' +
                 '<button class="btn-primary" id="modalOkBtn">OK</button>' +
                 '</div>';
             document.body.appendChild(overlay);
@@ -2750,11 +2956,14 @@ import {
     function showConfirm(message) {
         return new Promise(function (resolve) {
             var overlay = document.createElement('div');
-            overlay.className = 'overlay';
+            // Its own class beside .overlay: the layout also carries the
+            // inactivity overlay, so `.overlay-content` alone matches two
+            // things and anything selecting on it gets whichever it finds.
+            overlay.className = 'overlay confirm-overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
-                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
-                '<div style="display:flex;gap:0.75rem;justify-content:center;">' +
+                '<p class="overlay-message">' + escapeHtml(message) + '</p>' +
+                '<div class="overlay-actions">' +
                 '<button class="btn-secondary" id="confirmCancelBtn">Cancel</button>' +
                 '<button class="btn-danger" id="confirmOkBtn">Confirm</button>' +
                 '</div></div>';

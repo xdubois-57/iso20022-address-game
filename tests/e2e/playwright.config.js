@@ -36,7 +36,37 @@ const baseURL = process.env.E2E_BASE_URL;
 // rather than being permanently loosened — a normal run keeps its tight
 // timings, and a coverage run stops failing for a reason that has nothing to
 // do with the application.
-const TIMEOUT_SCALE = process.env.E2E_COVERAGE === '1' ? 5 : 1;
+const TIMEOUT_SCALE = process.env.E2E_COVERAGE === '1'
+    ? 5
+    // scripts/dast.sh sets this. Every request then crosses a TLS handshake
+    // and a recording proxy, so the same scenarios take several times the wall
+    // clock they take under `npm run e2e`. Scaling the ceilings is what stops
+    // the harness's own latency from being reported as application failures.
+    : Number(process.env.E2E_TIMEOUT_FACTOR || 1);
+
+/**
+ * Proxy and TLS settings, empty unless scripts/dast.sh is driving the run.
+ *
+ * --proxy-bypass-list=<-loopback> IS NOT OPTIONAL when a proxy is set, and
+ * getting it wrong is silent rather than loud. Chromium bypasses any proxy for
+ * loopback addresses by default; without this argument every test still
+ * passes, the scanner records nothing, finds no problems in the nothing it was
+ * given, and the run reports a clean bill of health.
+ * scripts/dast-support.php's assert-sitemap exists to catch that, but the
+ * argument is what prevents it.
+ *
+ * ignoreHTTPSErrors is scoped the same way: the instance serves a certificate
+ * generated for that one run and trusted by nothing, and it is only ever
+ * reached over loopback.
+ */
+const scanUse = {};
+if (process.env.E2E_PROXY_SERVER) {
+    scanUse.proxy = { server: process.env.E2E_PROXY_SERVER };
+    scanUse.launchOptions = { args: ['--proxy-bypass-list=<-loopback>'] };
+}
+if (process.env.E2E_IGNORE_HTTPS_ERRORS === '1') {
+    scanUse.ignoreHTTPSErrors = true;
+}
 
 if (!baseURL) {
     throw new Error(
@@ -63,10 +93,21 @@ export default defineConfig({
     use: {
         baseURL,
         trace: 'retain-on-failure',
-        screenshot: 'only-on-failure',
+        // 'on' only for a release's evidence pack, driven by an environment
+        // variable the release workflow sets. An ordinary `npm run e2e` keeps
+        // 'only-on-failure' and stays light: nobody running the suite for its
+        // verdict wants a hundred PNGs of screens that behaved.
+        screenshot: process.env.E2E_EVIDENCE === '1' ? 'on' : 'only-on-failure',
+        // Videos and traces stay retain-on-failure in BOTH modes, on purpose.
+        // They are what makes an evidence pack enormous, and a video of a test
+        // that passed is not evidence anybody watches.
         video: 'retain-on-failure',
         actionTimeout: 15_000 * TIMEOUT_SCALE,
         navigationTimeout: 30_000 * TIMEOUT_SCALE,
+        // Last, so a security scan's proxy and TLS settings override the
+        // defaults above rather than being overridden by them. Empty for an
+        // ordinary run, which is therefore byte-for-byte unchanged.
+        ...scanUse,
     },
     projects: [
         {

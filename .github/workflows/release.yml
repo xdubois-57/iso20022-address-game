@@ -1,0 +1,225 @@
+# The slow, complete pass: every gate, then a DRAFT Release carrying the
+# evidence that the gates ran.
+#
+# NOT MERGED WITH ci.yml, on purpose. That one is the fast feedback loop on
+# every push and has to stay fast. This one takes as long as it takes. What
+# they share — the gates themselves — lives in checks.yml and is called by
+# both, so the two can never disagree about what "green" means.
+#
+# WHAT IS IN THE PACK
+# ---------------------------------------------------------------------------
+# Only what the tools emit NATIVELY: PHPUnit's JUnit log for both supported PHP
+# versions, Vitest's JUnit report, Playwright's own HTML report with a
+# screenshot per test, PHPStan's output, tsc's output, CodeQL's SARIF, and
+# SonarCloud's quality gate as their API returns it.
+#
+# No hand-written summary of any result. A document somebody writes once to
+# describe a pipeline is a document nobody updates when the pipeline changes,
+# and evidence that has stopped being true is worse than no evidence.
+#
+# ONE EXCEPTION, IN THE OTHER DIRECTION
+# ---------------------------------------------------------------------------
+# The DAST evidence is COUNTS BY SEVERITY ONLY. This repository is public, so
+# its Release assets are public — and so are its workflow artifacts, which is
+# less widely known. A detailed dynamic-scan report published on a public
+# repository is a map drawn for whoever wants one. The full report stays in the
+# scan job's log.
+#
+# ORDERING
+# ---------------------------------------------------------------------------
+# Every gate first. The Release is created ONLY if all of them are green, and
+# it is created as a DRAFT so the evidence can be read before it is public. If
+# a gate fails, no Release is created at all: the tag exists and points at
+# nothing published, which is fixed by deleting the tag and pushing it again.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Counts as much as the tag does. It is how a set of evidence is produced for
+  # what is already deployed, or how the whole chain is rehearsed, without
+  # cutting a version.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Every gate, with each tool's native output collected.
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yml
+    with:
+      evidence: true
+
+  # CodeQL's SARIF, captured as a FILE for the evidence pack and deliberately
+  # not uploaded.
+  #
+  # This repository runs CodeQL through GitHub's DEFAULT SETUP, which is what
+  # feeds the Security tab and what covers javascript-typescript and actions.
+  # An advanced configuration cannot upload alongside it — GitHub rejects the
+  # SARIF outright ("CodeQL analyses from advanced configurations cannot be
+  # processed when the default setup is enabled") — so `upload: never` below is
+  # not a preference, it is the only way this job can coexist with it. The
+  # analysis still runs and still produces the SARIF the pack wants.
+  #
+  # Re-run here rather than reached for across workflows: an artifact from
+  # another workflow's run is addressable only by digging through the API for
+  # a run id, and the whole point of a release pack is that every piece of it
+  # was produced by THIS pass over THIS commit.
+  #
+  # It analyses javascript-typescript only — CodeQL does not support PHP, so
+  # everything under app/ is outside it, here and in the default setup alike.
+  codeql-evidence:
+    name: CodeQL evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+          output: codeql-sarif
+          # See the job comment: the repository's default setup owns the
+          # Security tab, and uploading from here is refused by GitHub rather
+          # than merely redundant.
+          upload: never
+
+      - name: Upload the SARIF as evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-codeql
+          path: codeql-sarif/
+          retention-days: 7
+
+  # SonarCloud's quality gate, as their API returns it.
+  sonar-evidence:
+    name: SonarCloud evidence
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Recorded rather than skipped silently. Without the secret there is no
+      # quality gate to report, and the pack has to say so instead of quietly
+      # arriving one file short — a missing file reads as an oversight, and a
+      # file saying "not available, and why" reads as a fact.
+      - name: Fetch the quality gate
+        run: |
+          mkdir -p evidence
+          if [ -z "${SONAR_TOKEN}" ]; then
+            printf '%s\n' \
+              '{"status":"UNAVAILABLE","reason":"No SONAR_TOKEN secret was available to this run."}' \
+              > evidence/sonarcloud-quality-gate.json
+            echo "::warning::SONAR_TOKEN is not set; the quality gate could not be read."
+            exit 0
+          fi
+          curl --silent --show-error --fail-with-body \
+            --user "${SONAR_TOKEN}:" \
+            'https://sonarcloud.io/api/qualitygates/project_status?projectKey=xdubois-57_iso20022-address-game' \
+            --output evidence/sonarcloud-quality-gate.json
+          cat evidence/sonarcloud-quality-gate.json
+
+      - name: Upload the quality gate
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-sonarcloud
+          path: evidence/
+          retention-days: 7
+
+  # Nothing above this line has published anything. Everything below runs only
+  # if every gate went green.
+  release:
+    name: Draft Release
+    runs-on: ubuntu-latest
+    needs: [checks, codeql-evidence, sonar-evidence]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Collect every piece of evidence
+        uses: actions/download-artifact@v7
+        with:
+          pattern: evidence-*
+          path: evidence-raw
+
+      # One archive rather than a dozen loose assets: the pack is read
+      # together, and a Release page listing fifteen files is a Release page
+      # nobody opens.
+      #
+      # The guard is not ceremony. If a rename upstream ever makes the download
+      # pattern match nothing, an empty zip would be attached to a Release and
+      # would look exactly like evidence.
+      - name: Pack it
+        run: |
+          set -euo pipefail
+          if [ -z "$(find evidence-raw -type f -print -quit)" ]; then
+            echo "::error::no evidence was collected — refusing to attach an empty pack."
+            exit 1
+          fi
+          echo "Evidence pack contents:"
+          find evidence-raw -type f | sort
+          ( cd evidence-raw && zip -qr ../evidence.zip . )
+
+      # A last look before anything is published. The DAST evidence must be
+      # counts and nothing else; if a future change starts uploading the report
+      # itself, this fails the release rather than letting it out.
+      - name: Refuse to publish a detailed security scan
+        run: |
+          set -euo pipefail
+          offending="$(find evidence-raw \
+            \( -name 'dast-passive.html' -o -name '*.sarif' -a -path '*dast*' \) -print)"
+          if [ -n "${offending}" ]; then
+            echo "::error::the evidence pack contains a detailed DAST report:"
+            echo "${offending}"
+            echo "Only counts by severity may be published — see README.md."
+            exit 1
+          fi
+          echo "Checked: no detailed DAST report in the pack."
+
+      - name: Create the draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # DRAFT. The evidence is read before it becomes public, which is the
+          # entire reason the gates run before this step rather than after.
+          draft: true
+          # A dispatch run has no tag, so it names one from the commit rather
+          # than pretending to be a version.
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('evidence-{0}', github.sha) }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || format('Evidence for {0}', github.sha) }}
+          generate_release_notes: ${{ github.ref_type == 'tag' }}
+          body: |
+            Evidence produced by `.github/workflows/release.yml` for
+            `${{ github.sha }}`.
+
+            Every gate in `.github/workflows/checks.yml` passed before this
+            draft was created: PHPUnit on PHP 8.1 and 8.4, PHPStan, `tsc`,
+            Vitest, the Playwright end-to-end suite, and the passive OWASP ZAP
+            scan. CodeQL and the SonarCloud quality gate are attached
+            alongside.
+
+            `evidence.zip` contains only what each tool emits natively.
+
+            The dynamic scan is represented by **counts per severity only**
+            (`dast-severity-summary.json`). The full report is deliberately not
+            published — this repository is public, and a detailed scan report
+            of a running instance is a map. It stays in the scan job's log.
+          files: evidence.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,277 @@
+# The gates both pipelines run, in one place.
+#
+# WHY THIS FILE EXISTS
+# ---------------------------------------------------------------------------
+# ci.yml is the fast feedback loop on every push; release.yml is the slow
+# complete pass that produces a Release. They are NOT merged - the whole point
+# of the fast one is that it is fast - but they run the same gates, and the
+# `shivammathur/setup-php` block was already duplicated four times in ci.yml
+# before the release pipeline would have added two more. Six copies of "which
+# PHP extensions does this project need" is five chances to answer differently.
+#
+# So the gates live here and both workflows call it. The only difference
+# between a CI run and a release run of these jobs is the `evidence` input.
+#
+# EVIDENCE MODE
+# ---------------------------------------------------------------------------
+# With `evidence: true` each job additionally writes what its tool emits
+# NATIVELY - JUnit XML, Playwright's own HTML report, the analysers' own
+# output - and uploads it as an artifact for release.yml to collect. Nothing
+# here writes a hand-made summary of a result: hand-written evidence is not
+# maintained, and unmaintained evidence eventually lies.
+#
+# One thing is deliberately NOT emitted even in evidence mode: the detailed
+# DAST report. See the `dast` job.
+
+name: Checks
+
+on:
+  workflow_call:
+    inputs:
+      evidence:
+        description: >
+          Emit each tool's native output as an artifact. Off for CI, where it
+          would only slow the loop down; on for a release.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  # The floor the project actually claims to support (composer.json, README),
+  # not just the version that happens to be installed on a developer machine.
+  # This exists because a dependency upgrade once silently raised the real
+  # minimum to 8.2 while both still advertised 8.1.
+  php-tests:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.4']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run tests
+        if: ${{ !inputs.evidence }}
+        run: composer test
+
+      - name: Run tests, recording PHPUnit's own JUnit log
+        if: ${{ inputs.evidence }}
+        run: |
+          mkdir -p evidence
+          vendor/bin/phpunit --configuration phpunit.xml \
+            --log-junit "evidence/phpunit-php${{ matrix.php }}.xml"
+
+      - name: Upload the JUnit log
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-phpunit-${{ matrix.php }}
+          path: evidence/
+          retention-days: 7
+
+  # Defects the three test suites cannot see, because they live in code that
+  # never runs under them. Both halves are BASELINED — green means "no NEW
+  # finding", never "no findings". See README.md § Static analysis.
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+
+      # `tee` rather than a redirect: the output has to stay visible in the
+      # job log whether or not this is an evidence run, and the pipeline's
+      # exit status has to stay PHPStan's own — hence pipefail.
+      - name: PHPStan
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          composer run analyse | tee evidence/phpstan.txt
+
+      - name: TypeScript (checker only, nothing is emitted)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          npm run typecheck | tee evidence/tsc.txt
+
+      - name: Upload the analysers' output
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-static-analysis
+          path: evidence/
+          retention-days: 7
+
+  js-tests:
+    name: JavaScript unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: Run tests
+        if: ${{ !inputs.evidence }}
+        run: npm test
+
+      - name: Run tests, recording Vitest's own JUnit report
+        if: ${{ inputs.evidence }}
+        run: |
+          mkdir -p evidence
+          npx vitest run --reporter=junit --outputFile=evidence/vitest-junit.xml
+
+      - name: Upload the JUnit report
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-vitest
+          path: evidence/
+          retention-days: 7
+
+  e2e:
+    name: End-to-end (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # E2E_EVIDENCE turns on a screenshot per test (see
+      # tests/e2e/playwright.config.js). An ordinary `npm run e2e` stays light:
+      # the flag is what keeps a developer's local run from writing a hundred
+      # PNGs it will never look at.
+      #
+      # Videos and traces stay retain-on-failure in BOTH modes. They are what
+      # makes an evidence pack enormous, and a video of a test that passed is
+      # not evidence anybody watches.
+      - name: Run the suite
+        env:
+          E2E_EVIDENCE: ${{ inputs.evidence && '1' || '' }}
+        run: npm run e2e
+
+      - name: Upload the Playwright HTML report
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-playwright
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload the Playwright report on failure
+        # Unconditional on a failure, evidence run or not: this is the first
+        # thing anybody looks at when the browser suite goes red.
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-failure
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # A passive scan of the running application. The Playwright suite is the
+  # attack surface, not a crawler — see README.md § Dynamic application
+  # security testing. The build fails on any finding at Medium or above.
+  dast:
+    name: Dynamic scan (passive)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # No security-events: write, deliberately. Code scanning anchors a result
+      # to a repository path; a DAST result describes a running instance on a
+      # port picked at run time, so rewriting its URLs into repository paths
+      # would invent a source location for a finding that has none. The exit
+      # code is the gate.
+    # The bound covers a cold 1.2 GB image pull plus the whole browser suite
+    # replayed through a proxy.
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          # openssl generates the run's certificate and pcntl runs the TLS
+          # terminator; without both, scripts/dast.sh refuses to start.
+          extensions: gd, zip, pdo_sqlite, mbstring, openssl, pcntl
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Pull the OWASP ZAP image
+        # scripts/dast.sh deliberately refuses to download 1.2 GB on a caller's
+        # behalf, so the pull is explicit here — the one place where
+        # downloading it is the expected thing to happen.
+        run: docker pull ghcr.io/zaproxy/zaproxy:stable
+
+      - name: Run the passive scan
+        run: npm run dast
+
+      # ONLY THE COUNTS BY SEVERITY LEAVE THIS JOB, and only on an evidence
+      # run. This repository is public, so its Release assets are public — and
+      # so are its workflow artifacts, which is less widely known. A detailed
+      # DAST report published on a public repository is a map drawn for
+      # whoever wants one. The full HTML report stays in this job's log, where
+      # whoever is debugging a red build can read it.
+      - name: Upload the severity summary, and nothing else
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-dast-summary
+          path: dast-report/dast-severity-summary.json
+          retention-days: 7

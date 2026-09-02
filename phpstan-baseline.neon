@@ -1,0 +1,440 @@
+# Pre-existing PHPStan findings, accepted as of the run that generated this
+# file. `composer run analyse` is green because of it, not in spite of it: a
+# clean run means NO NEW finding beyond what is recorded here, never zero
+# findings ever.
+#
+# Regenerate it (`composer run analyse:baseline`) ONLY to deliberately accept
+# existing debt you are not fixing right now — NEVER to silence a finding your
+# own change just introduced. Fix that one instead. A baseline regenerated to
+# hide a regression turns the whole gate into decoration, which is worse than
+# having no gate at all because everybody believes it is working.
+#
+# See README.md § Static analysis.
+
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method App\\Controllers\\AdminController\:\:fetchFactsStatic\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/AdminController.php
+
+		-
+			message: '#^Method App\\Controllers\\AdminController\:\:getJsonInput\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/AdminController.php
+
+		-
+			message: '#^Method App\\Controllers\\AdminController\:\:jsonResponse\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/AdminController.php
+
+		-
+			message: '#^Method App\\Controllers\\AppIconController\:\:loadTheme\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/AppIconController.php
+
+		-
+			message: '#^Method App\\Controllers\\BackgroundController\:\:loadTheme\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BackgroundController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:json\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:publicFields\(\) has parameter \$entry with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:publicFields\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:rankRecentEntries\(\) has parameter \$recent with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:rankRecentEntries\(\) has parameter \$topEntries with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:rankRecentEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:rankTopEntries\(\) has parameter \$entries with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\BoardController\:\:rankTopEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/BoardController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:formatAddressDisplay\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:formatAddressDisplay\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:generateChips\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:generateChips\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:getJsonInput\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:getSlots\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\GameController\:\:jsonResponse\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/GameController.php
+
+		-
+			message: '#^Method App\\Controllers\\LeaderboardController\:\:getJsonInput\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/LeaderboardController.php
+
+		-
+			message: '#^Method App\\Controllers\\LeaderboardController\:\:jsonResponse\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/LeaderboardController.php
+
+		-
+			message: '#^Method App\\Controllers\\SetupController\:\:getJsonInput\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/SetupController.php
+
+		-
+			message: '#^Method App\\Controllers\\SetupController\:\:jsonResponse\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/SetupController.php
+
+		-
+			message: '#^Comparison operation "\<" between int\<\-2, 3\> and 12 is always true\.$#'
+			identifier: smaller.alwaysTrue
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Constant App\\Controllers\\ShareController\:\:CARD_H is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Constant App\\Controllers\\ShareController\:\:CARD_W is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:buildImageCanvas\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:decryptToken\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:gdCentered\(\) has parameter \$color with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:gdCentered\(\) has parameter \$img with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:ttfCentered\(\) has parameter \$color with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Controllers\\ShareController\:\:ttfCentered\(\) has parameter \$img with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Offset ''s'' on non\-empty\-array\<mixed, mixed\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Controllers/ShareController.php
+
+		-
+			message: '#^Method App\\Models\\Database\:\:tryConnect\(\) has parameter \$dbConfig with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/Database.php
+
+		-
+			message: '#^Method App\\Models\\ExcelParser\:\:parse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 2
+			path: app/Models/ExcelParser.php
+
+		-
+			message: '#^Method App\\Models\\ExcelParser\:\:parseScenarios\(\) has parameter \$result with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ExcelParser.php
+
+		-
+			message: '#^Method App\\Models\\ExcelParser\:\:parseScenarios\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ExcelParser.php
+
+		-
+			message: '#^Method App\\Models\\GameCounterModel\:\:getWeeklyStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/GameCounterModel.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''href'' and ''href'' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: app/Models/HtmlSanitizer.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:getBoardEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:getPaginatedEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:getRecentEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:getTopEntries\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:hydrate\(\) has parameter \$rows with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\LeaderboardModel\:\:hydrate\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/LeaderboardModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:create\(\) has parameter \$jsonData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:getAll\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:getById\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:getRandom\(\) has parameter \$excludeIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:getRandom\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:validateAnswer\(\) has parameter \$adrFieldOrder with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:validateAnswer\(\) has parameter \$scenario with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:validateAnswer\(\) has parameter \$userMapping with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Method App\\Models\\ScenarioModel\:\:validateAnswer\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ScenarioModel.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Models/SettingsModel.php
+
+		-
+			message: '#^Right side of && is always false\.$#'
+			identifier: booleanAnd.rightAlwaysFalse
+			count: 1
+			path: app/Models/SettingsModel.php
+
+		-
+			message: '#^Property App\\Models\\ThemeModel\:\:\$pdo is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Models/ThemeModel.php
+
+		-
+			message: '#^Function assetUrl\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Views/layout.php
+
+		-
+			message: '#^Function assetUrl\(\) has parameter \$path with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Views/layout.php
+
+		-
+			message: '#^Function getVersionInfo\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Views/layout.php
+
+		-
+			message: '#^Variable \$shareName might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share-go.php
+
+		-
+			message: '#^Variable \$shareScore might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share-go.php
+
+		-
+			message: '#^Variable \$shareText might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share-go.php
+
+		-
+			message: '#^Variable \$shareTitle might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share-go.php
+
+		-
+			message: '#^Variable \$shareUrl might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share-go.php
+
+		-
+			message: '#^Variable \$baseUrl might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Views/share.php
+
+		-
+			message: '#^Variable \$ogDescription might not be defined\.$#'
+			identifier: variable.undefined
+			count: 2
+			path: app/Views/share.php
+
+		-
+			message: '#^Variable \$ogImageUrl might not be defined\.$#'
+			identifier: variable.undefined
+			count: 2
+			path: app/Views/share.php
+
+		-
+			message: '#^Variable \$ogTitle might not be defined\.$#'
+			identifier: variable.undefined
+			count: 3
+			path: app/Views/share.php

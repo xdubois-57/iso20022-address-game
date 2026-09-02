@@ -84,19 +84,22 @@ class AdminFeaturesTest extends TestCase
        Deadline — Default fallback in GameController
        ======================================================= */
 
+    /** Midnight at the start of the day, not an hour into it. */
+    private const EXPECTED_DEFAULT_DEADLINE = '2027-11-28T00:00';
+
     public function testGameControllerDefaultDeadline(): void
     {
         // No deadline set in DB
         $reflection = new \ReflectionClass(GameController::class);
         $constant = $reflection->getConstant('DEFAULT_DEADLINE');
-        $this->assertEquals('2026-11-14T18:00', $constant);
+        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $constant);
     }
 
     public function testGameControllerUsesDefaultWhenNoDeadlineSet(): void
     {
         // Ensure no deadline in DB
-        $deadline = AdminController::fetchDeadlineStatic() ?? '2026-11-14T18:00';
-        $this->assertEquals('2026-11-14T18:00', $deadline);
+        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
+        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $deadline);
     }
 
     public function testGameControllerUsesCustomWhenDeadlineSet(): void
@@ -105,8 +108,40 @@ class AdminFeaturesTest extends TestCase
         $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
             . "('unstructured_deadline', '2028-06-15T09:30')");
 
-        $deadline = AdminController::fetchDeadlineStatic() ?? '2026-11-14T18:00';
+        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
         $this->assertEquals('2028-06-15T09:30', $deadline);
+    }
+
+    /**
+     * The seeded facts and the countdown must name the same date.
+     *
+     * The screen saver shows both at once. A fact that still said November
+     * 2026 beside a countdown to November 2027 would be the application
+     * contradicting itself in front of a room, which is worse than either
+     * date being wrong on its own.
+     */
+    public function testSeededFactsDoNotContradictTheDefaultDeadline(): void
+    {
+        $year = substr(self::EXPECTED_DEFAULT_DEADLINE, 0, 4);
+
+        $facts = $this->db->getPdo()->query('SELECT content FROM facts')->fetchAll(\PDO::FETCH_COLUMN);
+        $this->assertNotEmpty($facts, 'initSchema() must have seeded the default facts');
+
+        $deadlineFacts = array_values(array_filter(
+            $facts,
+            static fn (string $fact): bool => stripos($fact, 'deadline') !== false
+                || stripos($fact, 'phased out') !== false
+        ));
+        $this->assertNotEmpty($deadlineFacts, 'at least one seeded fact states the deadline');
+
+        foreach ($deadlineFacts as $fact) {
+            $this->assertStringContainsString(
+                $year,
+                $fact,
+                "a seeded fact states a deadline but not the one the countdown targets: {$fact}"
+            );
+            $this->assertStringNotContainsString('2026', $fact, $fact);
+        }
     }
 
     /* =======================================================
@@ -351,7 +386,7 @@ class AdminFeaturesTest extends TestCase
             'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
+        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 
@@ -538,7 +573,7 @@ class AdminFeaturesTest extends TestCase
             'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 14, 2026', $contents);
+        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 

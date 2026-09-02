@@ -1,0 +1,118 @@
+--- # ISO 20022 Address Structuring Game - ZAP Automation Framework plan, passive profile.
+#
+# Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
+# Licensed under the GNU General Public License v3 or later. See LICENSE.
+#
+# Driven by scripts/dast.sh; never run by hand. The ${...} values are set by
+# that script through the ZAP container's environment: DAST_TARGET is the
+# throwaway instance's HTTPS base URL, DAST_REPORT_DIR and
+# DAST_RELEASE_GATE_FILE are paths inside the container.
+#
+# WHAT THIS PROFILE IS
+# ----------------------------------------------------------------------
+# Passive rules only. ZAP sends nothing of its own and attacks nothing: the
+# attack surface comes entirely from replaying the Playwright suite through ZAP
+# as a proxy.
+#
+# That is a deliberate choice over ZAP's spider. The browser suite already
+# drives the admin screen from behind its PIN pad, both dedicated display
+# modes with their token, a full five-round game, the end-of-game screen and
+# the share flow. No crawler reaches any of that, and a spider pointed at this
+# application would see the welcome card and give up.
+#
+# There is no active profile here, and adding one is not a small step: an
+# active scan REPLAYS every recorded request with attack payloads, carrying
+# whatever session cookies the browser was using - including an authenticated
+# admin one, which can purge the leaderboard and overwrite the scenarios. A
+# passive scan is a gate. An active scan is an attack, and it needs an
+# exclusion list written before it, not after.
+#
+# HOW THE PLAN AND THE TRAFFIC FIT TOGETHER
+# ----------------------------------------------------------------------
+# The plan starts BEFORE the browser runs and blocks on its `delay` job until
+# scripts/dast.sh creates the file that job watches. The ordering is not
+# cosmetic: the passive-scan configuration has to be in place before the first
+# response is scanned, because an alert raised before its configuration exists
+# stays raised.
+
+env:
+  contexts:
+    - name: iso20022-address-game
+      urls:
+        - ${DAST_TARGET}
+      includePaths:
+        - "\\Q${DAST_TARGET}\\E.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # --------------------------------------------------------------------
+  # NO ALERT FILTERS, and that is a decision rather than an omission.
+  #
+  # Nothing is silenced here. In particular "Strict-Transport-Security Header
+  # Not Set" (10035) and "Cookie Without Secure Flag" (10011) are left fully
+  # armed: the instance is served over real TLS by scripts/dast-tls-proxy.php
+  # and told about it by scripts/dast-https-prepend.php, so if either of those
+  # fires it is a defect in the harness's HTTPS wiring, not a false positive.
+  # scripts/dast.sh proves that wiring is live before the scan starts, for
+  # exactly this reason.
+  #
+  # If a filter ever does become necessary, put it here WITH THE REASON. A
+  # filter without a written reason is how a report stops being read.
+  # --------------------------------------------------------------------
+  - type: passiveScan-config
+    parameters:
+      # Only what the browser actually visited. The page references
+      # cdn.jsdelivr.net for PicoCSS, Dropzone, Chart.js and the QR library;
+      # findings about somebody else's CDN are not this application's to fix
+      # and would bury the ones that are.
+      scanOnlyInScope: true
+      # Unlimited per rule. A cap makes a report look better without making
+      # the application safer, and the count is what tells you whether a
+      # finding is one page or every page.
+      maxAlertsPerRule: 0
+
+  # --------------------------------------------------------------------
+  # The browser runs here. scripts/dast.sh creates the watched file the moment
+  # Playwright exits, whatever its verdict - a failed browser run still
+  # produced traffic worth scanning, and the shell script decides the overall
+  # exit code.
+  #
+  # `time` is a ceiling, not a schedule: it exists so a wedged browser run
+  # cannot hold a CI job open for ever.
+  - type: delay
+    parameters:
+      time: '01:00:00'
+      fileName: ${DAST_RELEASE_GATE_FILE}
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 10
+
+  # --------------------------------------------------------------------
+  # One report, HTML, for a human reading a red build.
+  #
+  # There is deliberately NO SARIF report and no upload to the Security tab.
+  # Code scanning anchors a result to a path inside the checkout it can blame a
+  # commit and a line for; a DAST result is an observation about a RUNNING
+  # instance, and scripts/dast.sh serves that instance on a free port picked at
+  # run time, so every location reads https://localhost:<random>/... - an
+  # origin that never existed outside that one job. Rewriting those URLs into
+  # repository paths would make the upload succeed by inventing a source
+  # location for a finding that has none.
+  #
+  # The gate is not weakened by that: scripts/dast.sh exits non-zero on any
+  # finding at or above DAST_THRESHOLD, which fails the job on the very push
+  # that introduced it - enforcement the Security tab never provided.
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: ${DAST_REPORT_DIR}
+      reportFile: dast-passive.html
+      reportTitle: ISO 20022 Address Structuring Game - passive dynamic scan
+      reportDescription: >
+        Produced by scripts/dast.sh, replaying the Playwright end-to-end suite
+        through OWASP ZAP over HTTPS against a throwaway SQLite-backed
+        instance. Passive rules only; nothing was attacked.

@@ -83,12 +83,44 @@ function sendSecurityHeaders(): void
     header('X-Frame-Options: DENY');
     // unpkg.com is no longer referenced: the one script served from it is now
     // bundled locally, so it comes out of every directive.
+    //
+    // frame-ancestors, form-action and base-uri are spelled out because they
+    // DO NOT fall back to default-src. Leaving them out is not "covered by
+    // default-src 'self'", it is unset — which the passive scan reports, and
+    // is right to.
+    //
+    //   frame-ancestors 'none'  the modern half of the X-Frame-Options: DENY
+    //                           above; that header is obsolete and ignored by
+    //                           browsers that read this one.
+    //   form-action 'self'      both forms in this application post to their
+    //                           own origin (the setup form, and the Dropzone
+    //                           upload that posts to index.php). Naming it
+    //                           stops an injected form from posting a PIN or
+    //                           an upload somewhere else.
+    //   base-uri 'self'         there is no <base> tag; this stops an injected
+    //                           one from re-pointing every relative URL on the
+    //                           page, the import map's module paths included.
     header(
         "Content-Security-Policy: default-src 'self'; "
-        . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        . "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        // A per-request nonce instead of 'unsafe-inline'. The blanket
+        // permission allowed ANY inline script the page ended up containing,
+        // an injected one included, which is close to having no script policy
+        // at all. Only the few inline blocks this application actually serves
+        // carry the nonce (see App\Support\Csp).
+        //
+        // The CDN host stays: a host-source and a nonce coexist, so the
+        // external PicoCSS/Dropzone/Chart.js/QR scripts still load by host
+        // while inline blocks need the secret. (Only 'strict-dynamic' would
+        // disable the host allowlist, and it is not used here.)
+        //
+        // Browsers that understand a nonce ignore 'unsafe-inline' when one is
+        // present, so leaving it in would have been dead weight that merely
+        // looked permissive to a reader and to a scanner.
+        . "script-src 'self' 'nonce-" . \App\Support\Csp::nonce() . "' https://cdn.jsdelivr.net; "
+        . "style-src 'self' 'nonce-" . \App\Support\Csp::nonce() . "' https://cdn.jsdelivr.net; "
         . "img-src 'self' data:; font-src 'self'; "
-        . "connect-src 'self' https://cdn.jsdelivr.net;"
+        . "connect-src 'self' https://cdn.jsdelivr.net; "
+        . "frame-ancestors 'none'; form-action 'self'; base-uri 'self';"
     );
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
@@ -253,6 +285,10 @@ if ($method === 'POST') {
         'admin/get-deadline' => (new AdminController())->getDeadline(),
         'admin/get-board-window' => (new AdminController())->getBoardWindow(),
         'admin/set-board-window' => (new AdminController())->setBoardWindow(),
+        'admin/get-sharing' => (new AdminController())->getSharing(),
+        'admin/set-sharing' => (new AdminController())->setSharing(),
+        'admin/get-display-token' => (new AdminController())->getDisplayToken(),
+        'admin/regenerate-display-token' => (new AdminController())->regenerateDisplayToken(),
         'admin/get-facts' => (new AdminController())->getFacts(),
         'admin/add-fact' => (new AdminController())->addFact(),
         'admin/update-fact' => (new AdminController())->updateFact(),
@@ -332,6 +368,66 @@ $displayMode = $_GET['mode'] ?? '';
 if (!is_string($displayMode) || !in_array($displayMode, ['', 'hof', 'play'], true)) {
     $displayMode = '';
 }
+
+/**
+ * …and the token that has to accompany it.
+ *
+ * A mode is honoured only when ?t= matches the stored display_mode_token,
+ * compared with hash_equals(). Anything else — no token, a wrong one, a
+ * database that cannot be reached to look one up — falls back to '', which is
+ * the ordinary game with its menus.
+ *
+ * THE FALLBACK IS THE DESIGN, not an oversight. An unknown token is worth
+ * exactly what an unknown mode is worth today (?mode=nimportequoi already
+ * serves the default), and for the same reason: a wall must never show an
+ * error page in front of a room. Nobody is standing there to read it.
+ *
+ * Its price is real and is documented in README § Dedicated screen URLs:
+ * regenerating during an event turns both screens back into ordinary pages
+ * with menus, silently. That is why the Admin button sits behind a
+ * confirmation that says so, and why the panel shows the new URLs at once.
+ *
+ * And it is a GUARD RAIL, not a barrier. The URLs stop being guessable; they
+ * do not become authenticated. /board/data stays public by design, every API
+ * route is exactly as reachable as it was, and nothing here should be
+ * described as a security control.
+ *
+ * The token is never written to a log — not on a match, and not on a miss.
+ */
+if ($displayMode !== '') {
+    $suppliedToken = $_GET['t'] ?? '';
+    $expectedToken = AdminController::displayModeTokenStatic();
+
+    // $expectedToken can be null when the database is unreachable. Compared
+    // as a string it would be '', and hash_equals('', '') is TRUE — so an
+    // instance in the middle of an outage would honour ?mode=hof&t= from
+    // anyone. Checked explicitly rather than coerced.
+    if (
+        $expectedToken === null
+        || !is_string($suppliedToken)
+        || !hash_equals($expectedToken, $suppliedToken)
+    ) {
+        $displayMode = '';
+    }
+}
+
+/**
+ * Whether the interface offers sharing, resolved here and carried to the
+ * browser on <body>, exactly as $displayMode is.
+ *
+ * One read, on the request that already talks to the database to render the
+ * page, rather than an extra round trip from the SPA — and the same mechanism
+ * the front end already understands, instead of a second one beside it.
+ *
+ * INTERFACE ONLY. Every share route above this line — /share, /share/go,
+ * /share/image, /share/home-image — and the `share/token` POST action are
+ * declared without reference to this flag and answer identically whether it
+ * is on or off. That is deliberate and load-bearing: a link a player already
+ * posted must keep working, /share/home-image is the site's own OpenGraph
+ * image rather than anyone's score, and hiding a feature is a product
+ * decision rather than an access control. Do not turn this into one.
+ */
+$sharingEnabled = AdminController::sharingEnabledStatic();
 
 // Serve the SPA shell
 require __DIR__ . '/../app/Views/layout.php';

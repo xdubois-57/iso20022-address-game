@@ -101,7 +101,18 @@ class GameController
     /**
      * POST /api/game/deadline — Get the unstructured address deadline (public, no auth).
      */
-    private const DEFAULT_DEADLINE = '2026-11-14T18:00';
+    /**
+     * The countdown's value when no administrator has saved one.
+     *
+     * Nothing seeds this into the settings table at install time:
+     * SettingsModel::get('unstructured_deadline') returns null until an admin
+     * saves a date, and this constant is the effective value in the meantime.
+     * So changing it here MOVES the countdown on every deployed instance that
+     * never set its own — deliberately, and without a migration to soften it.
+     * An installation that wants a different date sets one in Admin, and that
+     * saved value keeps winning over whatever this says.
+     */
+    private const DEFAULT_DEADLINE = '2027-11-28T00:00';
 
     public function getDeadline(): void
     {

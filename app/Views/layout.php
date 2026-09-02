@@ -97,6 +97,23 @@ $layoutDisplayMode = isset($displayMode) && in_array($displayMode, ['hof', 'play
     ? $displayMode
     : '';
 
+/**
+ * Whether the interface offers sharing, resolved by public/index.php from the
+ * `sharing_enabled` setting.
+ *
+ * Carried on <body> like the display mode, and — like it — the attribute is
+ * ABSENT in the ordinary case. A default installation therefore renders the
+ * byte-identical <body> tag it rendered before this setting existed, and
+ * "no attribute" keeps meaning "behave as you always did".
+ *
+ * Defaulted to true when the variable is undefined, for the same reason
+ * $layoutDisplayMode is defaulted: this file is included directly by tests,
+ * and an undefined variable would emit a warning into the middle of the
+ * <body> tag. Defaulting the OTHER way would also hide the share buttons in
+ * every such context, which is a strange thing for a missing variable to do.
+ */
+$layoutSharingEnabled = !isset($sharingEnabled) || (bool) $sharingEnabled;
+
 // Load theme colors from DB (with graceful fallback to defaults)
 if (!isset($layoutTheme)) {
     $layoutTheme = \App\Models\ThemeModel::defaults();
@@ -165,7 +182,7 @@ if (!function_exists('getVersionInfo')) {
     $pRgb = \App\Models\ThemeModel::hexToRgb($p) ?? [1, 169, 144];
     $picoFocus = 'rgba(' . $pRgb[0] . ',' . $pRgb[1] . ',' . $pRgb[2] . ',0.25)';
     ?>
-    <style>
+    <style<?= \App\Support\Csp::nonceAttribute() ?>>
         :root {
             --game-peppermint: <?= htmlspecialchars($bg, ENT_QUOTES) ?>;
             --game-dark-green: <?= htmlspecialchars($tx, ENT_QUOTES) ?>;
@@ -272,11 +289,11 @@ if (!function_exists('getVersionInfo')) {
         $moduleVersions['./assets/js/lib/' . $lib . '.js'] = './' . assetUrl('assets/js/lib/' . $lib . '.js');
     }
     ?>
-    <script type="importmap">
+    <script type="importmap"<?= \App\Support\Csp::nonceAttribute() ?>>
         <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
     </script>
 </head>
-<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?>>
+<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?><?= $layoutSharingEnabled ? '' : ' data-sharing="off"' ?>>
     <header class="game-header">
         <div class="header-content">
             <h1 class="logo">ISO 20022 Address Game</h1>
@@ -339,9 +356,10 @@ if (!function_exists('getVersionInfo')) {
     </footer>
 
     <!-- Dedicated confetti canvas (iOS Safari fix: avoids position:fixed clipping) -->
-    <canvas id="confettiCanvas"
-            style="position:fixed;top:0;left:0;width:100%;height:100%;
-                   pointer-events:none;z-index:9999;"></canvas>
+    <!-- Styled by .confetti-canvas in app.css rather than a style attribute:
+         style-src no longer carries 'unsafe-inline', which blocks attributes
+         outright (a nonce authorises elements, never attributes). -->
+    <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
 
     <!-- Inactivity overlay -->
     <div id="inactivityOverlay" class="overlay hidden">

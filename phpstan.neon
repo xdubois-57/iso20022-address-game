@@ -1,0 +1,31 @@
+# Static analysis for the PHP half of the application.
+#
+# Defect-hunting, not style. Level 6 catches unresolved identifiers, wrong
+# argument counts, access to properties that do not exist, and missing or wrong
+# type declarations — the class of mistake the three test suites cannot see
+# because it never runs. There is deliberately no PHP_CodeSniffer beside it:
+# reformatting a codebase produces a large diff, no fewer bugs, and a review
+# nobody can read.
+#
+#   composer run analyse
+#
+# The baseline is the other half of this. See phpstan-baseline.neon, and
+# README.md § Static analysis for the one rule about regenerating it.
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 6
+
+    paths:
+        - app
+        # The front controller, which is where routing, the session, the
+        # security headers and the display-mode gate all live — none of it
+        # reachable from a unit test, and all of it worth analysing.
+        - public/index.php
+
+    # tests/ is deliberately not analysed. It is full of anonymous classes
+    # standing in for controllers and of deliberately malformed input, which
+    # would pressure the baseline with findings that are the point of the test.
+
+    tmpDir: storage/phpstan

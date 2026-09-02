@@ -43,3 +43,8 @@ coverage/
 test-results/
 playwright-report/
 tests/e2e/.auth/
+
+# OWASP ZAP output from scripts/dast.sh. Never committed: the report describes
+# a running instance on a port that existed for one run, and this repository is
+# public — see README.md § Dynamic application security testing.
+dast-report/

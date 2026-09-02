@@ -22,18 +22,24 @@ An interactive kiosk-style game to educate users on ISO 20022 postal address str
 
 ## Legal notice
 
-This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**, and is supported by the **Payments Market Practice Group (PMPG)**. It is developed and maintained by its authors; the PMPG endorses it but does not operate it.
+This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained by its authors.
+
+This notice names no supporting organisation, and does not deny one either — the
+same silence the Privacy screen keeps. Both said more at different times, and
+both said something that later stopped being true. Do not reintroduce either
+sentence: neither "supported by the PMPG" here, nor "not affiliated with or
+endorsed by any organisation" anywhere.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
 
 ## Features
 
-- **Supported by the PMPG** — The Payments Market Practice Group endorses the
-  game. Its lockup appears on its own — no caption above it — on the welcome
-  card, the page footer, the app icon and the share card; the endorsement is
-  stated in words in the legal notice, the Privacy screen and the page's
-  social-preview descriptions. The game remains the work of its authors, and
-  the mark is not covered by the GPL — see [Legal notice](#legal-notice) and
+- **PMPG lockup** — The mark appears on its own — no caption above it — on the
+  welcome card, the page footer, the app icon and the share card, and the
+  endorsement is stated in words in the page's OpenGraph and Twitter
+  descriptions. The legal notice and the Privacy screen name no supporting
+  organisation. The game remains the work of its authors, and the mark is not
+  covered by the GPL — see [Legal notice](#legal-notice) and
   [Third-party assets](#third-party-assets)
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
@@ -155,6 +161,26 @@ for an iPad you prepare by hand, and exactly wrong for an unattended screen —
 which is why the wall and the play station use a URL instead. See
 **Display modes** below.
 
+### The deadline countdown
+
+The countdown targets **28 November 2027 at 00:00** unless an administrator
+saves a date of their own under Admin → *Unstructured Address Deadline*. A
+saved date always wins.
+
+Nothing writes that default into the database at install time, so it is the
+constant `GameController::DEFAULT_DEADLINE` that is in force until somebody
+saves one. Two consequences, both intended:
+
+- An installation that never set its own date **moves to the new value when it
+  is updated**. There is no migration to prevent that, on purpose — an install
+  that had accepted the previous default had accepted "whatever this project
+  says the deadline is".
+- The ten "Did You Know" facts are seeded **once**, on an empty table. An
+  installation created before this change keeps the facts it was seeded with,
+  two of which still name November 2026. Nothing rewrites them — edit them from
+  Admin → *Did You Know — Quick Facts*, or the screen saver will show a
+  countdown to one date beside a fact naming another.
+
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:
 
@@ -180,15 +206,65 @@ dedicated screens are switched on by a URL.
 | **Play station** | `?mode=play` | 42" **landscape**, touch, played standing |
 
 ```
-https://<host>/?mode=hof     the wall
-https://<host>/?mode=play    the play station
+https://<host>/?mode=hof&t=<token>     the wall
+https://<host>/?mode=play&t=<token>    the play station
 ```
+
+The `t=` is the **display mode token**, a 32-character random value this
+installation generates for itself. Both complete URLs — with QR codes and
+ready-to-paste launch commands — are shown in Admin → *Display modes*. There is
+no need to write the token down anywhere; the panel always shows the current
+one.
 
 Both dedicated screens are served without the navigation bar and without the
 hamburger — omitted from the markup, not hidden after rendering. Understand
 this as a **guard rail, not a security boundary**: the API routes stay open and
 the leaderboard is public either way. The goal is that a player does not wander
 off into the Hall of Fame, not that a determined visitor cannot.
+
+### The screen address token
+
+`?mode=` alone is not enough: the mode is honoured only when `&t=` matches the
+`display_mode_token` this installation holds, compared with `hash_equals()`.
+
+**A wrong token, a missing one, or a database that cannot be reached serves the
+ordinary game with its menus.** No error page, no message, nothing in the
+logs — exactly what `?mode=nimportequoi` already did. That is deliberate: a
+42-inch wall must never show an error to a room, because nobody is standing
+there to read it.
+
+The token is generated the first time it is needed, so an existing installation
+acquires one on its next request with no migration to run. It is stored as an
+opaque random value and never encrypted — nothing is ever recovered from it,
+only compared against — and it is **never written to a log**, on a match or a
+miss.
+
+#### What it is not
+
+It makes the two addresses unguessable. It does not make them private, and it
+authenticates nobody:
+
+- `/board/data` stays a public, unauthenticated GET, by design — see below.
+- Every API route is exactly as reachable as it was.
+- Anyone holding a URL holds the token.
+
+This is a hardened guard rail. Do not present it as a security boundary, and do
+not build anything on top of it that needs one.
+
+#### Regenerating
+
+Admin → *Display modes* → *Screen address token* → **Regenerate**, behind a
+confirmation.
+
+Read the confirmation before pressing it, because the failure mode is quiet:
+the moment a new token is in force, **both screens fall back to the ordinary
+game with menus, with nothing on their own displays to say why**. They will sit
+there looking wrong to anyone in the room and looking fine to anyone reading a
+log. Reopen both with the new addresses, which the panel prints — URLs, QR
+codes and `chrome --kiosk` commands — the instant the confirmation is accepted,
+without a page reload.
+
+Regenerate between events, not during one.
 
 ### Launching the two screens
 
@@ -206,14 +282,16 @@ fullscreen on its own and keeps the address bar out of reach.
 
 ### Reaching the admin screen from one of these machines
 
-Load the URL with no parameter. There is no back door in either display mode,
-by design.
+Load the URL with no parameter — dropping `?mode=` and `&t=` both. There is no
+back door in either display mode, by design.
 
 ### Settings
 
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
 | `board_window_hours` | Admin → Display modes → Wall window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
+| `sharing_enabled` | Admin → Sharing | `1` | Whether the end-of-game screen offers the sharing controls. See [Sharing](#sharing). |
+| `display_mode_token` | Admin → Display modes → Screen address token | generated on first use | The `&t=` both dedicated screen URLs carry. Never seeded, never logged. |
 
 `board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
 Fame served to phones, to desktop browsers and to the iPad kiosk stays
@@ -241,8 +319,10 @@ entry carries a rank computed by the server.
 
 Worth doing once, on the real machines, and not on the day:
 
-- Launch both screens with the `--kiosk` commands above, then **reboot both
-  machines** and check they come back on their own in the right mode.
+- Launch both screens with the `--kiosk` commands above — copied from the
+  admin panel, so they carry the current token — then **reboot both machines**
+  and check they come back on their own in the right mode. A screen that comes
+  back with menus has the wrong token, not a broken mode.
 - Set `board_window_hours`, play three games, and watch the wall react.
 - **Unplug the wall machine's network for thirty seconds**, then plug it back
   in. The board must stay on screen throughout and resume by itself. This is
@@ -250,6 +330,42 @@ Worth doing once, on the real machines, and not on the day:
 - Play a full game **with a finger only**, name included, without touching the
   physical keyboard.
 - Confirm that pressing the wall does nothing whatsoever.
+
+## Sharing
+
+Sharing is **on** by default and can be switched off from Admin → *Sharing*.
+
+With it off, the end-of-game screen renders none of the four sharing surfaces:
+the "Challenge a Friend" button, the LinkedIn link, the copy-link button, and
+the kiosk QR block. They are not hidden with CSS — they are not in the DOM at
+all, no handler is bound to them, and no share token is minted.
+
+### What it does **not** do
+
+The switch is an **interface decision, not an access control**, and it is worth
+being blunt about that because the difference is where the damage would be. The
+five server routes keep answering exactly as before, whatever the setting says:
+
+| Route | Still answers | Why |
+|---|---|---|
+| `/share?d=…` | yes | A link a player already posted lives in somebody's feed. Breaking it breaks their post, not this installation's future. |
+| `/share/go?d=…` | yes | Same, for a QR code somebody has already photographed. |
+| `/share/image?d=…` | yes | The preview image those two links point at. |
+| `/share/home-image` | yes | **Not score sharing.** This is the site's own OpenGraph image, used by every link to the game — closing it would degrade the preview of a link that has nothing to do with anyone's score. |
+| `share/token` (POST) | yes | Nothing in the UI calls it with sharing off; it stays available so the route surface does not change under an existing client. |
+
+So: do not describe this switch as a security measure, and do not use it as
+one. Anyone holding a token can still resolve it. What the switch controls is
+whether this installation *offers* sharing to the player in front of it.
+
+### Relationship to `?mode=play`
+
+Two independent mechanisms, both of which have to hold. The play station has
+never shared, and still never shares whatever `sharing_enabled` says: its
+end-of-game screen is a different screen entirely, because `navigator.share`
+opens an operating-system sheet on top of a locked kiosk that the next player
+then has to dismiss. Switching sharing back on does not give the play station
+share buttons.
 
 ## Excel File Format
 
@@ -276,7 +392,7 @@ is for fun, not for adjudication. Do not treat it as a competition of record.
 - **CSRF protection**: Token-based validation on all POST requests
 - **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
 - **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
-- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. The CSP names `frame-ancestors`, `form-action` and `base-uri` explicitly, because none of the three falls back to `default-src` — omitting them leaves them unset rather than restricted. It carries **no `'unsafe-inline'`**: a per-request nonce (`App\Support\Csp`) authorises the few inline `<script>` and `<style>` blocks the application actually serves, so an injected one does not run. A nonce cannot authorise `style="…"` *attributes*, so those were moved into CSS classes rather than bought back with `'unsafe-hashes'`
 - **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
 - **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
@@ -370,16 +486,197 @@ npm run e2e
 PHP built-in server, runs the suite, and tears everything down — including on
 failure or Ctrl-C. It never touches a real `config/` directory or database.
 
+## Static analysis
+
+Two checkers, both looking for **defects rather than style**: unresolved
+identifiers, wrong argument counts, properties that do not exist on the thing
+being touched. This is the class of mistake the three test suites cannot see,
+because it lives in code they never run.
+
+```bash
+composer run analyse    # PHPStan level 6 over app/ and public/index.php
+npm run typecheck       # tsc --noEmit over public/assets/js/
+```
+
+There is deliberately **no ESLint and no PHP_CodeSniffer**. Reformatting a
+codebase produces a very large diff, no fewer bugs, and a review nobody can
+read.
+
+TypeScript here is a **checker, never a build step**. `tsconfig.json` sets
+`allowJs`, `checkJs` and `noEmit`; nothing is compiled, nothing is bundled, and
+production still ships the plain unbundled JavaScript in `public/assets/js/`
+exactly as it is written. There is no `.ts` file in this repository and there
+should not be one.
+
+### The baselines
+
+Both commands pass today, and neither of them passes because the code is clean.
+
+| File | Findings accepted | Produced by |
+|---|---|---|
+| `phpstan-baseline.neon` | **76** | `composer run analyse:baseline` |
+| `js-typecheck-baseline.json` | **82** (30 distinct file/code/message groups) | `npm run typecheck:baseline` |
+
+Most of the JavaScript ones are one shape: `app.js` is close to three thousand
+lines and reaches for `.value`, `.disabled` or `.tagName` on the generic
+`Element` that `getElementById()` and `querySelector()` return. That is real
+debt, it is worth paying down, and paying it down is a different piece of work
+from installing the tools. Without a baseline the job would be red permanently,
+everybody would learn to ignore it, and a permanently ignored gate is worse
+than no gate — it costs a minute on every push and buys nothing.
+
+So **green means "no NEW finding", never "no findings"**.
+
+PHPStan has this mechanism built in. `tsc` does not, so
+`scripts/js-typecheck.mjs` adds the same contract on top of it: it runs `tsc`,
+groups what comes back, and fails only on an occurrence beyond what the
+baseline accepts. It indexes by **file + error code + message, never by line
+number** — a line-keyed baseline would report every pre-existing finding below
+an edit as new, which is how a baseline mechanism becomes useless in one
+afternoon.
+
+#### Regenerating one
+
+> Regenerate a baseline **only** to deliberately accept existing debt you are
+> not fixing right now. **Never** to silence a finding your own change just
+> introduced — fix that one instead.
+>
+> A baseline regenerated to hide a regression turns the whole gate into
+> decoration while leaving everybody sure it is working.
+
+Both files carry that warning in their own header, where somebody about to
+regenerate one will actually read it.
+
+## Dynamic application security testing
+
+A **passive** OWASP ZAP scan of the running application, on every push and on
+demand:
+
+```bash
+npm install
+npx playwright install --with-deps chromium
+docker pull ghcr.io/zaproxy/zaproxy:stable   # once, about 1.2 GB
+npm run dast                                 # scripts/dast.sh
+```
+
+`scripts/dast.sh` provisions a throwaway SQLite-backed instance, serves it over
+**HTTPS** through the real entry point (`public/index.php`), replays the
+Playwright suite through ZAP acting as a proxy, gates on the findings, and
+tears the whole thing down from an `EXIT` trap — on success, on failure and on
+Ctrl-C. It uses its own temporary directory, its own database and its own
+ports, so it cannot collide with `npm run e2e`.
+
+### The browser suite is the attack surface
+
+Not ZAP's spider. The end-to-end suite already drives the admin screen from
+behind its PIN pad, both dedicated display modes with their token, a full
+five-round game, the end-of-game screen and the share flow. A crawler pointed
+at this application sees the welcome card and stops. Replaying the suite
+through a proxy is the most faithful picture of the real surface that exists.
+
+That has a consequence worth stating: **a failed browser run fails the scan**,
+even with no security finding. A scan is only as complete as the traffic it was
+given.
+
+### Why it has to be HTTPS
+
+`scripts/e2e.sh` serves plain HTTP, and two of this application's protections
+are conditional on the request having arrived over TLS — the HSTS header
+(`public/index.php` ~l.97) and `session.cookie_secure` (~l.155). A scan in the
+clear would report *"no HSTS"* and *"cookie without the Secure flag"*: two
+findings that are **false**, about code that is **correct**.
+
+The tempting fix is an alert filter silencing both rules. That is exactly how a
+report stops being read — two rules muted for a harness defect, and the day one
+of them fires for real nobody notices. So the harness is fixed instead:
+
+- `scripts/dast-tls-proxy.php` terminates TLS in front of `php -S` and sets
+  `X-Forwarded-Proto`, stripping any copy the client sent first;
+- `scripts/dast-https-prepend.php` translates that into `$_SERVER['HTTPS']` for
+  the backend process only, through `auto_prepend_file` — **the application
+  itself is untouched and does not trust any forwarded header**;
+- both ZAP rules stay fully armed, and `scripts/dast.sh` proves HSTS and the
+  `Secure` cookie are live *before* the scan starts, so a broken harness fails
+  in ten seconds rather than producing twenty minutes of false findings.
+
+### The gate
+
+`DAST_THRESHOLD` defaults to `Medium`: the run fails on any finding at Medium
+or above. Informational and Low are printed but do not fail.
+
+There is deliberately **no baseline of accepted findings** — the opposite
+choice from the PHPStan and `tsc` baselines, and the difference is the point.
+Those record thousands of pre-existing type findings nobody introduced today.
+This records live security findings against a running instance, and a growing
+list of "accepted" ones is how a scan stops meaning anything. A finding is
+either fixed, or filtered as a false positive **with the reason written into
+`tests/dast/zap-passive.yaml`** where a reviewer will see it. Today nothing is
+filtered.
+
+### Why the findings are not in the Security tab
+
+There is no SARIF upload, and that is a decision rather than an omission.
+
+Code scanning anchors a result to a path inside the checkout so it can blame a
+commit and a line. A DAST result is an observation about a **running
+instance**: ZAP records the URL it actually requested, and the harness serves
+that instance on a free port picked at run time, so every location reads
+`https://localhost:<random>/…` — an origin that never existed outside that one
+job. Rewriting those URLs into repository paths would make the upload succeed
+by inventing a source location for a finding that has none.
+
+The gate loses nothing by it: the exit code fails the job on the push that
+introduced the finding, which the Security tab never did.
+
+### The report is not published
+
+The HTML report stays in the job's log. It is **not** uploaded as an artifact
+and **not** attached to a Release — only the counts by severity are, in
+`dast-severity-summary.json`. This repository is public, so its Release assets
+are public, and so are its workflow artifacts, which is less widely known. A
+detailed DAST report on a public repository is a map drawn for whoever wants
+one.
+
+### Not an active scan
+
+The passive profile observes traffic and sends nothing of its own. An active
+profile would **replay every recorded request with attack payloads, carrying
+the session cookies the browser was using** — including an authenticated admin
+one, which on this application can purge the leaderboard and overwrite the
+scenarios. A passive scan is a gate; an active scan is an attack, and it needs
+an exclusion list written before it rather than after.
+
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+`.github/workflows/ci.yml` runs on every push and pull request to `main`. The
+gates themselves live in `.github/workflows/checks.yml`, a reusable workflow
+that CI and the release pipeline both call — so the two can never drift apart
+on what "green" means, and the `setup-php` block exists once rather than six
+times:
 
 | Job | What it does |
 |---|---|
 | **PHP** | PHPUnit on 8.1 and 8.4 — the floor this project advertises and the current release |
+| **Static analysis** | PHPStan and `tsc`, both against their baselines — see [Static analysis](#static-analysis) |
 | **JavaScript** | Vitest unit suite |
 | **End-to-end** | Playwright against a throwaway SQLite instance |
+| **Dynamic scan** | Passive OWASP ZAP scan over HTTPS, gated at Medium — see [Dynamic application security testing](#dynamic-application-security-testing) |
 | **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
+
+CodeQL runs through GitHub's **default setup**, configured in the repository's
+settings rather than by a workflow file in this repo. It covers
+`javascript-typescript` and `actions`, and publishes to the Security tab.
+
+There is deliberately no `codeql.yml` here: GitHub refuses a SARIF upload from
+an advanced configuration while the default setup is enabled, so a workflow
+file would analyse the code and then fail on the upload every single run. The
+release pipeline still produces CodeQL's SARIF for its evidence pack, with
+`upload: never`, for the same reason.
+
+**CodeQL does not support PHP.** Everything under `app/` — the majority of this
+application's logic — is therefore outside it, whichever setup runs. The PHP is
+covered by PHPStan, SonarCloud and the passive DAST scan. Worth stating plainly,
+because a green badge is a claim somebody will read as more than it is.
 
 ### SonarCloud setup
 
@@ -394,6 +691,58 @@ Two things are needed for the job to run:
 2. **Automatic Analysis turned off**, in SonarCloud under Administration →
    Analysis Method. SonarCloud refuses a CI-based analysis while its own
    automatic analysis is enabled, and only the CI one can carry coverage.
+
+## Releases and the evidence pack
+
+`.github/workflows/release.yml` runs on a `v*` tag **and** on
+`workflow_dispatch`. The second matters as much as the first: it is how a set
+of evidence is produced for what is already deployed, or how the whole chain is
+rehearsed, without cutting a version.
+
+It is deliberately **not** merged with `ci.yml`. That one is the fast loop on
+every push and has to stay fast; this one is the slow complete pass. What they
+share is the gates, which live in the reusable `checks.yml` both of them call.
+
+### Ordering
+
+All gates first. The Release is created **only if every one of them is green**,
+and it is created as a **draft**, so the evidence can be read before it becomes
+public. If a gate fails no Release is created at all — the tag exists and points
+at nothing published, which is fixed by deleting the tag and pushing it again.
+
+### What is in the pack
+
+Only what each tool emits natively. Nothing in it is written by hand: a
+document somebody writes once to describe a pipeline is a document nobody
+updates when the pipeline changes, and evidence that has stopped being true is
+worse than no evidence.
+
+| Evidence | Where it comes from |
+|---|---|
+| PHP tests, 8.1 and 8.4 | PHPUnit `--log-junit` |
+| JavaScript tests | Vitest `--reporter=junit` |
+| End to end | Playwright's own HTML report, one screenshot per test |
+| PHP static analysis | PHPStan's output |
+| JavaScript static analysis | `tsc`, through `npm run typecheck` |
+| CodeQL | the workflow's SARIF |
+| SonarCloud | the quality gate, as their API returns it |
+| Dynamic scan | **counts per severity only** |
+
+### Two things it deliberately does not contain
+
+**The detailed DAST report.** This repository is public, so its Release assets
+are public — and so are its workflow artifacts, which is less widely known.
+Publishing a dynamic-scan report of a running instance is publishing a map.
+Only `dast-severity-summary.json` leaves the job; the full report stays in the
+scan job's log, where whoever is debugging a red build can read it. A step in
+the release job checks the pack for a detailed report and fails the release
+rather than letting one out.
+
+**Videos and traces of tests that passed.** They are what makes an evidence
+pack enormous, and a video of a test that behaved is not evidence anybody
+watches. Both stay `retain-on-failure` in every mode. Screenshots go to `'on'`
+only for a release, driven by `E2E_EVIDENCE` — an ordinary `npm run e2e` stays
+light.
 
 ## GDPR Cleanup (Cron Job)
 
@@ -455,8 +804,8 @@ redistributing a modified version.
 Concretely, that means `public/assets/images/pmpg-logo.png`,
 `public/assets/images/pmpg-mark.png`, every block that renders them — the
 welcome card, the page footer, the app icon and the share card — and the
-sentences naming the PMPG in the legal notice, the Privacy screen and the
-OpenGraph and Twitter descriptions.
+sentences naming the PMPG in the OpenGraph and Twitter descriptions. The legal
+notice and the Privacy screen no longer name it.
 
 #### Address formatter
 

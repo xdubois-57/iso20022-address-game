@@ -28,6 +28,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
+// A dedicated screen is addressed by ?mode= AND a matching &t=; the helper
+// knows both halves so this file does not have to.
+import { gotoMode } from '../support/display-mode.js';
+
 const ADMIN_PIN = '1234';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
@@ -98,7 +102,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('composes a name by tapping alone and starts the game', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
         await expect(page.locator('#touchKeyboard')).toBeVisible();
 
         // Not a single keyboard event and not one fill(): every character
@@ -116,7 +120,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('carries the accented characters the room will actually need', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         // The roadmap's minimum, one key at a time. A standards forum fills a
         // room with Scandinavian, Irish, German and Hispanic names, and
@@ -127,7 +131,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('backspace and clear behave as a keyboard should', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         await tap(page, 'A', 'B', 'C');
         await expect(page.locator('#welcomeNameInput')).toHaveValue('Abc');
@@ -144,7 +148,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('respects the field maxlength, which assignment would otherwise bypass', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         // maxlength constrains typing, not assignment — a keyboard that
         // writes into .value has to enforce it itself or a 60-character name
@@ -158,7 +162,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('keys are big enough to hit standing at a 42-inch panel', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         const boxes = await page.locator('.touch-key').evaluateAll(
             (nodes) => nodes.map((n) => {
@@ -176,7 +180,7 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('a refused name shows why, and the message stays readable', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         // A name the server's profanity filter rejects, composed by tapping.
         await tap(page, 'S', 'H', 'I', 'T');
