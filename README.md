@@ -648,7 +648,11 @@ an exclusion list written before it rather than after.
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+`.github/workflows/ci.yml` runs on every push and pull request to `main`. The
+gates themselves live in `.github/workflows/checks.yml`, a reusable workflow
+that CI and the release pipeline both call — so the two can never drift apart
+on what "green" means, and the `setup-php` block exists once rather than six
+times:
 
 | Job | What it does |
 |---|---|
@@ -680,6 +684,58 @@ Two things are needed for the job to run:
 2. **Automatic Analysis turned off**, in SonarCloud under Administration →
    Analysis Method. SonarCloud refuses a CI-based analysis while its own
    automatic analysis is enabled, and only the CI one can carry coverage.
+
+## Releases and the evidence pack
+
+`.github/workflows/release.yml` runs on a `v*` tag **and** on
+`workflow_dispatch`. The second matters as much as the first: it is how a set
+of evidence is produced for what is already deployed, or how the whole chain is
+rehearsed, without cutting a version.
+
+It is deliberately **not** merged with `ci.yml`. That one is the fast loop on
+every push and has to stay fast; this one is the slow complete pass. What they
+share is the gates, which live in the reusable `checks.yml` both of them call.
+
+### Ordering
+
+All gates first. The Release is created **only if every one of them is green**,
+and it is created as a **draft**, so the evidence can be read before it becomes
+public. If a gate fails no Release is created at all — the tag exists and points
+at nothing published, which is fixed by deleting the tag and pushing it again.
+
+### What is in the pack
+
+Only what each tool emits natively. Nothing in it is written by hand: a
+document somebody writes once to describe a pipeline is a document nobody
+updates when the pipeline changes, and evidence that has stopped being true is
+worse than no evidence.
+
+| Evidence | Where it comes from |
+|---|---|
+| PHP tests, 8.1 and 8.4 | PHPUnit `--log-junit` |
+| JavaScript tests | Vitest `--reporter=junit` |
+| End to end | Playwright's own HTML report, one screenshot per test |
+| PHP static analysis | PHPStan's output |
+| JavaScript static analysis | `tsc`, through `npm run typecheck` |
+| CodeQL | the workflow's SARIF |
+| SonarCloud | the quality gate, as their API returns it |
+| Dynamic scan | **counts per severity only** |
+
+### Two things it deliberately does not contain
+
+**The detailed DAST report.** This repository is public, so its Release assets
+are public — and so are its workflow artifacts, which is less widely known.
+Publishing a dynamic-scan report of a running instance is publishing a map.
+Only `dast-severity-summary.json` leaves the job; the full report stays in the
+scan job's log, where whoever is debugging a red build can read it. A step in
+the release job checks the pack for a detailed report and fails the release
+rather than letting one out.
+
+**Videos and traces of tests that passed.** They are what makes an evidence
+pack enormous, and a video of a test that behaved is not evidence anybody
+watches. Both stay `retain-on-failure` in every mode. Screenshots go to `'on'`
+only for a release, driven by `E2E_EVIDENCE` — an ordinary `npm run e2e` stays
+light.
 
 ## GDPR Cleanup (Cron Job)
 

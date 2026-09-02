@@ -93,7 +93,14 @@ export default defineConfig({
     use: {
         baseURL,
         trace: 'retain-on-failure',
-        screenshot: 'only-on-failure',
+        // 'on' only for a release's evidence pack, driven by an environment
+        // variable the release workflow sets. An ordinary `npm run e2e` keeps
+        // 'only-on-failure' and stays light: nobody running the suite for its
+        // verdict wants a hundred PNGs of screens that behaved.
+        screenshot: process.env.E2E_EVIDENCE === '1' ? 'on' : 'only-on-failure',
+        // Videos and traces stay retain-on-failure in BOTH modes, on purpose.
+        // They are what makes an evidence pack enormous, and a video of a test
+        // that passed is not evidence anybody watches.
         video: 'retain-on-failure',
         actionTimeout: 15_000 * TIMEOUT_SCALE,
         navigationTimeout: 30_000 * TIMEOUT_SCALE,

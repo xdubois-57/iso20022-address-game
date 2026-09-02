@@ -15,176 +15,18 @@ permissions:
   contents: read
 
 jobs:
-  # The floor the project actually claims to support (composer.json / README),
-  # not just the version that happens to be installed on a developer machine.
-  # This exists because a dependency upgrade once silently raised the real
-  # minimum to 8.2 while both still advertised 8.1.
-  php-tests:
-    name: PHP ${{ matrix.php }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.1', '8.4']
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: gd, zip, pdo_sqlite, mbstring
-          coverage: none
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction
-
-      - name: Run tests
-        run: composer test
-
-  # Defects the three test suites cannot see, because they are in code that
-  # never runs under them: unresolved identifiers, wrong argument counts,
-  # properties that do not exist on the thing being touched.
+  # Every gate this project runs, defined once in the reusable workflow and
+  # called by both pipelines. ci.yml is the FAST loop on each push;
+  # release.yml is the slow complete pass. They are deliberately not merged —
+  # the point of the fast one is that it is fast — but they must not drift
+  # apart on what "green" means, and the PHP setup block was already duplicated
+  # four times here before the release pipeline would have added two more.
   #
-  # Both halves are BASELINED (phpstan-baseline.neon, js-typecheck-baseline.json).
-  # Green means "no NEW finding", never "no findings" — see README.md
-  # § Static analysis, and read the header of either baseline before
-  # regenerating one.
-  static-analysis:
-    name: Static analysis
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: gd, zip, pdo_sqlite, mbstring
-          coverage: none
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: composer install --prefer-dist --no-progress --no-interaction
-      - run: npm ci
-
-      - name: PHPStan
-        run: composer run analyse
-
-      - name: TypeScript (checker only, nothing is emitted)
-        run: npm run typecheck
-
-  js-tests:
-    name: JavaScript unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm test
-
-  e2e:
-    name: End-to-end (Chromium)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: gd, zip, pdo_sqlite, mbstring
-          coverage: none
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: composer install --prefer-dist --no-progress --no-interaction
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-  # A passive scan of the running application, on every push.
-  #
-  # The Playwright suite is the attack surface, not a crawler: it drives the
-  # admin screen from behind its PIN pad, both display modes with their token,
-  # a whole game and the share flow, none of which a spider reaches. The build
-  # fails on any finding at Medium or above (DAST_THRESHOLD).
-  dast:
-    name: Dynamic scan (passive)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # No security-events: write, deliberately. See "Why the findings are not
-      # in the Security tab" below.
-    # The bound covers a cold 1.2 GB image pull plus the whole browser suite
-    # replayed through a proxy.
-    timeout-minutes: 40
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          # openssl generates the run's certificate and pcntl runs the TLS
-          # terminator; without both, scripts/dast.sh refuses to start.
-          extensions: gd, zip, pdo_sqlite, mbstring, openssl, pcntl
-          coverage: none
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: composer install --prefer-dist --no-progress --no-interaction
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-
-      - name: Pull the OWASP ZAP image
-        # scripts/dast.sh deliberately refuses to download 1.2 GB on a caller's
-        # behalf, so the pull is explicit here - the one place where
-        # downloading it is the expected thing to happen.
-        run: docker pull ghcr.io/zaproxy/zaproxy:stable
-
-      - name: Run the passive scan
-        run: npm run dast
-
-      # Why the findings are not in the Security tab
-      # ------------------------------------------------------------
-      # Code scanning anchors a result to a path inside the checkout, so it can
-      # blame a commit and a line for it. A DAST result is an observation about
-      # a RUNNING instance: ZAP records the URL it actually requested, and
-      # scripts/dast.sh serves that instance on a free port picked at run time,
-      # so every location reads https://localhost:<random>/... - an origin that
-      # never existed outside this one job and is different on the next.
-      # Rewriting those URLs into repository paths would make an upload succeed
-      # by inventing a source location for a finding that has none, pinning a
-      # header observation onto whichever file was chosen to carry it.
-      #
-      # The gate is not weakened by that: scripts/dast.sh exits non-zero on any
-      # finding at or above Medium, which fails this job on the very push that
-      # introduced it - enforcement the Security tab never provided. The HTML
-      # report is in this job's log for whoever is debugging a red build, and
-      # is deliberately NOT uploaded as an artifact: this repository is public,
-      # so its workflow artifacts are too.
+  # evidence is left at its default (false): a CI run produces a verdict, not
+  # an evidence pack.
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yml
 
   sonarcloud:
     name: SonarCloud
