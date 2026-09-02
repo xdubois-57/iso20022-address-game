@@ -255,6 +255,8 @@ if ($method === 'POST') {
         'admin/set-board-window' => (new AdminController())->setBoardWindow(),
         'admin/get-sharing' => (new AdminController())->getSharing(),
         'admin/set-sharing' => (new AdminController())->setSharing(),
+        'admin/get-display-token' => (new AdminController())->getDisplayToken(),
+        'admin/regenerate-display-token' => (new AdminController())->regenerateDisplayToken(),
         'admin/get-facts' => (new AdminController())->getFacts(),
         'admin/add-fact' => (new AdminController())->addFact(),
         'admin/update-fact' => (new AdminController())->updateFact(),
@@ -333,6 +335,48 @@ if ($action === 'admin/export') {
 $displayMode = $_GET['mode'] ?? '';
 if (!is_string($displayMode) || !in_array($displayMode, ['', 'hof', 'play'], true)) {
     $displayMode = '';
+}
+
+/**
+ * …and the token that has to accompany it.
+ *
+ * A mode is honoured only when ?t= matches the stored display_mode_token,
+ * compared with hash_equals(). Anything else — no token, a wrong one, a
+ * database that cannot be reached to look one up — falls back to '', which is
+ * the ordinary game with its menus.
+ *
+ * THE FALLBACK IS THE DESIGN, not an oversight. An unknown token is worth
+ * exactly what an unknown mode is worth today (?mode=nimportequoi already
+ * serves the default), and for the same reason: a wall must never show an
+ * error page in front of a room. Nobody is standing there to read it.
+ *
+ * Its price is real and is documented in README § Dedicated screen URLs:
+ * regenerating during an event turns both screens back into ordinary pages
+ * with menus, silently. That is why the Admin button sits behind a
+ * confirmation that says so, and why the panel shows the new URLs at once.
+ *
+ * And it is a GUARD RAIL, not a barrier. The URLs stop being guessable; they
+ * do not become authenticated. /board/data stays public by design, every API
+ * route is exactly as reachable as it was, and nothing here should be
+ * described as a security control.
+ *
+ * The token is never written to a log — not on a match, and not on a miss.
+ */
+if ($displayMode !== '') {
+    $suppliedToken = $_GET['t'] ?? '';
+    $expectedToken = AdminController::displayModeTokenStatic();
+
+    // $expectedToken can be null when the database is unreachable. Compared
+    // as a string it would be '', and hash_equals('', '') is TRUE — so an
+    // instance in the middle of an outage would honour ?mode=hof&t= from
+    // anyone. Checked explicitly rather than coerced.
+    if (
+        $expectedToken === null
+        || !is_string($suppliedToken)
+        || !hash_equals($expectedToken, $suppliedToken)
+    ) {
+        $displayMode = '';
+    }
 }
 
 /**

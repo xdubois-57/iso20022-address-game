@@ -206,15 +206,65 @@ dedicated screens are switched on by a URL.
 | **Play station** | `?mode=play` | 42" **landscape**, touch, played standing |
 
 ```
-https://<host>/?mode=hof     the wall
-https://<host>/?mode=play    the play station
+https://<host>/?mode=hof&t=<token>     the wall
+https://<host>/?mode=play&t=<token>    the play station
 ```
+
+The `t=` is the **display mode token**, a 32-character random value this
+installation generates for itself. Both complete URLs — with QR codes and
+ready-to-paste launch commands — are shown in Admin → *Display modes*. There is
+no need to write the token down anywhere; the panel always shows the current
+one.
 
 Both dedicated screens are served without the navigation bar and without the
 hamburger — omitted from the markup, not hidden after rendering. Understand
 this as a **guard rail, not a security boundary**: the API routes stay open and
 the leaderboard is public either way. The goal is that a player does not wander
 off into the Hall of Fame, not that a determined visitor cannot.
+
+### The screen address token
+
+`?mode=` alone is not enough: the mode is honoured only when `&t=` matches the
+`display_mode_token` this installation holds, compared with `hash_equals()`.
+
+**A wrong token, a missing one, or a database that cannot be reached serves the
+ordinary game with its menus.** No error page, no message, nothing in the
+logs — exactly what `?mode=nimportequoi` already did. That is deliberate: a
+42-inch wall must never show an error to a room, because nobody is standing
+there to read it.
+
+The token is generated the first time it is needed, so an existing installation
+acquires one on its next request with no migration to run. It is stored as an
+opaque random value and never encrypted — nothing is ever recovered from it,
+only compared against — and it is **never written to a log**, on a match or a
+miss.
+
+#### What it is not
+
+It makes the two addresses unguessable. It does not make them private, and it
+authenticates nobody:
+
+- `/board/data` stays a public, unauthenticated GET, by design — see below.
+- Every API route is exactly as reachable as it was.
+- Anyone holding a URL holds the token.
+
+This is a hardened guard rail. Do not present it as a security boundary, and do
+not build anything on top of it that needs one.
+
+#### Regenerating
+
+Admin → *Display modes* → *Screen address token* → **Regenerate**, behind a
+confirmation.
+
+Read the confirmation before pressing it, because the failure mode is quiet:
+the moment a new token is in force, **both screens fall back to the ordinary
+game with menus, with nothing on their own displays to say why**. They will sit
+there looking wrong to anyone in the room and looking fine to anyone reading a
+log. Reopen both with the new addresses, which the panel prints — URLs, QR
+codes and `chrome --kiosk` commands — the instant the confirmation is accepted,
+without a page reload.
+
+Regenerate between events, not during one.
 
 ### Launching the two screens
 
@@ -232,8 +282,8 @@ fullscreen on its own and keeps the address bar out of reach.
 
 ### Reaching the admin screen from one of these machines
 
-Load the URL with no parameter. There is no back door in either display mode,
-by design.
+Load the URL with no parameter — dropping `?mode=` and `&t=` both. There is no
+back door in either display mode, by design.
 
 ### Settings
 
@@ -241,6 +291,7 @@ by design.
 |---|---|---|---|
 | `board_window_hours` | Admin → Display modes → Wall window | `24` | How far back the wall looks, in hours. `0` means since forever. Validated server-side to 0–8760. |
 | `sharing_enabled` | Admin → Sharing | `1` | Whether the end-of-game screen offers the sharing controls. See [Sharing](#sharing). |
+| `display_mode_token` | Admin → Display modes → Screen address token | generated on first use | The `&t=` both dedicated screen URLs carry. Never seeded, never logged. |
 
 `board_window_hours` applies to `?mode=hof` and to nothing else. The Hall of
 Fame served to phones, to desktop browsers and to the iPad kiosk stays
@@ -268,8 +319,10 @@ entry carries a rank computed by the server.
 
 Worth doing once, on the real machines, and not on the day:
 
-- Launch both screens with the `--kiosk` commands above, then **reboot both
-  machines** and check they come back on their own in the right mode.
+- Launch both screens with the `--kiosk` commands above — copied from the
+  admin panel, so they carry the current token — then **reboot both machines**
+  and check they come back on their own in the right mode. A screen that comes
+  back with menus has the wrong token, not a broken mode.
 - Set `board_window_hours`, play three games, and watch the wall react.
 - **Unplug the wall machine's network for thirty seconds**, then plug it back
   in. The board must stay on screen throughout and resume by itself. This is

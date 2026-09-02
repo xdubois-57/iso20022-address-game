@@ -1834,6 +1834,28 @@ body[data-mode="play"] .header-content {
     border-left: 3px solid var(--game-light-peppermint);
     padding-left: 0.75rem;
 }
+/* The screen-address token block inside Display modes. Set apart from the
+   instructions above it, because the button in it is destructive. */
+.display-mode-token {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--game-light-peppermint);
+}
+.display-mode-token h5 {
+    margin: 0 0 0.35rem;
+    color: var(--game-dark-green);
+    font-size: 1rem;
+}
+.display-mode-token p {
+    font-size: 0.9rem;
+}
+.display-mode-token-status {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    min-height: 1.2em;
+    color: var(--game-emerald);
+}
+
 .sharing-status {
     font-size: 0.9rem;
     margin-top: 0.5rem;

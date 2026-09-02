@@ -1867,6 +1867,16 @@ import {
             + 'Fullscreen triggered by the page needs someone to click something first, and after a '
             + 'reboot at three in the morning there is nobody there to click it. '
             + '<code>--kiosk</code> comes back fullscreen on its own and keeps the address bar out of reach.</p>';
+        // Regenerating is a silent breaking change to two screens nobody is
+        // watching, so the button says what it costs before it is pressed and
+        // the panel reprints everything the moment it is done.
+        html += '<div class="display-mode-token"><h5>Screen address token</h5>';
+        html += '<p>The <code>&amp;t=</code> in the URLs above. It makes the two addresses '
+            + 'unguessable so a visitor does not wander onto the wall. It is <strong>not</strong> a '
+            + 'login: the addresses stop being guessable, they do not become private.</p>';
+        html += '<button class="btn-danger" id="regenerateDisplayTokenBtn">Regenerate</button>';
+        html += '<p class="display-mode-token-status" id="regenerateTokenStatus"></p>';
+        html += '</div>';
         html += '</div>';
 
         // 3. The wall's time window, moved here from its own section in
@@ -1978,6 +1988,7 @@ import {
         loadGameStats();
         loadAdminLeaderboard();
         renderDisplayModeUrls();
+        bindRegenerateDisplayToken();
         loadAdminDeadline();
         loadAdminBoardWindow();
         loadAdminSharing();
@@ -2006,14 +2017,49 @@ import {
         },
     ];
 
-    function renderDisplayModeUrls() {
+    /**
+     * Build one screen's URL, token included.
+     *
+     * The token is a query parameter like any other, so it goes through
+     * encodeURIComponent even though it is hex — a helper that only escapes
+     * the values it expects is a helper that stops escaping the day the value
+     * changes shape.
+     */
+    function displayModeUrl(mode, token) {
+        return window.location.origin + '/?mode=' + mode
+            + (token ? '&t=' + encodeURIComponent(token) : '');
+    }
+
+    /**
+     * Fetch the token and (re)draw the two screens' URLs, QR codes and launch
+     * commands.
+     *
+     * Takes the token as an argument so regeneration can hand in the value the
+     * server just returned and repaint without a reload — the whole point
+     * being that putting two screens back on air is thirty seconds of work,
+     * not a hunt for where the new address went.
+     */
+    async function renderDisplayModeUrls(knownToken) {
+        var container = document.getElementById('displayModeUrls');
+        if (!container) return;
+
+        var token = knownToken;
+        if (!token) {
+            var data = await api('admin/get-display-token');
+            token = (data && data.token) || '';
+        }
+
+        drawDisplayModeUrls(token);
+    }
+
+    function drawDisplayModeUrls(token) {
         var container = document.getElementById('displayModeUrls');
         var commands = document.getElementById('displayModeCommands');
         if (!container) return;
 
         var html = '';
         DISPLAY_MODE_SCREENS.forEach(function (screen) {
-            var url = window.location.origin + '/?mode=' + screen.mode;
+            var url = displayModeUrl(screen.mode, token);
             html += '<div class="display-mode-row">';
             html += '<div class="display-mode-qr" id="displayModeQr_' + screen.mode + '"></div>';
             html += '<div class="display-mode-info">';
@@ -2029,7 +2075,7 @@ import {
 
         if (commands) {
             var cmdText = DISPLAY_MODE_SCREENS.map(function (screen) {
-                return 'chrome --kiosk --app="' + window.location.origin + '/?mode=' + screen.mode + '"';
+                return 'chrome --kiosk --app="' + displayModeUrl(screen.mode, token) + '"';
             }).join('\n');
             commands.innerHTML = '<pre>' + escapeHtml(cmdText) + '</pre>'
                 + '<button class="btn-secondary display-mode-copy" data-copy="'
@@ -2042,7 +2088,7 @@ import {
             var target = document.getElementById('displayModeQr_' + screen.mode);
             if (!target || typeof qrcode !== 'function') return;
             var qr = qrcode(0, 'M');
-            qr.addData(window.location.origin + '/?mode=' + screen.mode);
+            qr.addData(displayModeUrl(screen.mode, token));
             qr.make();
             target.innerHTML = qr.createSvgTag(3, 0);
         });
@@ -2057,6 +2103,55 @@ import {
                     setTimeout(function () { self.textContent = original; }, 1500);
                 });
             });
+        });
+    }
+
+    /**
+     * What the confirmation says, in one place so it cannot drift from what
+     * the button does.
+     *
+     * Every clause is load-bearing. Regenerating does not break the two
+     * screens loudly — they fall back to the ordinary game WITH MENUS, on
+     * purpose, because an error page in front of a room is worse. That makes
+     * it a silent failure, and a silent failure that nobody warned you about
+     * is the kind you diagnose at seven in the evening with a queue forming.
+     */
+    const REGENERATE_TOKEN_WARNING =
+        'Regenerate the screen address token?\n\n'
+        + 'The Hall of Fame wall and the play station will drop back to the ordinary game '
+        + 'with menus, immediately and WITHOUT ANY WARNING ON THEIR SCREENS \u2014 they show no '
+        + 'error, they just stop being dedicated screens.\n\n'
+        + 'You will have to reopen both of them with the new addresses, which appear here as '
+        + 'soon as you confirm.';
+
+    function bindRegenerateDisplayToken() {
+        var btn = document.getElementById('regenerateDisplayTokenBtn');
+        if (!btn) return;
+
+        btn.addEventListener('click', async function () {
+            var status = document.getElementById('regenerateTokenStatus');
+
+            var confirmed = await showConfirm(REGENERATE_TOKEN_WARNING);
+            if (!confirmed) return;
+
+            var data = await api('admin/regenerate-display-token');
+            if (!data || !data.success || !data.token) {
+                if (status) status.textContent = (data && data.error) || 'Could not regenerate the token.';
+                return;
+            }
+
+            // Repainted from the value the server just returned, with no
+            // reload: getting two screens back on air has to be thirty
+            // seconds of work, not a hunt for where the new address went.
+            // Only the URL rows and the command block are redrawn. This
+            // button lives outside them and survives, so it is NOT rebound —
+            // doing so would add a second listener and pop two confirmations
+            // on the next press.
+            drawDisplayModeUrls(data.token);
+            if (status) {
+                status.textContent = 'New token in force. Reopen both screens with the addresses above '
+                    + '\u2014 until you do, they are showing the ordinary game.';
+            }
         });
     }
 
@@ -2838,7 +2933,11 @@ import {
             overlay.className = 'overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
-                '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +
+                // pre-line, so a message can use blank lines to separate what
+                // will happen from what it will cost. escapeHtml() still runs:
+                // the text is laid out by CSS, never by markup in the string.
+                '<p style="margin-bottom:1.5rem;font-size:1.05rem;white-space:pre-line;">'
+                + escapeHtml(message) + '</p>' +
                 '<button class="btn-primary" id="modalOkBtn">OK</button>' +
                 '</div>';
             document.body.appendChild(overlay);
@@ -2856,7 +2955,10 @@ import {
     function showConfirm(message) {
         return new Promise(function (resolve) {
             var overlay = document.createElement('div');
-            overlay.className = 'overlay';
+            // Its own class beside .overlay: the layout also carries the
+            // inactivity overlay, so `.overlay-content` alone matches two
+            // things and anything selecting on it gets whichever it finds.
+            overlay.className = 'overlay confirm-overlay';
             overlay.innerHTML =
                 '<div class="overlay-content">' +
                 '<p style="margin-bottom:1.5rem;font-size:1.05rem;">' + escapeHtml(message) + '</p>' +

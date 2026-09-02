@@ -28,6 +28,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
+// A dedicated screen is addressed by ?mode= AND a matching &t=; the helper
+// knows both halves so this file does not have to.
+import { modeUrl } from '../support/display-mode.js';
+
 const ADMIN_PIN = '1234';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
@@ -132,7 +136,7 @@ test.describe.serial('the end of a game', () => {
 
     test('?mode=play celebrates, points at the wall, and never shows a rank', async ({ page }) => {
         await stubSubmission(page);
-        await playAGame(page, '/?mode=play', 'Rafael Costa');
+        await playAGame(page, await modeUrl(page, 'play'), 'Rafael Costa');
 
         // 1. the personal hook — first name only
         await expect(page.locator('.play-hook')).toHaveText('Nice one, Rafael');
@@ -171,7 +175,7 @@ test.describe.serial('the end of a game', () => {
         });
 
         await stubSubmission(page);
-        await playAGame(page, '/?mode=play', 'Share Free');
+        await playAGame(page, await modeUrl(page, 'play'), 'Share Free');
 
         // Not merely hidden: absent. hasNativeShare() returns true as soon as
         // 'ontouchstart' is in window, which it is on a Windows touch panel,
@@ -192,7 +196,7 @@ test.describe.serial('the end of a game', () => {
     });
 
     test('?mode=play files the score and hands the station back on its own', async ({ page }) => {
-        await playAGame(page, '/?mode=play', 'Auto Return');
+        await playAGame(page, await modeUrl(page, 'play'), 'Auto Return');
 
         await expect(page.locator('.play-wall-cue')).toBeVisible();
 
@@ -213,7 +217,7 @@ test.describe.serial('the end of a game', () => {
 
     test('?mode=play offers Play again at a size you can hit standing up', async ({ page }) => {
         await stubSubmission(page);
-        await playAGame(page, '/?mode=play', 'Again Please');
+        await playAGame(page, await modeUrl(page, 'play'), 'Again Please');
 
         const again = page.locator('#playAgainBtn');
         await expect(again).toBeVisible();

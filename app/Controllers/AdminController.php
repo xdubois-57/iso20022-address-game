@@ -586,6 +586,97 @@ class AdminController
     }
 
     /**
+     * The settings key holding the display-mode token.
+     *
+     * An opaque random value, not a ciphertext. There is nothing here to
+     * encrypt — nothing is ever recovered FROM the token, it is only ever
+     * compared against — so App\Models\Encryption is deliberately not used:
+     * it would add a key, an IV and an auth tag to a problem that is a string
+     * comparison.
+     */
+    public const DISPLAY_MODE_TOKEN_KEY = 'display_mode_token';
+
+    /** 16 random bytes, hex-encoded: 32 characters, 128 bits. */
+    private const DISPLAY_MODE_TOKEN_BYTES = 16;
+
+    /**
+     * The current display-mode token, minting one on first read.
+     *
+     * Lazy rather than seeded, so an installation that already exists gets a
+     * token without a migration: the first request that needs one writes it.
+     * The write is idempotent — a second reader finds the row and returns it.
+     *
+     * Returns null when there is no database to ask. The caller must treat
+     * that as "no mode", never as an empty token: hash_equals('', '') is TRUE,
+     * so a null collapsed into a string would make ?mode=hof&t= match on an
+     * instance whose database was momentarily unreachable.
+     */
+    public static function displayModeTokenStatic(): ?string
+    {
+        $pdo = Database::getInstance()->getPdo();
+        if ($pdo === null) {
+            return null;
+        }
+
+        $settings = new SettingsModel($pdo);
+        $token = $settings->get(self::DISPLAY_MODE_TOKEN_KEY);
+        if ($token !== null && $token !== '') {
+            return $token;
+        }
+
+        $token = bin2hex(random_bytes(self::DISPLAY_MODE_TOKEN_BYTES));
+        $settings->set(self::DISPLAY_MODE_TOKEN_KEY, $token);
+
+        return $token;
+    }
+
+    /**
+     * POST /api/admin/get-display-token — the token the two screen URLs carry.
+     *
+     * Admin-only, because handing it to anyone would make the URLs guessable
+     * again, which is the one thing it exists to prevent.
+     */
+    public function getDisplayToken(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $this->jsonResponse(['token' => self::displayModeTokenStatic()]);
+    }
+
+    /**
+     * POST /api/admin/regenerate-display-token — mint a new one.
+     *
+     * This is a silent breaking change to two screens that nobody is standing
+     * in front of. The old URLs do not error, they quietly become the ordinary
+     * game with menus — which is the correct behaviour for a wall (an error
+     * page in front of a room is worse than a game) and a miserable thing to
+     * diagnose. Hence the confirmation the browser puts in front of it, whose
+     * text says exactly that, and hence the fact that this response carries
+     * the new token so the panel can show the new URLs, QR codes and launch
+     * commands immediately.
+     *
+     * The token is never logged, here or anywhere else. A value whose whole
+     * purpose is to be unguessable does not belong in a log file that gets
+     * pasted into an issue.
+     */
+    public function regenerateDisplayToken(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $token = bin2hex(random_bytes(self::DISPLAY_MODE_TOKEN_BYTES));
+        (new SettingsModel(Database::getInstance()->getPdo()))
+            ->set(self::DISPLAY_MODE_TOKEN_KEY, $token);
+
+        $this->jsonResponse(['success' => true, 'token' => $token]);
+    }
+
+    /**
      * POST /api/admin/get-sharing — is the sharing UI offered?
      */
     public function getSharing(): void

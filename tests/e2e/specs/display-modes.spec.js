@@ -25,6 +25,10 @@
 
 import { expect, test } from '@playwright/test';
 
+// A dedicated screen is addressed by ?mode= AND a matching &t=; the helper
+// knows both halves so this file does not have to.
+import { displayModeToken, gotoMode } from '../support/display-mode.js';
+
 const ADMIN_PIN = '1234';
 
 async function enterPin(page, pin) {
@@ -100,6 +104,10 @@ test.describe('display modes — the existing contexts are unchanged', () => {
     });
 
     test('the admin panel explains the modes rather than switching them', async ({ page }) => {
+        // Read before the panel is opened, so the expectations below are the
+        // instance's real token rather than whatever the panel printed.
+        const token = await displayModeToken(page);
+
         await page.goto('/');
         await page.click('[data-screen="admin"]');
         await enterPin(page, ADMIN_PIN);
@@ -121,8 +129,8 @@ test.describe('display modes — the existing contexts are unchanged', () => {
         // where they are standing.
         const origin = new URL(page.url()).origin;
         await expect(page.locator('.display-mode-url')).toHaveText([
-            `${origin}/?mode=hof`,
-            `${origin}/?mode=play`,
+            `${origin}/?mode=hof&t=${token}`,
+            `${origin}/?mode=play&t=${token}`,
         ]);
 
         // A slot for a QR code each. Whether one is drawn into them is
@@ -131,7 +139,7 @@ test.describe('display modes — the existing contexts are unchanged', () => {
 
         // The launch command, ready to copy, and the reason it is preferred.
         await expect(page.locator('.display-mode-cmd pre')).toContainText(
-            `chrome --kiosk --app="${origin}/?mode=hof"`
+            `chrome --kiosk --app="${origin}/?mode=hof&t=${token}"`
         );
         await expect(page.locator('.display-mode-note')).toContainText('reboot');
 
@@ -198,6 +206,7 @@ test.describe('display modes — the existing contexts are unchanged', () => {
 
     test('copying a URL puts it on the clipboard', async ({ page, context }) => {
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+        const token = await displayModeToken(page);
         await page.goto('/');
         await page.click('[data-screen="admin"]');
         await enterPin(page, ADMIN_PIN);
@@ -206,9 +215,12 @@ test.describe('display modes — the existing contexts are unchanged', () => {
         await expect(page.locator('.display-mode-row .display-mode-copy').first())
             .toHaveText('Copied');
 
+        // What is copied is the WHOLE address, token included — an organiser
+        // pasting it into a kiosk launcher must get a working screen, not one
+        // that comes back with menus.
         const origin = new URL(page.url()).origin;
         expect(await page.evaluate(() => navigator.clipboard.readText()))
-            .toBe(`${origin}/?mode=hof`);
+            .toBe(`${origin}/?mode=hof&t=${token}`);
     });
 
     test('an unknown mode behaves exactly like the bare URL', async ({ page }) => {
@@ -222,7 +234,7 @@ test.describe('display modes — the existing contexts are unchanged', () => {
 test.describe('display modes — the dedicated screens', () => {
     for (const mode of ['hof', 'play']) {
         test(`?mode=${mode} serves a shell with no nav and no hamburger`, async ({ page }) => {
-            await page.goto(`/?mode=${mode}`);
+            await gotoMode(page, mode);
 
             await expect(page.locator('h1.logo')).toHaveText('ISO 20022 Address Game');
             expect(await page.evaluate(() => document.body.dataset.mode)).toBe(mode);
@@ -238,7 +250,7 @@ test.describe('display modes — the dedicated screens', () => {
     }
 
     test('the wall keeps the endorsement but drops Privacy and GitHub', async ({ page }) => {
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
 
         await expect(page.locator('.footer-endorsement img')).toHaveAttribute(
             'alt', 'Payments Market Practice Group'
@@ -248,7 +260,7 @@ test.describe('display modes — the dedicated screens', () => {
     });
 
     test('the play station keeps its footer intact', async ({ page }) => {
-        await page.goto('/?mode=play');
+        await gotoMode(page, 'play');
 
         await expect(page.locator('.game-footer [data-screen="privacy"]')).toHaveCount(1);
         await expect(page.locator('#footerGithubLink')).toHaveCount(1);
@@ -303,7 +315,7 @@ test.describe.serial('the wall (?mode=hof)', () => {
     });
 
     test('shows a podium and a ranked list, and nothing to click', async ({ page }) => {
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
 
         await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');
         await expect(page.locator('.wall-pod')).toHaveCount(3);
@@ -327,7 +339,7 @@ test.describe.serial('the wall (?mode=hof)', () => {
     });
 
     test('an accidental touch anywhere on the board does nothing', async ({ page }) => {
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
         await expect(page.locator('.wall-pod').first()).toBeVisible();
 
         const before = await page.locator('#appContainer').innerHTML();
@@ -370,12 +382,12 @@ test.describe.serial('the wall (?mode=hof)', () => {
         // on the next, so a hard-coded row count would leave either a gaping
         // hole or a list running off the bottom edge.
         await page.setViewportSize({ width: 1080, height: 1920 });
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
         await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
         const tall = await page.locator('.wall-list tbody tr').count();
 
         await page.setViewportSize({ width: 1080, height: 700 });
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
         await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
         const short = await page.locator('.wall-list tbody tr').count();
 
@@ -384,7 +396,7 @@ test.describe.serial('the wall (?mode=hof)', () => {
     });
 
     test('a failed poll leaves the last good board on screen', async ({ page }) => {
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
         await expect(page.locator('.wall-pod')).toHaveCount(3);
 
         const shown = await page.locator('.wall-list, .wall-podium').first().innerHTML();
@@ -422,7 +434,7 @@ test.describe.serial('the wall (?mode=hof)', () => {
             }),
         }));
 
-        await page.goto('/?mode=hof');
+        await gotoMode(page, 'hof');
 
         await expect(page.locator('.wall-empty')).toBeVisible();
         await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');

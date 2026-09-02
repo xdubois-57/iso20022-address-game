@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { modeUrl } from '../support/display-mode.js';
 
 const ADMIN_PIN = '1234';
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -281,7 +282,7 @@ test.describe.serial('the sharing switch', () => {
         for (const enabled of [true, false]) {
             await setSharing(page, enabled);
             await stubSubmission(page);
-            await playAGame(page, '/?mode=play', `Play ${enabled}`);
+            await playAGame(page, await modeUrl(page, 'play'), `Play ${enabled}`);
 
             await expect(page.locator('.play-result')).toBeVisible();
             await expect(page.locator('.final-score-screen')).toHaveCount(0);
