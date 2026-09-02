@@ -10,6 +10,7 @@
         "test:coverage": "vitest run --coverage",
         "e2e": "./scripts/e2e.sh",
         "e2e:install": "playwright install --with-deps chromium",
+        "dast": "./scripts/dast.sh",
         "typecheck": "node scripts/js-typecheck.mjs",
         "typecheck:baseline": "node scripts/js-typecheck.mjs --generate-baseline"
     },

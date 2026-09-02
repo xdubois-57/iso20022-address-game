@@ -547,6 +547,105 @@ afternoon.
 Both files carry that warning in their own header, where somebody about to
 regenerate one will actually read it.
 
+## Dynamic application security testing
+
+A **passive** OWASP ZAP scan of the running application, on every push and on
+demand:
+
+```bash
+npm install
+npx playwright install --with-deps chromium
+docker pull ghcr.io/zaproxy/zaproxy:stable   # once, about 1.2 GB
+npm run dast                                 # scripts/dast.sh
+```
+
+`scripts/dast.sh` provisions a throwaway SQLite-backed instance, serves it over
+**HTTPS** through the real entry point (`public/index.php`), replays the
+Playwright suite through ZAP acting as a proxy, gates on the findings, and
+tears the whole thing down from an `EXIT` trap — on success, on failure and on
+Ctrl-C. It uses its own temporary directory, its own database and its own
+ports, so it cannot collide with `npm run e2e`.
+
+### The browser suite is the attack surface
+
+Not ZAP's spider. The end-to-end suite already drives the admin screen from
+behind its PIN pad, both dedicated display modes with their token, a full
+five-round game, the end-of-game screen and the share flow. A crawler pointed
+at this application sees the welcome card and stops. Replaying the suite
+through a proxy is the most faithful picture of the real surface that exists.
+
+That has a consequence worth stating: **a failed browser run fails the scan**,
+even with no security finding. A scan is only as complete as the traffic it was
+given.
+
+### Why it has to be HTTPS
+
+`scripts/e2e.sh` serves plain HTTP, and two of this application's protections
+are conditional on the request having arrived over TLS — the HSTS header
+(`public/index.php` ~l.97) and `session.cookie_secure` (~l.155). A scan in the
+clear would report *"no HSTS"* and *"cookie without the Secure flag"*: two
+findings that are **false**, about code that is **correct**.
+
+The tempting fix is an alert filter silencing both rules. That is exactly how a
+report stops being read — two rules muted for a harness defect, and the day one
+of them fires for real nobody notices. So the harness is fixed instead:
+
+- `scripts/dast-tls-proxy.php` terminates TLS in front of `php -S` and sets
+  `X-Forwarded-Proto`, stripping any copy the client sent first;
+- `scripts/dast-https-prepend.php` translates that into `$_SERVER['HTTPS']` for
+  the backend process only, through `auto_prepend_file` — **the application
+  itself is untouched and does not trust any forwarded header**;
+- both ZAP rules stay fully armed, and `scripts/dast.sh` proves HSTS and the
+  `Secure` cookie are live *before* the scan starts, so a broken harness fails
+  in ten seconds rather than producing twenty minutes of false findings.
+
+### The gate
+
+`DAST_THRESHOLD` defaults to `Medium`: the run fails on any finding at Medium
+or above. Informational and Low are printed but do not fail.
+
+There is deliberately **no baseline of accepted findings** — the opposite
+choice from the PHPStan and `tsc` baselines, and the difference is the point.
+Those record thousands of pre-existing type findings nobody introduced today.
+This records live security findings against a running instance, and a growing
+list of "accepted" ones is how a scan stops meaning anything. A finding is
+either fixed, or filtered as a false positive **with the reason written into
+`tests/dast/zap-passive.yaml`** where a reviewer will see it. Today nothing is
+filtered.
+
+### Why the findings are not in the Security tab
+
+There is no SARIF upload, and that is a decision rather than an omission.
+
+Code scanning anchors a result to a path inside the checkout so it can blame a
+commit and a line. A DAST result is an observation about a **running
+instance**: ZAP records the URL it actually requested, and the harness serves
+that instance on a free port picked at run time, so every location reads
+`https://localhost:<random>/…` — an origin that never existed outside that one
+job. Rewriting those URLs into repository paths would make the upload succeed
+by inventing a source location for a finding that has none.
+
+The gate loses nothing by it: the exit code fails the job on the push that
+introduced the finding, which the Security tab never did.
+
+### The report is not published
+
+The HTML report stays in the job's log. It is **not** uploaded as an artifact
+and **not** attached to a Release — only the counts by severity are, in
+`dast-severity-summary.json`. This repository is public, so its Release assets
+are public, and so are its workflow artifacts, which is less widely known. A
+detailed DAST report on a public repository is a map drawn for whoever wants
+one.
+
+### Not an active scan
+
+The passive profile observes traffic and sends nothing of its own. An active
+profile would **replay every recorded request with attack payloads, carrying
+the session cookies the browser was using** — including an authenticated admin
+one, which on this application can purge the leaderboard and overwrite the
+scenarios. A passive scan is a gate; an active scan is an attack, and it needs
+an exclusion list written before it rather than after.
+
 ## Continuous Integration
 
 `.github/workflows/ci.yml` runs on every push and pull request to `main`:
@@ -557,6 +656,7 @@ regenerate one will actually read it.
 | **Static analysis** | PHPStan and `tsc`, both against their baselines — see [Static analysis](#static-analysis) |
 | **JavaScript** | Vitest unit suite |
 | **End-to-end** | Playwright against a throwaway SQLite instance |
+| **Dynamic scan** | Passive OWASP ZAP scan over HTTPS, gated at Medium — see [Dynamic application security testing](#dynamic-application-security-testing) |
 | **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
 
 `.github/workflows/codeql.yml` runs separately, on push, on pull request and

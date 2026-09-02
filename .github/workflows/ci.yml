@@ -120,6 +120,72 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # A passive scan of the running application, on every push.
+  #
+  # The Playwright suite is the attack surface, not a crawler: it drives the
+  # admin screen from behind its PIN pad, both display modes with their token,
+  # a whole game and the share flow, none of which a spider reaches. The build
+  # fails on any finding at Medium or above (DAST_THRESHOLD).
+  dast:
+    name: Dynamic scan (passive)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # No security-events: write, deliberately. See "Why the findings are not
+      # in the Security tab" below.
+    # The bound covers a cold 1.2 GB image pull plus the whole browser suite
+    # replayed through a proxy.
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          # openssl generates the run's certificate and pcntl runs the TLS
+          # terminator; without both, scripts/dast.sh refuses to start.
+          extensions: gd, zip, pdo_sqlite, mbstring, openssl, pcntl
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Pull the OWASP ZAP image
+        # scripts/dast.sh deliberately refuses to download 1.2 GB on a caller's
+        # behalf, so the pull is explicit here - the one place where
+        # downloading it is the expected thing to happen.
+        run: docker pull ghcr.io/zaproxy/zaproxy:stable
+
+      - name: Run the passive scan
+        run: npm run dast
+
+      # Why the findings are not in the Security tab
+      # ------------------------------------------------------------
+      # Code scanning anchors a result to a path inside the checkout, so it can
+      # blame a commit and a line for it. A DAST result is an observation about
+      # a RUNNING instance: ZAP records the URL it actually requested, and
+      # scripts/dast.sh serves that instance on a free port picked at run time,
+      # so every location reads https://localhost:<random>/... - an origin that
+      # never existed outside this one job and is different on the next.
+      # Rewriting those URLs into repository paths would make an upload succeed
+      # by inventing a source location for a finding that has none, pinning a
+      # header observation onto whichever file was chosen to carry it.
+      #
+      # The gate is not weakened by that: scripts/dast.sh exits non-zero on any
+      # finding at or above Medium, which fails this job on the very push that
+      # introduced it - enforcement the Security tab never provided. The HTML
+      # report is in this job's log for whoever is debugging a red build, and
+      # is deliberately NOT uploaded as an artifact: this repository is public,
+      # so its workflow artifacts are too.
+
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-latest

@@ -1,0 +1,35 @@
+# Paths ZAP's site map MUST contain after the browser suite has run, one per
+# line. Checked by scripts/dast-support.php assert-sitemap.
+#
+# WHY THIS FILE EXISTS
+# ---------------------------------------------------------------------------
+# Chromium bypasses an HTTP proxy for loopback addresses unless it is told not
+# to (--proxy-bypass-list=<-loopback> in tests/e2e/playwright.config.js). When
+# that argument goes missing every browser test still passes, ZAP records
+# nothing, the passive scanner finds no problems in the nothing it was given,
+# and the run reports a clean bill of health. That failure is completely
+# silent, which is the worst kind a security gate can have.
+#
+# So the run asserts that ZAP actually saw the site, and asserts it against
+# paths beyond the home page - "the browser reached the front door" is
+# something a broken proxy configuration could still satisfy.
+#
+# Keep this list SHORT and STABLE. It is a proof that traffic arrived, not a
+# coverage report; a long list turns every new route into a failing scan.
+
+# The shell, and the front controller every API action posts to.
+/
+/index.php
+
+# The wall's public data source - a GET route with no session and no CSRF
+# token, which makes it the one route worth being certain a scanner saw.
+/board/data
+
+# The share surface: the OpenGraph page a player's link points at, and the
+# generated card image behind it. Both are reached by the browser suite.
+/share
+/share/image
+
+# Generated images served straight out of the front controller.
+/bg
+/app-icon
