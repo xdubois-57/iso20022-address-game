@@ -16,13 +16,54 @@
 
 import { expect, test } from '@playwright/test';
 
+// The one third party the page fetches from. PicoCSS, Dropzone, canvas-confetti,
+// Chart.js and the QR library all come from here; the address formatter, which
+// grading depends on, is bundled locally precisely so it does not.
+const CDN_ORIGIN = 'https://cdn.jsdelivr.net/';
+
 test.describe('boot', () => {
-    test('home page renders the welcome card with no console errors', async ({ page }) => {
-        const consoleErrors = [];
+    test('home page renders the welcome card with no console errors of its own', async ({ page }) => {
+        // Partitioned by origin rather than collected into one list, and the
+        // reason is worth stating because it looks like a weakening and is the
+        // opposite.
+        //
+        // This test exists to catch the application's own boot failures: an
+        // import map that resolves to nothing, a syntax error in app.js, a
+        // module that 404s. It used to fail on ANY console error, which
+        // included "Failed to load resource" for each of the five CDN files —
+        // so a jsdelivr outage, or a runner without a route to it, turned this
+        // red for a reason that has nothing to do with the code. README
+        // § Requirements says in as many words that the game is expected to
+        // keep working on a restricted network, and display-modes.spec.js
+        // already installs a stand-in for the CDN's QR library rather than let
+        // its availability decide whether a test runs. This follows both.
+        //
+        // Nothing is exempted except a third-party file failing to arrive:
+        //   - every uncaught exception fails, wherever it came from;
+        //   - every console error from OUR origin fails;
+        //   - a CDN script that loads and then misbehaves fails, because that
+        //     is not a "Failed to load resource" message;
+        //   - and a first-party request that fails is caught separately below,
+        //     which the old single-list version never checked explicitly.
+        const appErrors = [];
+        const cdnResourceFailures = [];
+        const firstPartyRequestFailures = [];
+
         page.on('console', (msg) => {
-            if (msg.type() === 'error') consoleErrors.push(msg.text());
+            if (msg.type() !== 'error') return;
+            const from = msg.location().url || '';
+            if (from.startsWith(CDN_ORIGIN) && msg.text().includes('Failed to load resource')) {
+                cdnResourceFailures.push(from);
+                return;
+            }
+            appErrors.push(`${msg.text()}  [${from || 'no source'}]`);
         });
-        page.on('pageerror', (err) => consoleErrors.push(String(err)));
+        page.on('pageerror', (err) => appErrors.push(String(err)));
+        page.on('requestfailed', (request) => {
+            if (!request.url().startsWith(CDN_ORIGIN)) {
+                firstPartyRequestFailures.push(`${request.url()} — ${request.failure()?.errorText}`);
+            }
+        });
 
         await page.goto('/');
 
@@ -30,7 +71,21 @@ test.describe('boot', () => {
         await expect(page.locator('#welcomeNameInput')).toBeVisible();
         await expect(page.locator('#startGameBtn')).toBeVisible();
 
-        expect(consoleErrors, `console errors: ${consoleErrors.join('\n')}`).toEqual([]);
+        expect(appErrors, `console errors from the application: ${appErrors.join('\n')}`).toEqual([]);
+        expect(
+            firstPartyRequestFailures,
+            `first-party requests that failed: ${firstPartyRequestFailures.join('\n')}`
+        ).toEqual([]);
+
+        // Reported, never failed on. It is genuinely useful to see in the log
+        // that a run happened without the CDN — the assertions above then say
+        // the welcome card came up anyway, which is the documented behaviour.
+        if (cdnResourceFailures.length > 0) {
+            console.log(
+                `note: ${cdnResourceFailures.length} CDN resource(s) did not load on this runner; `
+                + 'the page booted regardless, which is what README § Requirements promises.'
+            );
+        }
     });
 
     test('the bundled address formatter loads and drives country-specific layouts', async ({ page }) => {
