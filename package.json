@@ -3,7 +3,7 @@
     "private": true,
     "version": "0.0.0",
     "description": "Development-only Node/npm tooling for this app's first-party browser JavaScript: unit tests (Vitest + jsdom) and end-to-end browser tests (Playwright + Chromium). Not required to run, build, or deploy the game itself — production JavaScript stays plain, unbundled, and Node-free (see README.md).",
-    "license": "GPL-3.0-or-later",
+    "license": "AGPL-3.0-or-later",
     "type": "module",
     "scripts": {
         "test": "vitest run",

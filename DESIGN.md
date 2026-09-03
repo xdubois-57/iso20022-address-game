@@ -3,16 +3,16 @@ ISO 20022 Address Structuring Game
 Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 -->
 
@@ -280,7 +280,7 @@ Two supporting choices, for the same reason:
 - Served from `public/assets/images/`, never a CDN — the CSP allows
   `img-src 'self' data:` as it stands, and widening it for a logo would trade
   security for nothing
-- **The mark is not under the GPL.** The licence covers this project's source;
+- **The mark is not under the AGPL.** The licence covers this project's source;
   it grants no right to the PMPG's trademarks. A fork must strip the logo
   assets and the "Supported by" wording — see README § *Third-party assets*
 - The endorsement wording is load-bearing in one more place: the Privacy
@@ -422,7 +422,7 @@ Where the mark appears, and who draws it:
 
 Four things that are easy to get wrong:
 
-1. **The mark is not covered by the GPL.** The licence grants rights over this
+1. **The mark is not covered by the AGPL.** The licence grants rights over this
    project's source code, not over the Payments Market Practice Group's
    trademarks. A fork receives the code and no right to the mark, and must
    strip `pmpg-logo.png`, `pmpg-mark.png` and the endorsement wording that
