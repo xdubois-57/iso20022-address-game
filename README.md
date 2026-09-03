@@ -740,6 +740,28 @@ public. The pack stays attached to the published Release, so it is still read �
 just not as a blocking step. To keep the blocking read instead, push the tag by
 hand and finish with `gh release upload` and `gh release edit --draft=false`.
 
+### The release note
+
+`release.sh` reads `RELEASE_NOTES_FILE` and puts its contents at the head of
+the published Release, above the workflow's description of the evidence pack.
+The note must cover four things: what changed in the language of somebody
+using the game, the bugs fixed said as the symptom that went away, what an
+existing installation has to do for backward compatibility — or an explicit
+"nothing", because silence there is an oversight rather than an answer — and
+the tests that ran with their counts.
+
+Below it, `scripts/dependency-inventory.php` appends every dependency and its
+version: PHP production and development from `composer.lock`, JavaScript from
+`package-lock.json`, and the CDN libraries scraped from the `<script>` and
+`<link>` tags in `app/Views/`. Versions come from the lock files rather than
+the manifests, so the list says what shipped and not what a constraint allowed.
+The CDN ones are there because they are in no lock file at all and are the only
+third-party code a player's browser actually executes.
+
+Without the variable the script warns and keeps the generated commit list. That
+is fine for a human cutting a quick patch; it is not fine for an agent, which
+has the context to write the note.
+
 ### What is in the pack
 
 Only what each tool emits natively. Nothing in it is written by hand: a
@@ -755,7 +777,7 @@ worse than no evidence.
 | PHP static analysis | PHPStan's output |
 | JavaScript static analysis | `tsc`, through `npm run typecheck` |
 | CodeQL | the workflow's SARIF |
-| SonarCloud | the quality gate, as their API returns it |
+| SonarCloud | the complete analysis — quality gate, every measure, the same per file, every open issue and every security hotspot, plus a Markdown front page |
 | Dynamic scan | **counts per severity only** |
 
 ### Two things it deliberately does not contain
