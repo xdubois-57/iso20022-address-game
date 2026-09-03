@@ -79,6 +79,14 @@ use App\Controllers\BoardController;
 // anyone could frame.
 function sendSecurityHeaders(): void
 {
+    // PHP announces itself in X-Powered-By unless expose_php is off, and this
+    // application cannot count on the php.ini of whatever shared host it lands
+    // on. Naming the interpreter and its exact version tells an attacker which
+    // published vulnerabilities to try first and tells a legitimate visitor
+    // nothing at all. Removed here so it holds regardless of the host's
+    // configuration.
+    header_remove('X-Powered-By');
+
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     // unpkg.com is no longer referenced: the one script served from it is now

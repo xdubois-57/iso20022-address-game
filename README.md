@@ -674,6 +674,29 @@ making while the report stays clean** — the gate at Medium is what keeps it
 so, and lowering that gate and publishing the report are not two independent
 decisions.
 
+### What it reports today
+
+**Nothing at Low or above.** The 66 Low findings the scan used to report were
+all one of four things, and all four are fixed rather than filtered:
+
+| Finding | What it was |
+|---|---|
+| `X-Powered-By` leaked | PHP names itself and its exact version unless `expose_php` is off, which this project cannot assume of a shared host. `header_remove()` now covers it whatever the host's `php.ini` says |
+| Unix timestamp disclosure | Every asset URL carried `?v={filemtime}`, saying when each file was last touched on the server. The stamp is hashed now — the mtime and the release still decide it, they are just no longer printed |
+| `X-Content-Type-Options` missing | On **static** files only. They never reach `public/index.php`, so they were answered with none of its headers — and they are most of what a browser fetches |
+| HSTS not set | The same responses, for the same reason |
+
+The last two are set by `public/.htaccess` in production and by
+`scripts/e2e-router.php` in the harness, which now serves assets itself rather
+than handing them to PHP's built-in server — that discards headers set before
+`return false`, so the scan was reporting a site less protected than the
+deployed one. A false picture in the safe direction, which is the worse
+direction for a scan report to be wrong in.
+
+The remaining 78 findings are Informational: "Modern Web Application",
+"Session Management Response Identified" and similar observations that describe
+the application rather than fault it.
+
 ### Not an active scan
 
 The passive profile observes traffic and sends nothing of its own. An active

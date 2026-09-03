@@ -83,7 +83,17 @@ if (!function_exists('assetUrl')) {
         $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
         $release = assetReleaseStamp();
 
-        return $path . '?v=' . $mtime . ($release === '' ? '' : '.' . $release);
+        // Hashed, not printed. Both inputs still decide the value — the URL
+        // changes when the file changes OR when the release does, which is the
+        // whole point of carrying two of them — but the mtime no longer
+        // appears in the page. A raw filemtime is a Unix timestamp on every
+        // asset URL, which the passive scan reports as timestamp disclosure
+        // and which really does tell a reader when each file was last touched
+        // on the server.
+        //
+        // Ten hex characters: this is a cache key, not a security boundary. It
+        // only has to differ when the inputs differ.
+        return $path . '?v=' . substr(md5($mtime . '|' . $release), 0, 10);
     }
 }
 
