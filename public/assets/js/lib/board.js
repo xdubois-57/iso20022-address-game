@@ -71,14 +71,14 @@ export function createArrivalTracker() {
  * may be 1080x1920 or 2160x3840.
  */
 export function diffArrivals(tracker, data, visibleCount) {
-    const entries = Array.isArray(data && data.entries) ? data.entries : [];
-    const recent = Array.isArray(data && data.recent) ? data.recent : [];
+    const entries = Array.isArray(data?.entries) ? data.entries : [];
+    const recent = Array.isArray(data?.recent) ? data.recent : [];
 
     // Every id the response mentions, in either list. Built before any
     // decision, so the tracker ends up consistent whichever branch is taken.
     const seen = [];
     for (const row of entries.concat(recent)) {
-        const id = Number(row && row.id);
+        const id = Number(row?.id);
         if (Number.isFinite(id)) seen.push({ id, row });
     }
 
@@ -217,7 +217,12 @@ export function resolveDisplayData(previous, incoming, failures) {
  * @param {number} rowHeight        measured height of one row
  */
 export function rowsThatFit(availableHeight, rowHeight) {
-    if (!(rowHeight > 0) || !(availableHeight > 0)) return 0;
+    // Spelled out rather than as `!(x > 0)`: the negated form also catches
+    // NaN, which is the case that matters here — an unmeasured element gives
+    // NaN, and a NaN row count would render as garbage. `<=` alone would let
+    // it through, so finiteness is checked explicitly instead.
+    if (!Number.isFinite(availableHeight) || !Number.isFinite(rowHeight)) return 0;
+    if (rowHeight <= 0 || availableHeight <= 0) return 0;
     return Math.max(0, Math.floor(availableHeight / rowHeight));
 }
 

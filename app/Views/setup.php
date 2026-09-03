@@ -97,7 +97,7 @@
     </main>
 
     <?php if (empty($setupLocked)): ?>
-    <script<?= \App\Support\Csp::nonceAttribute() ?>>
+    <script <?= \App\Support\Csp::nonceAttribute() ?>>
     /**
      * ISO 20022 Address Structuring Game
      * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game

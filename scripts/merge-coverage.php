@@ -90,11 +90,13 @@ if ($rawFiles !== []) {
     // process: merging is pure data handling and has no reason to need pcov
     // installed wherever it runs.
     if ($merged === null) {
-        fwrite(STDERR,
-            "Found .raw files but no .cov to merge them into.\n" .
-            "Run `composer test:coverage` first: the unit report supplies the\n" .
-            "list of files that were NOT executed, without which the result\n" .
-            "would overstate coverage.\n");
+        fwrite(
+            STDERR,
+            "Found .raw files but no .cov to merge them into.\n"
+            . "Run `composer test:coverage` first: the unit report supplies the\n"
+            . "list of files that were NOT executed, without which the result\n"
+            . "would overstate coverage.\n"
+        );
         exit(1);
     }
 

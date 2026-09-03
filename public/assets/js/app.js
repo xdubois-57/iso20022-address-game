@@ -192,7 +192,7 @@ import {
     /* =======================================================
        API Helper
        ======================================================= */
-    var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     const api = createApi({ apiUrl: API_URL, getCsrfToken: function () { return csrfToken; } });
 
@@ -215,11 +215,11 @@ import {
     function findComponentPosition(haystack, needle) {
         if (!needle) return -1;
 
-        var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
         // Boundaries are "not a letter, digit or dash" rather than \b, which
         // mishandles accented characters and values that start or end with
         // punctuation.
-        var pattern = new RegExp('(^|[^\\p{L}\\p{N}-])' + escaped + '($|[^\\p{L}\\p{N}-])', 'u');
+        var pattern = new RegExp(String.raw`(^|[^\p{L}\p{N}-])` + escaped + String.raw`($|[^\p{L}\p{N}-])`, 'u');
         var match = pattern.exec(haystack);
         if (match) {
             return match.index + match[1].length;
@@ -237,8 +237,8 @@ import {
         // isoWeek: "YYYY-Www"
         var parts = isoWeek.split('-W');
         if (parts.length !== 2) return null;
-        var year = parseInt(parts[0], 10);
-        var week = parseInt(parts[1], 10);
+        var year = Number.parseInt(parts[0], 10);
+        var week = Number.parseInt(parts[1], 10);
         // ISO week 1 contains the first Thursday of the year; calculate Monday of that week
         var jan4 = new Date(Date.UTC(year, 0, 4));
         var dayOfWeek = jan4.getUTCDay() || 7; // Mon=1..Sun=7
@@ -454,7 +454,7 @@ import {
     function startDeadlineCountdown() {
         (async function () {
             var data = await api('game/deadline', {});
-            if (!data || !data.deadline) return;
+            if (!data?.deadline) return;
 
             var banner = document.getElementById('countdownBanner');
             if (!banner) return;
@@ -594,7 +594,7 @@ import {
         // Fetch facts and start rotation
         (async function () {
             var data = await api('game/facts', {});
-            if (data && data.facts) {
+            if (data?.facts) {
                 factsCache = data.facts;
                 var factEl = document.getElementById('welcomeFactDisplay');
                 if (factEl && factsCache.length > 0) {
@@ -736,7 +736,7 @@ import {
         if (!keyboard || !nameInput) return;
 
         function insert(text) {
-            var max = parseInt(nameInput.getAttribute('maxlength'), 10) || 50;
+            var max = Number.parseInt(nameInput.getAttribute('maxlength'), 10) || 50;
             var next = nameInput.value + text;
             if (next.length > max) return;
             nameInput.value = next;
@@ -829,7 +829,7 @@ import {
             // Format address according to country-specific rules
             var formattedAddress = formatAddressForDisplay(data.scenario.address_display);
             html += '<div class="address-block">' +
-                escapeHtml(formattedAddress).replace(/\n/g, '<br>') + '</div>';
+                escapeHtml(formattedAddress).replaceAll('\n', '<br>') + '</div>';
         }
         html += '<p class="hint-text">Drag the value chips to the correct ISO 20022 fields \u2192</p>';
         html += '<div class="chip-container" id="chipContainer">';
@@ -1371,7 +1371,7 @@ import {
                 time_seconds: gameElapsedSeconds,
             });
 
-            if (data && data.success) {
+            if (data?.success) {
                 lastSubmittedEntryId = data.entry_id;
                 lastSubmittedPage = data.page || 1;
                 showScreen('leaderboard');
@@ -1380,7 +1380,7 @@ import {
 
             btn.disabled = false;
             btn.textContent = originalLabel;
-            await showModal((data && data.error) ? data.error : 'Could not submit your score. Please try again.');
+            await showModal((data?.error) ? data.error : 'Could not submit your score. Please try again.');
         });
 
         document.getElementById('playAgainFinalBtn').addEventListener('click', function () {
@@ -1505,7 +1505,7 @@ import {
             // Nothing is shown either way. The rank came back in that
             // response and is deliberately ignored, and a failure is not this
             // player's problem to solve standing at a kiosk.
-            if (data && data.success) {
+            if (data?.success) {
                 lastSubmittedEntryId = data.entry_id;
             }
         })();
@@ -1562,7 +1562,7 @@ import {
      */
     async function renderKioskShareQr(finalGameScore) {
         var tokenData = await api('share/token', { score: finalGameScore, name: playerName });
-        if (!tokenData || !tokenData.token) return;
+        if (!tokenData?.token) return;
 
         var qrContainer = document.getElementById('kioskQrCode');
         if (!qrContainer || typeof qrcode !== 'function') return;
@@ -1583,7 +1583,7 @@ import {
         var tokenData = await api('share/token', { score: finalGameScore, name: playerName });
 
         var shareBtn = document.getElementById('shareScoreBtn');
-        if (!tokenData || !tokenData.token) {
+        if (!tokenData?.token) {
             if (shareBtn) shareBtn.style.display = 'none';
             return;
         }
@@ -1661,12 +1661,12 @@ import {
             + '</tr></thead><tbody>';
 
         entries.forEach(function (entry, i) {
-            var isMe = highlightId && parseInt(entry.id, 10) === parseInt(highlightId, 10);
+            var isMe = highlightId && Number.parseInt(entry.id, 10) === Number.parseInt(highlightId, 10);
             if (isMe) hasHighlight = true;
 
             var score = entry.game_score !== undefined
                 ? entry.game_score
-                : computeGameScore(parseInt(entry.score, 10) || 0, parseInt(entry.time_seconds, 10) || 0);
+                : computeGameScore(Number.parseInt(entry.score, 10) || 0, Number.parseInt(entry.time_seconds, 10) || 0);
 
             html += '<tr' + (isMe ? ' class="my-entry"' : '') + '>'
                 + '<td>' + (startRank + i + 1) + '</td>'
@@ -1749,7 +1749,7 @@ import {
         // Bind pagination clicks
         document.querySelectorAll('.btn-page').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var p = parseInt(this.dataset.page, 10);
+                var p = Number.parseInt(this.dataset.page, 10);
                 if (p) {
                     lastSubmittedEntryId = null;
                     lastSubmittedPage = null;
@@ -1841,7 +1841,7 @@ import {
 
     async function submitPin() {
         var data = await api('admin/login', { pin: adminPin });
-        if (data && data.success) {
+        if (data?.success) {
             renderAdminDashboard();
         } else {
             adminPin = '';
@@ -1967,7 +1967,7 @@ import {
         // Change PIN
         html += '<div class="admin-section"><h3>Change PIN</h3>';
         html += '<div class="pin-change-form">';
-        html += '<input type="password" id="newPinInput" placeholder="New PIN (4-8 digits)" pattern="\\d{4,8}" maxlength="8" inputmode="numeric">';
+        html += '<input type="password" id="newPinInput" placeholder="New PIN (4-8 digits)" pattern="' + String.raw`\d{4,8}` + '" maxlength="8" inputmode="numeric">';
         html += '<button class="btn-primary" id="changePinBtn">Update PIN</button>';
         html += '</div></div>';
 
@@ -2083,7 +2083,7 @@ import {
         var token = knownToken;
         if (!token) {
             var data = await api('admin/get-display-token');
-            token = (data && data.token) || '';
+            token = (data?.token) || '';
         }
 
         drawDisplayModeUrls(token);
@@ -2132,12 +2132,14 @@ import {
 
         document.querySelectorAll('.display-mode-copy').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var self = this;
-                copyToClipboard(this.dataset.copy).then(function (ok) {
+                // getAttribute rather than .dataset: querySelectorAll yields
+                // Element, which has the attribute API but not the HTMLElement
+                // dataset property, and the typecheck gate is right to say so.
+                copyToClipboard(btn.getAttribute('data-copy')).then(function (ok) {
                     if (!ok) return;
-                    var original = self.textContent;
-                    self.textContent = 'Copied';
-                    setTimeout(function () { self.textContent = original; }, 1500);
+                    var original = btn.textContent;
+                    btn.textContent = 'Copied';
+                    setTimeout(function () { btn.textContent = original; }, 1500);
                 });
             });
         });
@@ -2172,8 +2174,8 @@ import {
             if (!confirmed) return;
 
             var data = await api('admin/regenerate-display-token');
-            if (!data || !data.success || !data.token) {
-                if (status) status.textContent = (data && data.error) || 'Could not regenerate the token.';
+            if (!data?.success || !data.token) {
+                if (status) status.textContent = (data?.error) || 'Could not regenerate the token.';
                 return;
             }
 
@@ -2214,11 +2216,11 @@ import {
             var wanted = toggle.checked;
 
             var saved = await api('admin/set-sharing', { sharing_enabled: wanted });
-            if (!saved || !saved.success) {
+            if (!saved?.success) {
                 // Put the switch back where the server still has it, rather
                 // than leaving it showing a state that was never stored.
                 toggle.checked = !wanted;
-                if (status) status.textContent = (saved && saved.error) || 'Could not save the setting.';
+                if (status) status.textContent = (saved?.error) || 'Could not save the setting.';
                 return;
             }
 
@@ -2278,7 +2280,7 @@ import {
                 datasets: [{
                     label: 'Games per week',
                     data: counts,
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--game-emerald').trim().replace(/^(#[0-9a-f]{6})$/i, function (_, h) { var r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16); return 'rgba(' + r + ',' + g + ',' + b + ',0.6)'; }) || 'rgba(1,169,144,0.6)',
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--game-emerald').trim().replace(/^(#[0-9a-f]{6})$/i, function (_, h) { var r = Number.parseInt(h.slice(1,3),16), g = Number.parseInt(h.slice(3,5),16), b = Number.parseInt(h.slice(5,7),16); return 'rgba(' + r + ',' + g + ',' + b + ',0.6)'; }) || 'rgba(1,169,144,0.6)',
                     borderColor: getComputedStyle(document.documentElement).getPropertyValue('--game-emerald').trim() || '#01a990',
                     borderWidth: 1
                 }]
@@ -2306,7 +2308,7 @@ import {
         if (!container) return;
 
         var data = await api('admin/leaderboard-entries');
-        if (!data || !data.entries) {
+        if (!data?.entries) {
             container.innerHTML = '<p>Could not load entries.</p>';
             return;
         }
@@ -2319,8 +2321,8 @@ import {
 
         // Compute game score and sort (same as Hall of Fame)
         entries.forEach(function (entry) {
-            var pct = parseInt(entry.score) || 0;
-            var ts = parseInt(entry.time_seconds) || 0;
+            var pct = Number.parseInt(entry.score) || 0;
+            var ts = Number.parseInt(entry.time_seconds) || 0;
             entry.gameScore = computeGameScore(pct, ts);
         });
         entries.sort(function (a, b) { return b.gameScore - a.gameScore; });
@@ -2329,7 +2331,7 @@ import {
         html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th><th></th>';
         html += '</tr></thead><tbody>';
         entries.forEach(function (entry, i) {
-            var safeId = parseInt(entry.id) || 0;
+            var safeId = Number.parseInt(entry.id) || 0;
             html += '<tr data-entry-id="' + safeId + '">';
             html += '<td>' + (i + 1) + '</td>';
             html += '<td>' + escapeHtml(entry.player_name) + '</td>';
@@ -2343,11 +2345,11 @@ import {
 
         container.querySelectorAll('.btn-delete-entry').forEach(function (btn) {
             btn.addEventListener('click', async function () {
-                var id = parseInt(this.dataset.id);
+                var id = Number.parseInt(this.dataset.id);
                 var confirmed = await showConfirm('Delete this entry?');
                 if (!confirmed) return;
                 var resp = await api('admin/delete-entry', { id: id });
-                if (resp && resp.success) {
+                if (resp?.success) {
                     var row = container.querySelector('tr[data-entry-id="' + id + '"]');
                     if (row) row.remove();
                 } else {
@@ -2491,7 +2493,7 @@ import {
         var grid = document.getElementById('themeColorGrid');
         if (!grid) return;
         var data = await api('admin/get-theme');
-        var theme = (data && data.theme) ? data.theme : { ...themeDefaults };
+        var theme = (data?.theme) ? data.theme : { ...themeDefaults };
         var html = '';
         Object.keys(themeLabels).forEach(function (key) {
             var val = theme[key] || themeDefaults[key];
@@ -2534,7 +2536,7 @@ import {
                 var status = document.getElementById('themeStatus');
                 if (!status) return;
 
-                var saved = Boolean(resp && resp.success);
+                var saved = Boolean(resp?.success);
                 status.textContent = saved
                     ? 'Colors saved. Reload the page to apply.'
                     : 'Error saving colors.';
@@ -2565,7 +2567,7 @@ import {
 
                 var status = document.getElementById('themeStatus');
                 var resp = await api('admin/reset-theme', {});
-                if (!resp || !resp.success) {
+                if (!resp?.success) {
                     if (status) { status.textContent = 'Error resetting colors.'; status.style.color = 'var(--game-danger)'; }
                     return;
                 }
@@ -2587,7 +2589,7 @@ import {
 
     async function loadAdminDeadline() {
         var data = await api('admin/get-deadline');
-        if (data && data.deadline) {
+        if (data?.deadline) {
             document.getElementById('deadlineInput').value = data.deadline;
             var status = document.getElementById('deadlineStatus');
             status.textContent = 'Current deadline: ' + new Date(data.deadline).toLocaleString();
@@ -2600,7 +2602,7 @@ import {
         if (!container) return;
 
         var data = await api('admin/get-facts');
-        if (!data || !data.facts) {
+        if (!data?.facts) {
             container.innerHTML = '<p>Could not load facts.</p>';
             return;
         }
@@ -2633,11 +2635,11 @@ import {
 
         container.querySelectorAll('.btn-delete-fact').forEach(function (btn) {
             btn.addEventListener('click', async function () {
-                var id = parseInt(this.dataset.id);
+                var id = Number.parseInt(this.dataset.id);
                 var confirmed = await showConfirm('Delete this fact?');
                 if (!confirmed) return;
                 var resp = await api('admin/delete-fact', { id: id });
-                if (resp && resp.success) {
+                if (resp?.success) {
                     loadAdminFacts();
                 } else {
                     await showModal(resp ? resp.error : 'Error deleting fact');
@@ -2647,14 +2649,14 @@ import {
 
         container.querySelectorAll('.btn-edit-fact').forEach(function (btn) {
             btn.addEventListener('click', async function () {
-                var id = parseInt(this.dataset.id);
+                var id = Number.parseInt(this.dataset.id);
                 var display = document.getElementById('factDisplay' + id);
                 if (!display) return;
                 var currentContent = display.innerHTML;
                 var result = await showFactEditor(id, currentContent);
                 if (result === null) return;
                 var resp = await api('admin/update-fact', { id: id, content: result });
-                if (resp && resp.success) {
+                if (resp?.success) {
                     loadAdminFacts();
                 } else {
                     await showModal(resp ? resp.error : 'Error updating fact');
@@ -2682,7 +2684,7 @@ import {
                 return;
             }
             var data = await api('admin/change-pin', { new_pin: newPin });
-            if (data && data.success) {
+            if (data?.success) {
                 await showModal('PIN updated successfully');
                 document.getElementById('newPinInput').value = '';
             } else {
@@ -2694,7 +2696,7 @@ import {
             var val = document.getElementById('deadlineInput').value;
             if (!val) { await showModal('Please select a date and time.'); return; }
             var data = await api('admin/set-deadline', { deadline: val });
-            if (data && data.success) {
+            if (data?.success) {
                 var status = document.getElementById('deadlineStatus');
                 status.textContent = 'Deadline saved: ' + new Date(val).toLocaleString();
                 status.classList.remove('hidden');
@@ -2706,7 +2708,7 @@ import {
 
         document.getElementById('clearDeadlineBtn').addEventListener('click', async function () {
             var data = await api('admin/set-deadline', { deadline: '' });
-            if (data && data.success) {
+            if (data?.success) {
                 document.getElementById('deadlineInput').value = '';
                 var status = document.getElementById('deadlineStatus');
                 status.textContent = 'Deadline cleared';
@@ -2722,18 +2724,18 @@ import {
 
             // Checked here as well as on the server, purely so a typo gets an
             // answer without a round trip. The server does not trust this.
-            if (!/^\d+$/.test(raw) || parseInt(raw, 10) > 8760) {
+            if (!/^\d+$/.test(raw) || Number.parseInt(raw, 10) > 8760) {
                 status.textContent = 'Enter a whole number of hours between 0 and 8760.';
                 return;
             }
 
-            var data = await api('admin/set-board-window', { window_hours: parseInt(raw, 10) });
-            if (data && data.success) {
+            var data = await api('admin/set-board-window', { window_hours: Number.parseInt(raw, 10) });
+            if (data?.success) {
                 status.textContent = data.window_hours === 0
                     ? 'Saved — the wall shows every entry ever recorded.'
                     : 'Saved — the wall shows the last ' + data.window_hours + ' hours.';
             } else {
-                status.textContent = (data && data.error) ? data.error : 'Could not save the window.';
+                status.textContent = (data?.error) ? data.error : 'Could not save the window.';
             }
         });
 
@@ -2741,7 +2743,7 @@ import {
             var confirmed = await showConfirm('Reset game counter based on Hall of Fame entries?');
             if (!confirmed) return;
             var data = await api('admin/reset-game-counter');
-            if (data && data.success) {
+            if (data?.success) {
                 await showModal('Game counter reset. Total: ' + data.total_games);
                 loadGameStats();
             }
@@ -2751,7 +2753,7 @@ import {
             var confirmed = await showConfirm('Are you sure? This cannot be undone.');
             if (!confirmed) return;
             var data = await api('admin/purge-leaderboard');
-            if (data && data.success) {
+            if (data?.success) {
                 await showModal('Leaderboard purged');
                 loadAdminLeaderboard();
             }
@@ -2761,7 +2763,7 @@ import {
             var result = await showFactEditor(null, '');
             if (result === null) return;
             var data = await api('admin/add-fact', { content: result });
-            if (data && data.success) {
+            if (data?.success) {
                 loadAdminFacts();
             } else {
                 await showModal(data ? data.error : 'Error adding fact');
@@ -3043,7 +3045,6 @@ import {
 
     var wallTracker = null;
     var wallQueue = null;
-    var wallPollTimer = null;
     var wallBannerTimer = null;
     var wallHighlightTimer = null;
     var wallFailures = 0;
@@ -3088,7 +3089,7 @@ import {
             + '<th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
         entries.forEach(function (entry) {
             var id = boardNumber(entry.id);
-            var fresh = wallHighlightIds.indexOf(id) !== -1 ? ' class="wall-fresh"' : '';
+            var fresh = wallHighlightIds.includes(id) ? ' class="wall-fresh"' : '';
             html += '<tr' + fresh + ' data-entry-id="' + id + '">'
                 + '<td>' + boardNumber(entry.rank) + '</td>'
                 + '<td>' + escapeHtml(entry.player_name) + '</td>'
@@ -3098,7 +3099,7 @@ import {
     }
 
     function renderWall() {
-        var entries = (wallData && wallData.entries) || [];
+        var entries = (wallData?.entries) || [];
         var podium = entries.slice(0, WALL_PODIUM_SIZE);
         var rest = entries.slice(WALL_PODIUM_SIZE, WALL_PODIUM_SIZE + wallRowCapacity);
 
@@ -3234,7 +3235,12 @@ import {
                 credentials: 'omit',
             });
             if (resp.ok) body = await resp.json();
-        } catch (e) {
+        } catch {
+            // Deliberately swallowed. Every failure mode here — offline, DNS
+            // gone, a truncated body — means the same thing to the wall: no
+            // new data this time. It is counted as a failure below, which is
+            // what drives the backoff and the stale dot; there is nobody in
+            // front of an unattended screen to show an error to.
             body = null;
         }
 
@@ -3271,7 +3277,11 @@ import {
         var delay = wallFailures === 0
             ? WALL_POLL_MS
             : backoffDelay(wallFailures, WALL_POLL_MS, WALL_MAX_BACKOFF_MS);
-        wallPollTimer = setTimeout(wallPoll, delay);
+        // Not kept: ?mode=hof is a screen nothing navigates away from, so
+        // there is no path that would ever cancel this. A handle held only to
+        // be written is worse than none — it reads as if stopping were
+        // possible.
+        setTimeout(wallPoll, delay);
     }
 
     function startWall() {
@@ -3375,7 +3385,7 @@ import {
         // Start countdown in screen saver
         (async function () {
             var data = await api('game/deadline', {});
-            if (data && data.deadline) {
+            if (data?.deadline) {
                 var banner = document.getElementById('ssCountdown');
                 if (!banner) return;
                 var target = new Date(data.deadline);

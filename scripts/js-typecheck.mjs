@@ -145,7 +145,8 @@ if (generateBaseline) {
     /** @type {Record<string, {code: string, message: string, count: number}[]>} */
     const baseline = {};
     for (const group of current.values()) {
-        (baseline[group.file] ??= []).push({
+        baseline[group.file] ??= [];
+        baseline[group.file].push({
             code: group.code,
             message: group.message,
             count: group.occurrences.length,

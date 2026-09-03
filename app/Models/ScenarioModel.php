@@ -232,12 +232,14 @@ class ScenarioModel
                 $errors[] = ['field' => 'AdrLine', 'error' => 'Components are in the wrong order'];
             } else {
                 // Check 70-character limit per line
-                $line1Text = implode(' ', array_map(function ($f) use ($correct) {
-                    return trim($correct[$f] ?? '');
-                }, $adrLine1Fields));
-                $line2Text = implode(' ', array_map(function ($f) use ($correct) {
-                    return trim($correct[$f] ?? '');
-                }, $adrLine2Fields));
+                $joinFields = static function (array $fields) use ($correct): string {
+                    return implode(' ', array_map(
+                        static fn ($f) => trim($correct[$f] ?? ''),
+                        $fields
+                    ));
+                };
+                $line1Text = $joinFields($adrLine1Fields);
+                $line2Text = $joinFields($adrLine2Fields);
 
                 if (mb_strlen($line1Text) > 70) {
                     $errors[] = ['field' => 'AdrLine1', 'error' => 'Exceeds 70 character limit'];

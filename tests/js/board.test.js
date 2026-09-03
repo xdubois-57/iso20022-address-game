@@ -369,3 +369,16 @@ describe('boardNumber', () => {
         expect(banners[0].score).toBe(0);
     });
 });
+
+describe('diffArrivals with a malformed row', () => {
+    it('skips a null row instead of treating it as id 0', () => {
+        // Before optional chaining, `Number(row && row.id)` turned a null row
+        // into Number(null) === 0 — a finite number, so it entered the tracker
+        // as a real entry with id 0 and could be "celebrated". `row?.id` gives
+        // NaN, which the finiteness guard already rejected.
+        const tracker = createArrivalTracker();
+        diffArrivals(tracker, { entries: [null], recent: [] }, 5);
+        expect(tracker.known.has(0)).toBe(false);
+        expect(tracker.known.size).toBe(0);
+    });
+});
