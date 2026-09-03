@@ -191,8 +191,8 @@ export function backoffDelay(failures, baseMs, maxMs) {
  * staleness is admitted only by a small dot in a corner, and only after
  * several failures in a row — a single blip is not worth reporting.
  *
- * @param {object|null} previous  the last body that was good, or null
- * @param {object|null} incoming  the body just received, or null on failure
+ * @param {Record<string, any>|null} previous  the last body that was good, or null
+ * @param {Record<string, any>|null} incoming  the body just received, or null on failure
  * @param {number} failures       consecutive failures including this one
  */
 export function resolveDisplayData(previous, incoming, failures) {

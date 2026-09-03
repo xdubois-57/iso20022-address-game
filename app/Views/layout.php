@@ -370,21 +370,30 @@ if (!function_exists('getVersionInfo')) {
         </div>
     </div>
 
+    <!-- EVERY src BELOW MUST BE A FILE THE PACKAGE ITSELF SHIPS.
+         jsDelivr will happily serve a `.min.js` it minified on the fly for a
+         package that ships none — and its own banner in those files says "Do
+         NOT use SRI with dynamically generated files", because the bytes
+         change whenever jsDelivr upgrades Terser. An integrity attribute over
+         one of those is a script that stops loading on a day nobody touched
+         this repository, and the failure is silent: the callers all guard with
+         `typeof <global> !== 'function'` and simply render nothing.
+         Check with: curl -s <url> | head -c 80 -->
     <script src="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.js"
             integrity="sha384-PwiT+fWTPpIySx6DrH1FKraKo+LvVpOClsjx0TSdMYTKi7BR1hR149f4VHLUUnfA"
             crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"
-            integrity="sha384-JSZXO0kKYHTylAsDYTb+7Kg2eUyalm19b8Pydcdf8sQ1cCKYZr9lLahoKT9+LFY5"
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.js"
+            integrity="sha384-bopE5cbMjKUprmGnIRk2UdvCnHImrRLCtNW2uR6oDYqO+o3XWJeuIrWWxDzeDgNW"
             crossorigin="anonymous"></script>
     <!-- Served locally: hybrid-mode grading depends on this formatter, and a
          kiosk on a restricted network would otherwise silently fall back to a
          single hardcoded layout for every country. -->
     <script src="<?= assetUrl('assets/js/vendor/address-formatter.js') ?>"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"
-            integrity="sha384-b0GXujLkk9eYYSmcSfoyZbfyElGAQnDyY0skCHSG6w3JgTMFnz11ggrTAr7seu9f"
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+            integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
             crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"
-            integrity="sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz"
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"
+            integrity="sha384-e9EFD6BGC90bkW9aDV5xbbBfzwN7G8YImHao2lfLVKV/hPB0E0go+H3I64h7oHtA"
             crossorigin="anonymous"></script>
     <!-- type="module" lets app.js import public/assets/js/lib/*.js (extracted
          for tests/js/*.test.js — see tests/js) with no build step: module
