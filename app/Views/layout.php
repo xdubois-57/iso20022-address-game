@@ -4,16 +4,16 @@
  * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -83,7 +83,17 @@ if (!function_exists('assetUrl')) {
         $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
         $release = assetReleaseStamp();
 
-        return $path . '?v=' . $mtime . ($release === '' ? '' : '.' . $release);
+        // Hashed, not printed. Both inputs still decide the value — the URL
+        // changes when the file changes OR when the release does, which is the
+        // whole point of carrying two of them — but the mtime no longer
+        // appears in the page. A raw filemtime is a Unix timestamp on every
+        // asset URL, which the passive scan reports as timestamp disclosure
+        // and which really does tell a reader when each file was last touched
+        // on the server.
+        //
+        // Ten hex characters: this is a cache key, not a security boundary. It
+        // only has to differ when the inputs differ.
+        return $path . '?v=' . substr(md5($mtime . '|' . $release), 0, 10);
     }
 }
 

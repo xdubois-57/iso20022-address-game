@@ -3,16 +3,16 @@ ISO 20022 Address Structuring Game
 Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 -->
 
@@ -280,7 +280,7 @@ Two supporting choices, for the same reason:
 - Served from `public/assets/images/`, never a CDN — the CSP allows
   `img-src 'self' data:` as it stands, and widening it for a logo would trade
   security for nothing
-- **The mark is not under the GPL.** The licence covers this project's source;
+- **The mark is not under the AGPL.** The licence covers this project's source;
   it grants no right to the PMPG's trademarks. A fork must strip the logo
   assets and the "Supported by" wording — see README § *Third-party assets*
 - The endorsement wording is load-bearing in one more place: the Privacy
@@ -380,7 +380,7 @@ discarding the session cookie does not reset them.
 - **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
 - **Security logging**: Failed admin logins and CSRF violations logged with remote IP address
 - **Prepared statements**: All SQL queries use parameterised PDO statements (no string interpolation)
-- **Cache busting**: every asset URL carries `?v={filemtime}.{release commit}`, and the shell that mints them is explicitly `no-store`. All three parts are load-bearing. The mtime alone fails a deploy whose FTP client preserves timestamps — the URL is unchanged, so a browser keeps its stale copy; the release commit from `config/version.php` covers that, and the mtime in turn covers a file edited between releases. The `no-store` on the shell is what stops a cached page from handing out the *previous* set of stamps forever, which no amount of versioning downstream can recover from. `app.js`'s `import`s are versioned through an import map (`layout.php`), since a module specifier the browser resolves itself would otherwise carry no version at all; `tests/AssetCacheBustingTest.php` fails if an import is added without a matching map entry
+- **Cache busting**: every asset URL carries `?v={hash}`, ten hex characters of `md5(filemtime | release commit)`, and the shell that mints them is explicitly `no-store`. Hashed rather than printed: a raw mtime on every URL is a Unix timestamp saying when each file was last touched on the server, which the passive scan reports as timestamp disclosure. Both inputs still decide the value, which is all a cache key needs. All three parts are load-bearing. The mtime alone fails a deploy whose FTP client preserves timestamps — the URL is unchanged, so a browser keeps its stale copy; the release commit from `config/version.php` covers that, and the mtime in turn covers a file edited between releases. The `no-store` on the shell is what stops a cached page from handing out the *previous* set of stamps forever, which no amount of versioning downstream can recover from. `app.js`'s `import`s are versioned through an import map (`layout.php`), since a module specifier the browser resolves itself would otherwise carry no version at all; `tests/AssetCacheBustingTest.php` fails if an import is added without a matching map entry
 - **Untrusted numbers at a render boundary**: the Hall of Fame wall polls
   `/board/data` unattended for hours and builds its rows by string
   concatenation. Names are escaped; the numbers pass through `boardNumber()`
@@ -422,7 +422,7 @@ Where the mark appears, and who draws it:
 
 Four things that are easy to get wrong:
 
-1. **The mark is not covered by the GPL.** The licence grants rights over this
+1. **The mark is not covered by the AGPL.** The licence grants rights over this
    project's source code, not over the Payments Market Practice Group's
    trademarks. A fork receives the code and no right to the mark, and must
    strip `pmpg-logo.png`, `pmpg-mark.png` and the endorsement wording that

@@ -4,16 +4,16 @@
  * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -79,6 +79,14 @@ use App\Controllers\BoardController;
 // anyone could frame.
 function sendSecurityHeaders(): void
 {
+    // PHP announces itself in X-Powered-By unless expose_php is off, and this
+    // application cannot count on the php.ini of whatever shared host it lands
+    // on. Naming the interpreter and its exact version tells an attacker which
+    // published vulnerabilities to try first and tells a legitimate visitor
+    // nothing at all. Removed here so it holds regardless of the host's
+    // configuration.
+    header_remove('X-Powered-By');
+
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     // unpkg.com is no longer referenced: the one script served from it is now

@@ -3,16 +3,16 @@
  * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -3034,7 +3034,7 @@ import {
         // No third party processes anything here, and naming one there would
         // be an inaccurate GDPR declaration.
         html += '<p>This game was created as an educational tool by <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>. It is developed and maintained by its authors.</p>';
-        html += '<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU General Public License</a> for more details.</p>';
+        html += '<p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">GNU Affero General Public License</a> for more details.</p>';
 
         html += '<h3>1. Data Controller</h3>';
         html += '<p>The data controllers for this application are <strong>Xavier Dubois</strong> and <strong>Niel Buchan</strong>, the developers and maintainers of the ISO 20022 Address Structuring Game. ';
@@ -3123,7 +3123,7 @@ import {
         html += '<h3>13. Open Source &amp; Transparency</h3>';
         html += '<p>This application is fully open source, enabling complete transparency and independent audit of all data processing activities.</p>';
         html += '<ul>';
-        html += '<li><strong>License:</strong> ' + (kioskMode ? 'GNU GPL v3.0' : '<a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a>') + '</li>';
+        html += '<li><strong>Licence:</strong> ' + (kioskMode ? 'GNU AGPL v3.0' : '<a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">GNU AGPL v3.0</a>') + '</li>';
         html += '<li><strong>Source code:</strong> ' + (kioskMode ? 'github.com/xdubois-57/iso20022-address-game' : '<a href="https://github.com/xdubois-57/iso20022-address-game" target="_blank" rel="noopener">github.com/xdubois-57/iso20022-address-game</a>') + '</li>';
         html += '</ul>';
 

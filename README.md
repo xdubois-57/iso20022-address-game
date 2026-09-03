@@ -3,16 +3,16 @@ ISO 20022 Address Structuring Game
 Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 -->
 
@@ -30,7 +30,7 @@ both said something that later stopped being true. Do not reintroduce either
 sentence: neither "supported by the PMPG" here, nor "not affiliated with or
 endorsed by any organisation" anywhere.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.html) for more details.
 
 ## Features
 
@@ -39,7 +39,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
   endorsement is stated in words in the page's OpenGraph and Twitter
   descriptions. The legal notice and the Privacy screen name no supporting
   organisation. The game remains the work of its authors, and the mark is not
-  covered by the GPL — see [Legal notice](#legal-notice) and
+  covered by the AGPL — see [Legal notice](#legal-notice) and
   [Third-party assets](#third-party-assets)
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
@@ -683,6 +683,29 @@ making while the report stays clean** — the gate at Medium is what keeps it
 so, and lowering that gate and publishing the report are not two independent
 decisions.
 
+### What it reports today
+
+**Nothing at Low or above.** The 66 Low findings the scan used to report were
+all one of four things, and all four are fixed rather than filtered:
+
+| Finding | What it was |
+|---|---|
+| `X-Powered-By` leaked | PHP names itself and its exact version unless `expose_php` is off, which this project cannot assume of a shared host. `header_remove()` now covers it whatever the host's `php.ini` says |
+| Unix timestamp disclosure | Every asset URL carried `?v={filemtime}`, saying when each file was last touched on the server. The stamp is hashed now — the mtime and the release still decide it, they are just no longer printed |
+| `X-Content-Type-Options` missing | On **static** files only. They never reach `public/index.php`, so they were answered with none of its headers — and they are most of what a browser fetches |
+| HSTS not set | The same responses, for the same reason |
+
+The last two are set by `public/.htaccess` in production and by
+`scripts/e2e-router.php` in the harness, which now serves assets itself rather
+than handing them to PHP's built-in server — that discards headers set before
+`return false`, so the scan was reporting a site less protected than the
+deployed one. A false picture in the safe direction, which is the worse
+direction for a scan report to be wrong in.
+
+The remaining 78 findings are Informational: "Modern Web Application",
+"Session Management Response Identified" and similar observations that describe
+the application rather than fault it.
+
 ### Not an active scan
 
 The passive profile observes traffic and sends nothing of its own. An active
@@ -869,10 +892,15 @@ This game was built by **Xavier Dubois** and **Niel Buchan**.
 
 ### Third-party assets
 
+> **Licence note.** The third-party terms below are unchanged by this project's
+> move to the AGPL. The address formatter stays MIT, the background image stays
+> CC BY-SA 3.0, and the PMPG marks were never covered by either licence — a
+> copyleft licence over source code grants no rights over anybody's trademarks.
+
 #### PMPG logo
 
 The PMPG name and logo are trademarks of the Payments Market Practice Group,
-used with permission. They are **not** covered by the GPL v3 licence granted
+used with permission. They are **not** covered by the AGPL v3 licence granted
 over this project's source code: a fork receives the code, not the right to use
 the mark. Remove the logo assets and the endorsement wording before
 redistributing a modified version.
@@ -902,4 +930,11 @@ Colours are replaced at request time to match the application theme; no structur
 
 ## License
 
-This project is licensed under the [GNU General Public License v3.0](LICENSE).
+This project is licensed under the
+[GNU Affero General Public License v3.0](LICENSE).
+
+It moved from the GPL v3 to the AGPL v3 on 2026-09-03. The difference that
+matters for this project is section 13: the GPL is triggered by *distributing*
+software, and a hosted game is never distributed — anybody could run a modified
+copy as a public kiosk and owe nothing back. The AGPL closes that, by treating
+use over a network as the thing that triggers the obligation.

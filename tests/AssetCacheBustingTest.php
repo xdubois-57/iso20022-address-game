@@ -4,16 +4,16 @@
  * Copyright (C) 2026 https://github.com/xdubois-57/iso20022-address-game
  *
  * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * GNU Affero General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -131,12 +131,36 @@ class AssetCacheBustingTest extends TestCase
         $this->assertStringContainsString('filemtime($fullPath)', $layout);
         $this->assertStringContainsString('assetReleaseStamp()', $layout);
         $this->assertMatchesRegularExpression(
-            '#\$path \. \'\?v=\' \. \$mtime#',
+            '#md5\(\$mtime \. \'\|\' \. \$release\)#',
             $layout,
-            'the version must carry the mtime AND the release stamp: an FTP upload that '
-                . 'preserves timestamps leaves the mtime alone, and an edit without a release '
-                . 'leaves the commit alone'
+            'the version must be derived from the mtime AND the release stamp: an FTP upload '
+                . 'that preserves timestamps leaves the mtime alone, and an edit without a '
+                . 'release leaves the commit alone'
         );
+
+        // Hashed rather than printed. A raw filemtime on every asset URL is a
+        // Unix timestamp telling a reader when each file was last touched on
+        // the server, which the passive scan reports as timestamp disclosure.
+        $this->assertDoesNotMatchRegularExpression(
+            '#\'\?v=\' \. \$mtime#',
+            $layout,
+            'the mtime must not reach the page unhashed'
+        );
+    }
+
+    /** Different inputs must give different URLs, or the cache never breaks. */
+    public function testTheHashedStampChangesWithEitherInput(): void
+    {
+        $stamp = static fn (string $mtime, string $release): string
+            => substr(md5($mtime . '|' . $release), 0, 10);
+
+        $this->assertSame($stamp('1700000000', 'abc1234'), $stamp('1700000000', 'abc1234'));
+        $this->assertNotSame($stamp('1700000000', 'abc1234'), $stamp('1700000001', 'abc1234'));
+        $this->assertNotSame($stamp('1700000000', 'abc1234'), $stamp('1700000000', 'def5678'));
+
+        // The separator is not decoration: without it, mtime 12 + release
+        // '34' and mtime 1 + release '234' would hash to the same URL.
+        $this->assertNotSame($stamp('12', '34'), $stamp('1', '234'));
     }
 
     public function testTheShellDeclaresItselfUncacheable(): void
