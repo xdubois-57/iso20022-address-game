@@ -174,7 +174,7 @@ class Database
     }
 
     /**
-     * Initialize the database schema if tables do not exist.
+     * Initialise the database schema if tables do not exist.
      *
      * The DDL is emitted per driver: MySQL in production, SQLite for the test
      * suite. Keep the two branches in step — and mirror any change into

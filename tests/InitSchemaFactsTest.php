@@ -1,6 +1,6 @@
 <?php
 /**
- * Tests for initSchema() non-destructive facts behavior.
+ * Tests for initSchema() non-destructive facts behaviour.
  * Ensures that calling initSchema() multiple times does NOT reset custom facts.
  * Also tests the schema versioning logic used in index.php.
  */
