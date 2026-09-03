@@ -55,19 +55,9 @@ import {
         return /** @type {HTMLInputElement} */ (document.getElementById(id));
     }
 
-    /** @param {string} selector @returns {HTMLInputElement} */
-    function inputBySelector(selector) {
-        return /** @type {HTMLInputElement} */ (document.querySelector(selector));
-    }
-
     /** @param {string} id @returns {HTMLCanvasElement} */
     function canvasById(id) {
         return /** @type {HTMLCanvasElement} */ (document.getElementById(id));
-    }
-
-    /** @param {string} selector @returns {HTMLElement} */
-    function queryElement(selector) {
-        return /** @type {HTMLElement} */ (document.querySelector(selector));
     }
 
     /**
@@ -2267,9 +2257,10 @@ import {
      * which has the attribute API but not the HTMLElement dataset property,
      * and the typecheck gate is right to say so.
      */
-    function bindCopyButton(btn) {
+    function bindCopyButton(node) {
+        var btn = asElement(node);
         btn.addEventListener('click', function () {
-            copyToClipboard(btn.getAttribute('data-copy')).then(function (ok) {
+            copyToClipboard(btn.dataset.copy).then(function (ok) {
                 if (!ok) return;
                 flashLabel(btn, 'Copied');
             });
@@ -2345,7 +2336,7 @@ import {
         if (!toggle) return;
 
         var data = await api('admin/get-sharing');
-        var enabled = !data || data.sharing_enabled !== false;
+        var enabled = data?.sharing_enabled !== false;
         toggle.checked = enabled;
         if (label) label.textContent = enabled ? 'Enabled' : 'Disabled';
 
@@ -2392,7 +2383,7 @@ import {
 
         // Render weekly chart
         var canvas = document.getElementById('gamesWeeklyChart');
-        if (!canvas || typeof cdnGlobal('Chart') === 'undefined') return;
+        if (!canvas || cdnGlobal('Chart') === undefined) return;
 
         var stats = data.weekly_stats || [];
         var labels = stats.map(function (s) { return s.week; });
@@ -2921,7 +2912,7 @@ import {
     }
 
     function initDropzone() {
-        if (typeof cdnGlobal('Dropzone') === 'undefined') return;
+        if (cdnGlobal('Dropzone') === undefined) return;
 
         cdnGlobal('Dropzone').autoDiscover = false;
         var dzEl = document.getElementById('excelDropzone');
@@ -3084,7 +3075,7 @@ import {
        Utilities
        ======================================================= */
     function copyToClipboard(text) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        if (navigator.clipboard?.writeText) {
             return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return fallbackCopy(text); });
         }
         return Promise.resolve(fallbackCopy(text));

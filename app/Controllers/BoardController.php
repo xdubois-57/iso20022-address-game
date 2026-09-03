@@ -117,7 +117,8 @@ class BoardController
      * the thing that decides what number appears beside a name.
      *
      * @param  list<array<string, mixed>> $entries  rows from LeaderboardModel
-     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}>
+     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int,
+     *               created_at: string, rank: int}>
      */
     private function rankTopEntries(array $entries): array
     {
@@ -140,7 +141,8 @@ class BoardController
      *
      * @param  list<array<string, mixed>> $topEntries  the visible top, in order
      * @param  list<array<string, mixed>> $recent      newest first
-     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}>
+     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int,
+     *               created_at: string, rank: int}>
      */
     private function rankRecentEntries(
         LeaderboardModel $model,
@@ -171,7 +173,8 @@ class BoardController
      * remembered this one existed.
      *
      * @param  array<string, mixed> $entry
-     * @return array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}
+     * @return array{id: int, player_name: string, game_score: int, time_seconds: int,
+     *         created_at: string, rank: int}
      */
     private function publicFields(array $entry): array
     {
