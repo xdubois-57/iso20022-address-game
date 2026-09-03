@@ -262,16 +262,30 @@ jobs:
       - name: Run the passive scan
         run: npm run dast
 
-      # ONLY THE COUNTS BY SEVERITY LEAVE THIS JOB, and only on an evidence
-      # run. This repository is public, so its Release assets are public — and
-      # so are its workflow artifacts, which is less widely known. A detailed
-      # DAST report published on a public repository is a map drawn for
-      # whoever wants one. The full HTML report stays in this job's log, where
-      # whoever is debugging a red build can read it.
-      - name: Upload the severity summary, and nothing else
+      # The FULL report leaves this job on an evidence run. It previously
+      # carried only the counts by severity; publishing the whole thing is a
+      # deliberate decision by the maintainer, taken on 2026-09-03.
+      #
+      # Know what it means before changing it back, or before leaving it:
+      # this repository is public, so Release assets are public — and so are
+      # workflow artifacts, which is less widely known than it should be.
+      #
+      # What weakens the original objection is the target. The scan runs
+      # against a throwaway instance on 127.0.0.1 that scripts/dast.sh builds
+      # for the occasion, with a generated certificate and a scratch database.
+      # It is not a production host, and the application it probes is open
+      # source, so the report describes code anybody can already read.
+      #
+      # What survives it: header and cookie findings on that instance are
+      # findings about the shipped configuration, and therefore about
+      # production too. Publishing them publishes a to-do list before it is
+      # done. That is the trade — an evidence pack anybody can audit without
+      # an account, at the cost of saying out loud what the scan reports
+      # today. It is worth making only while that report stays clean.
+      - name: Upload the full scan report
         if: ${{ inputs.evidence }}
         uses: actions/upload-artifact@v7
         with:
-          name: evidence-dast-summary
-          path: dast-report/dast-severity-summary.json
+          name: evidence-dast
+          path: dast-report/
           retention-days: 7

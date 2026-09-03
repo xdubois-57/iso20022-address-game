@@ -179,21 +179,21 @@ jobs:
           find evidence-raw -type f | sort
           ( cd evidence-raw && zip -qr ../evidence.zip . )
 
-      # A last look before anything is published. The DAST evidence must be
-      # counts and nothing else; if a future change starts uploading the report
-      # itself, this fails the release rather than letting it out.
-      - name: Refuse to publish a detailed security scan
+      # A last look before anything is published — with the sense reversed.
+      # This step used to REFUSE a pack containing a detailed DAST report; the
+      # full report is now published on purpose (see checks.yml for the trade
+      # that was made and why). So what is checked is the opposite: that the
+      # report is actually there. A pack that quietly lost it would look
+      # complete while proving less than the one before it.
+      - name: Check the scan report is in the pack
         run: |
           set -euo pipefail
-          offending="$(find evidence-raw \
-            \( -name 'dast-passive.html' -o -name '*.sarif' -a -path '*dast*' \) -print)"
-          if [ -n "${offending}" ]; then
-            echo "::error::the evidence pack contains a detailed DAST report:"
-            echo "${offending}"
-            echo "Only counts by severity may be published — see README.md."
+          if [ -z "$(find evidence-raw -name 'dast-passive.html' -print -quit)" ]; then
+            echo "::error::the evidence pack has no dast-passive.html."
+            echo "The full scan report is published deliberately — see checks.yml."
             exit 1
           fi
-          echo "Checked: no detailed DAST report in the pack."
+          echo "Checked: the full DAST report is in the pack."
 
       - name: Create the draft Release
         uses: softprops/action-gh-release@v3
@@ -213,15 +213,15 @@ jobs:
             Every gate in `.github/workflows/checks.yml` passed before this
             draft was created: PHPUnit on PHP 8.1 and 8.4, PHPStan, `tsc`,
             Vitest, the Playwright end-to-end suite, and the passive OWASP ZAP
-            scan. CodeQL and the SonarCloud quality gate are attached
-            alongside.
+            scan. CodeQL and SonarCloud's complete analysis — quality gate,
+            every measure, every open issue and every security hotspot — are
+            attached alongside.
 
             `evidence.zip` contains only what each tool emits natively.
 
-            The dynamic scan is represented by **counts per severity only**
-            (`dast-severity-summary.json`). The full report is deliberately not
-            published — this repository is public, and a detailed scan report
-            of a running instance is a map. It stays in the scan job's log.
+            The dynamic scan is included **in full** (`dast-passive.html`, with
+            `dast-severity-summary.json` beside it). It describes a throwaway
+            instance built for the scan on `127.0.0.1`, not a production host.
           files: evidence.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

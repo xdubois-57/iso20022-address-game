@@ -651,14 +651,28 @@ by inventing a source location for a finding that has none.
 The gate loses nothing by it: the exit code fails the job on the push that
 introduced the finding, which the Security tab never did.
 
-### The report is not published
+### The report is published in full
 
-The HTML report stays in the job's log. It is **not** uploaded as an artifact
-and **not** attached to a Release — only the counts by severity are, in
-`dast-severity-summary.json`. This repository is public, so its Release assets
-are public, and so are its workflow artifacts, which is less widely known. A
-detailed DAST report on a public repository is a map drawn for whoever wants
-one.
+The whole `dast-report/` directory — the HTML report and the severity counts —
+is uploaded on an evidence run and attached to the Release. That was not always
+so: until 2026-09-03 only `dast-severity-summary.json` left the job, and the
+release workflow actively refused a pack containing anything more.
+
+The reasoning, so the decision can be re-taken rather than merely inherited.
+Against publishing: this repository is public, so Release assets are public,
+and so are workflow artifacts — which is less widely known than it should be.
+For publishing: the scan target is a throwaway instance on `127.0.0.1` that
+`scripts/dast.sh` builds for the occasion, with a generated certificate and a
+scratch database. It is not a production host, and the application it probes is
+open source, so the report describes code anybody can already read. An evidence
+pack that can be audited without a GitHub account is worth something in return.
+
+What does not go away: header and cookie findings on that instance are findings
+about the shipped configuration, so they apply to production too. Publishing
+them publishes a to-do list before it is done. **That trade is only worth
+making while the report stays clean** — the gate at Medium is what keeps it
+so, and lowering that gate and publishing the report are not two independent
+decisions.
 
 ### Not an active scan
 
@@ -786,17 +800,9 @@ worse than no evidence.
 | JavaScript static analysis | `tsc`, through `npm run typecheck` |
 | CodeQL | the workflow's SARIF |
 | SonarCloud | the complete analysis — quality gate, every measure, the same per file, every open issue and every security hotspot, plus a Markdown front page |
-| Dynamic scan | **counts per severity only** |
+| Dynamic scan | the full ZAP report, plus the counts per severity |
 
-### Two things it deliberately does not contain
-
-**The detailed DAST report.** This repository is public, so its Release assets
-are public — and so are its workflow artifacts, which is less widely known.
-Publishing a dynamic-scan report of a running instance is publishing a map.
-Only `dast-severity-summary.json` leaves the job; the full report stays in the
-scan job's log, where whoever is debugging a red build can read it. A step in
-the release job checks the pack for a detailed report and fails the release
-rather than letting one out.
+### One thing it deliberately does not contain
 
 **Videos and traces of tests that passed.** They are what makes an evidence
 pack enormous, and a video of a test that behaved is not evidence anybody
