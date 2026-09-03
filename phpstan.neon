@@ -9,11 +9,10 @@
 #
 #   composer run analyse
 #
-# The baseline is the other half of this. See phpstan-baseline.neon, and
-# README.md § Static analysis for the one rule about regenerating it.
-includes:
-    - phpstan-baseline.neon
-
+# There is no baseline. There was one, carrying 76 accepted findings; it was
+# paid off rather than regenerated, so "green" here means no findings at all
+# rather than no new ones. Keep it that way: a finding is either worth fixing
+# or worth arguing about in review, and a baseline is how it becomes neither.
 parameters:
     level: 6
 

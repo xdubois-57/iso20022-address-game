@@ -46,6 +46,17 @@ class HtmlSanitizer
     private const ALLOWED_SCHEMES = ['http', 'https', 'mailto'];
 
     /**
+     * Attribute names whose value is a URL and must therefore be scheme-checked.
+     *
+     * Deliberately broader than ALLOWED_ATTRIBUTES: it states a fact about
+     * these attribute names rather than about today's allowlist. Written as a
+     * list for the same reason — comparing the attribute name against a single
+     * literal made the check provably redundant while the allowlist held one
+     * entry, which is a guard that disappears the moment somebody adds `src`.
+     */
+    private const URL_ATTRIBUTES = ['href', 'src'];
+
+    /**
      * Elements dropped WITH their contents, rather than unwrapped to text.
      *
      * Unwrapping is right for an ordinary disallowed element — `<div>text</div>`
@@ -171,12 +182,19 @@ class HtmlSanitizer
         foreach (iterator_to_array($element->attributes) as $attribute) {
             $name = strtolower($attribute->nodeName);
 
-            if (!in_array($name, $allowed, true)) {
+            // URL check first, allowlist second. Either way the attribute
+            // goes, so the order does not change behaviour — but checking the
+            // allowlist first narrows the name to the single literal it
+            // permits, which makes the URL guard provably redundant and hides
+            // the moment a second attribute is allowed.
+            if (in_array($name, self::URL_ATTRIBUTES, true)
+                && !self::isSafeUrl($attribute->nodeValue ?? '')
+            ) {
                 $element->removeAttribute($attribute->nodeName);
                 continue;
             }
 
-            if ($name === 'href' && !self::isSafeUrl($attribute->nodeValue ?? '')) {
+            if (!in_array($name, $allowed, true)) {
                 $element->removeAttribute($attribute->nodeName);
             }
         }

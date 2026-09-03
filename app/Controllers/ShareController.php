@@ -273,8 +273,8 @@ class ShareController
         $bgHex    = $theme['color_bg']      ?: '#8abed9';
         $fontBold = $this->findFont(true);
 
-        $w = 1200;
-        $h = 630;
+        $w = self::CARD_W;
+        $h = self::CARD_H;
 
         // ── 1. Rasterise the exact same themed SVG used by /bg ──────────────
         $svg = BackgroundController::buildThemedSvg($theme);
@@ -390,8 +390,8 @@ class ShareController
         $emerRgb  = ThemeModel::hexToRgb($theme['color_primary']) ?? [1, 169, 144];
         $textRgb  = ThemeModel::hexToRgb($theme['color_text'])    ?? [51, 61, 62];
 
-        $w = 1200;
-        $h = 630;
+        $w = self::CARD_W;
+        $h = self::CARD_H;
         $img      = imagecreatetruecolor($w, $h);
         $bgColor  = imagecolorallocate($img, $bgRgb[0], $bgRgb[1], $bgRgb[2]);
         $emerald  = imagecolorallocate($img, $emerRgb[0], $emerRgb[1], $emerRgb[2]);
@@ -572,7 +572,9 @@ class ShareController
 
     /**
      * Build a themed 1200×630 image canvas with background and decorative balloons.
-     * Returns [$img, $w, $h, $emeraldColor, $darkGreenColor].
+     *
+     * @return array{0: \GdImage, 1: int, 2: int, 3: int, 4: int}
+     *         [$img, $w, $h, $emeraldColor, $darkGreenColor]
      */
     private function buildImageCanvas(): array
     {
@@ -583,8 +585,8 @@ class ShareController
         $emeraldRgb = ThemeModel::hexToRgb($theme['color_primary'])       ?? [1, 169, 144];
         $textRgb    = ThemeModel::hexToRgb($theme['color_text'])          ?? [51, 61, 62];
 
-        $w = 1200;
-        $h = 630;
+        $w = self::CARD_W;
+        $h = self::CARD_H;
         $img = imagecreatetruecolor($w, $h);
         imagealphablending($img, true);
         imagesavealpha($img, true);
@@ -604,12 +606,21 @@ class ShareController
             [69, 183, 209],
         ];
 
+        // Counted rather than indexed. The loop used to be a `for` that did
+        // `$i--` whenever a balloon was rejected, so the counter ran backwards
+        // and its own bound became unprovable — static analysis could only
+        // conclude the `< 12` was always true, which is a fair reading of a
+        // variable that means two things at once. Placement count and zone are
+        // now separate, and neither goes backwards. Same output: the zone only
+        // advances on a balloon that was actually kept, exactly as the
+        // decrement arranged.
         $balloons = [];
         $attempts = 0;
-        for ($i = 0; $i < 12 && $attempts < 100; $i++) {
+        $placed   = 0;
+        while ($placed < self::BALLOON_COUNT && $attempts < 100) {
             $attempts++;
             $r    = mt_rand(25, 45);
-            $zone = $i % 4;
+            $zone = $placed % 4;
             if ($zone === 0) {
                 $cx = mt_rand(30, 120);
                 $cy = mt_rand(50, $h - 50);
@@ -633,7 +644,6 @@ class ShareController
             foreach (self::exclusionZones($w, $h) as [$zx1, $zy1, $zx2, $zy2]) {
                 if ($cx + $r > $zx1 && $cx - $r < $zx2 && $cy + $r > $zy1 && $cy - $r < $zy2) {
                     $overlap = true;
-                    $i--;
                     break;
                 }
             }
@@ -643,11 +653,11 @@ class ShareController
                 }
                 if (sqrt(pow($cx - $b['x'], 2) + pow($cy - $b['y'], 2)) < ($r + $b['r'] + 20)) {
                     $overlap = true;
-                    $i--;
                     break;
                 }
             }
             if (!$overlap) {
+                $placed++;
                 $balloons[] = ['x' => $cx, 'y' => $cy, 'r' => $r];
                 $col          = $balloonColors[array_rand($balloonColors)];
                 $balloonColor = imagecolorallocatealpha($img, $col[0], $col[1], $col[2], 30);
@@ -668,6 +678,12 @@ class ShareController
      *
      * @return array<string,string>
      */
+    /**
+     * The five theme colours, falling back to the defaults when the database
+     * is unreachable.
+     *
+     * @return array<string, string>
+     */
     private function loadTheme(): array
     {
         $db = Database::getInstance();
@@ -680,6 +696,9 @@ class ShareController
         return ThemeModel::defaults();
     }
 
+    /**
+     * @return array{s: int, n: string}|null
+     */
     private function decryptToken(string $urlToken): ?array
     {
         if ($urlToken === '') {
@@ -711,7 +730,7 @@ class ShareController
         }
 
         // Clamp and validate
-        $data['s'] = max(0, min(10000, (int) ($data['s'] ?? 0)));
+        $data['s'] = max(0, min(10000, (int) $data['s']));
         $data['n'] = $this->sanitizeName($data['n'] ?? '');
         return $data;
     }
@@ -734,7 +753,7 @@ class ShareController
         ];
         
         foreach ($candidates as $path) {
-            if ($path && is_file($path) && is_readable($path)) {
+            if (is_file($path) && is_readable($path)) {
                 return realpath($path) ?: $path;
             }
         }
@@ -765,6 +784,10 @@ class ShareController
         return null;
     }
 
+    /**
+     * @param \GdImage $img
+     * @param int      $color  a colour identifier from imagecolorallocate()
+     */
     private function ttfCentered($img, float $size, string $font, string $text, int $imgW, int $y, $color): void
     {
         $box = imagettfbbox($size, 0, $font, $text);
@@ -773,6 +796,10 @@ class ShareController
         imagettftext($img, $size, 0, $x, $y, $color, $font, $text);
     }
 
+    /**
+     * @param \GdImage $img
+     * @param int      $color  a colour identifier from imagecolorallocate()
+     */
     private function gdCentered($img, int $font, string $text, int $imgW, int $y, $color): void
     {
         $textW = imagefontwidth($font) * strlen($text);

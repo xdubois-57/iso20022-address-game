@@ -39,6 +39,105 @@ import {
     'use strict';
 
     /* =======================================================
+       Typed DOM lookups
+
+       getElementById() is declared to return HTMLElement and querySelector()
+       to return Element, so reading .value, .checked or .dataset off either is
+       a type error even though it is correct at run time — the checker cannot
+       know which element an id refers to. These helpers say it once, at the
+       lookup, instead of scattering casts through every handler. They are
+       nothing but a cast: no run-time behaviour is added, and a wrong id still
+       returns null exactly as before.
+       ======================================================= */
+
+    /** @param {string} id @returns {HTMLInputElement} */
+    function inputById(id) {
+        return /** @type {HTMLInputElement} */ (document.getElementById(id));
+    }
+
+    /** @param {string} selector @returns {HTMLInputElement} */
+    function inputBySelector(selector) {
+        return /** @type {HTMLInputElement} */ (document.querySelector(selector));
+    }
+
+    /** @param {string} id @returns {HTMLCanvasElement} */
+    function canvasById(id) {
+        return /** @type {HTMLCanvasElement} */ (document.getElementById(id));
+    }
+
+    /** @param {string} selector @returns {HTMLElement} */
+    function queryElement(selector) {
+        return /** @type {HTMLElement} */ (document.querySelector(selector));
+    }
+
+    /**
+     * The element an event fired on.
+     *
+     * `event.target` is an EventTarget, which has no DOM properties at all.
+     * Every listener here is attached to an element, so this states that.
+     *
+     * @param {EventTarget|null} target
+     * @returns {HTMLElement}
+     */
+    function asElement(target) {
+        return /** @type {HTMLElement} */ (/** @type {unknown} */ (target));
+    }
+
+    /**
+     * The content of a <meta name="..."> tag, or '' when it is absent.
+     *
+     * @param {string} name
+     * @returns {string}
+     */
+    function metaContent(name) {
+        var tag = /** @type {HTMLMetaElement} */ (
+            document.querySelector('meta[name="' + name + '"]')
+        );
+        return tag ? tag.content : '';
+    }
+
+    /** @param {EventTarget|Element|null} target @returns {HTMLInputElement} */
+    function asInput(target) {
+        return /** @type {HTMLInputElement} */ (/** @type {unknown} */ (target));
+    }
+
+    /**
+     * The vendor-prefixed fullscreen API, which the DOM types do not describe.
+     *
+     * They do not describe it because it is legacy — which is exactly why the
+     * code calls it: older iPad Safari has no unprefixed version, and a kiosk
+     * that cannot go fullscreen is not a kiosk.
+     *
+     * @param {Document|Element} node
+     * @returns {{webkitRequestFullscreen?: Function, webkitExitFullscreen?: Function, webkitFullscreenElement?: Element}}
+     */
+    function legacyFullscreen(node) {
+        return /** @type {any} */ (node);
+    }
+
+    /** @param {EventTarget|Element|null} target @returns {HTMLButtonElement} */
+    function asButton(target) {
+        return /** @type {HTMLButtonElement} */ (/** @type {unknown} */ (target));
+    }
+
+    /**
+     * A library loaded from a CDN by a plain <script> tag.
+     *
+     * These are globals that no module declares, so the checker cannot see
+     * them. Reading them through here keeps the lookup lazy — which matters,
+     * because a blocked CDN means the global is simply absent and every call
+     * site already tests for that — and marks each use as "this comes from
+     * outside" rather than pretending it is part of the application.
+     *
+     * @param {string} name
+     * @returns {any}
+     */
+    function cdnGlobal(name) {
+        return /** @type {Record<string, any>} */ (/** @type {unknown} */ (globalThis))[name];
+    }
+
+
+    /* =======================================================
        Constants
        ======================================================= */
     const INACTIVITY_TIMEOUT = 30000; // 30s
@@ -60,7 +159,7 @@ import {
     // fallback only applies if the meta tag is missing, which no served page
     // does — an unversioned URL beats a broken image.
     const PMPG_LOGO_SRC =
-        document.querySelector('meta[name="pmpg-logo-url"]')?.content
+        metaContent('pmpg-logo-url')
         || 'assets/images/pmpg-logo.png';
 
     /* =======================================================
@@ -132,6 +231,12 @@ import {
     var screenSaverTimer = null;
     var screenSaverActive = false;
     var screenSaverFactInterval = null;
+    // Beside its sibling rather than hung off the overlay element as
+    // `overlay._ssCountdownInterval`. An expando on a DOM node is invisible to
+    // every reader and every tool, and it silently died the day the overlay was
+    // replaced rather than reused — the interval would have kept firing against
+    // a detached node with nothing left to clear it.
+    var screenSaverCountdownInterval = null;
     const SCREENSAVER_TIMEOUT = 60000;
 
     function animateScore(el, target, duration, onComplete) {
@@ -173,8 +278,8 @@ import {
        ======================================================= */
     var boundConfetti = null;
     (function () {
-        if (typeof confetti !== 'function') return;
-        var canvas = document.getElementById('confettiCanvas');
+        if (typeof cdnGlobal('confetti') !== 'function') return;
+        var canvas = canvasById('confettiCanvas');
         if (!canvas) return;
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -182,7 +287,7 @@ import {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         });
-        boundConfetti = confetti.create(canvas, {
+        boundConfetti = cdnGlobal('confetti').create(canvas, {
             resize: true,
             useWorker: false,
             disableForReducedMotion: true,
@@ -192,21 +297,25 @@ import {
     /* =======================================================
        API Helper
        ======================================================= */
-    var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    var csrfToken = metaContent('csrf-token');
 
     const api = createApi({ apiUrl: API_URL, getCsrfToken: function () { return csrfToken; } });
 
     /* =======================================================
        Fullscreen
        ======================================================= */
-    var isStandalone = (window.navigator.standalone === true);
+    // navigator.standalone is an iOS-only property the DOM types do not
+    // describe, which is precisely why it is being tested for.
+    var isStandalone = (
+        /** @type {{ standalone?: boolean }} */ (/** @type {unknown} */ (window.navigator))
+    ).standalone === true;
 
     function enterFullscreen() {
         if (isStandalone) return; // Already fullscreen in iOS standalone (home screen web app)
         var el = document.documentElement;
         if (document.fullscreenElement) return;
         if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (legacyFullscreen(el).webkitRequestFullscreen) legacyFullscreen(el).webkitRequestFullscreen();
     }
 
     // Hoisted out of the function that used to nest it: neither closes
@@ -293,7 +402,8 @@ import {
         window.scrollTo(0, 0);
         dismissScreenSaver();
         // Update nav active state
-        document.querySelectorAll('.nav-btn[data-screen]').forEach(function (btn) {
+        document.querySelectorAll('.nav-btn[data-screen]').forEach(function (node) {
+            var btn = asElement(node);
             btn.classList.toggle('active', btn.dataset.screen === name);
         });
         switch (name) {
@@ -370,12 +480,12 @@ import {
 
     function showInactivityWarning() {
         countdownValue = COUNTDOWN_SECONDS;
-        countdownTimer.textContent = countdownValue;
+        countdownTimer.textContent = String(countdownValue);
         inactivityOverlay.classList.remove('hidden');
 
         countdownInterval = setInterval(function () {
             countdownValue--;
-            countdownTimer.textContent = countdownValue;
+            countdownTimer.textContent = String(countdownValue);
             if (countdownValue <= 0) {
                 clearInterval(countdownInterval);
                 resetSession();
@@ -484,15 +594,22 @@ import {
             return;
         }
 
+        // The guard above proves this is the live shape. The checker does not
+        // carry a JSDoc union's discriminant through, so it is restated rather
+        // than left as four separate complaints.
+        var live = /** @type {{days: number, hours: string, minutes: string, seconds: string}} */ (
+            /** @type {unknown} */ (parts)
+        );
+
         el.innerHTML = '<div class="countdown-label">Unstructured address support ends in</div>'
             + '<div class="countdown-timer">'
-            + '<span class="countdown-unit">' + parts.days + '</span><span class="countdown-suffix">d</span>'
+            + '<span class="countdown-unit">' + live.days + '</span><span class="countdown-suffix">d</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + parts.hours + '</span><span class="countdown-suffix">h</span>'
+            + '<span class="countdown-unit">' + live.hours + '</span><span class="countdown-suffix">h</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + parts.minutes + '</span><span class="countdown-suffix">m</span>'
+            + '<span class="countdown-unit">' + live.minutes + '</span><span class="countdown-suffix">m</span>'
             + '<span class="countdown-sep">:</span>'
-            + '<span class="countdown-unit">' + parts.seconds + '</span><span class="countdown-suffix">s</span>'
+            + '<span class="countdown-unit">' + live.seconds + '</span><span class="countdown-suffix">s</span>'
             + '</div>';
     }
 
@@ -603,7 +720,7 @@ import {
             }
         })();
 
-        var nameInput = document.getElementById('welcomeNameInput');
+        var nameInput = inputById('welcomeNameInput');
         document.getElementById('startGameBtn').addEventListener('click', async function () {
             playerName = nameInput.value.trim();
             if (!playerName) { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
@@ -898,7 +1015,8 @@ import {
         selectedGoalType = newMode;
 
         // Update tab active state
-        document.querySelectorAll('.mode-tab').forEach(function (tab) {
+        document.querySelectorAll('.mode-tab').forEach(function (node) {
+            var tab = asElement(node);
             tab.classList.toggle('active', tab.dataset.mode === newMode);
         });
 
@@ -923,7 +1041,8 @@ import {
        Drag & Drop (Touch + Mouse)
        ======================================================= */
     function initSlotDropListeners() {
-        document.querySelectorAll('.slot').forEach(function (slot) {
+        document.querySelectorAll('.slot').forEach(function (slotNode) {
+            var slot = asElement(slotNode);
             slot.addEventListener('dragover', function (e) {
                 e.preventDefault();
                 slot.classList.add('drag-over');
@@ -931,7 +1050,7 @@ import {
             slot.addEventListener('dragleave', function () {
                 slot.classList.remove('drag-over');
             });
-            slot.addEventListener('drop', function (e) {
+            slot.addEventListener('drop', /** @param {DragEvent} e */ function (e) {
                 e.preventDefault();
                 slot.classList.remove('drag-over');
                 var chipId = e.dataTransfer.getData('text/plain');
@@ -960,8 +1079,9 @@ import {
         var chips = document.querySelectorAll('.chip');
 
         // Mouse drag on source chips
-        chips.forEach(function (chip) {
-            chip.addEventListener('dragstart', function (e) {
+        chips.forEach(function (chipNode) {
+            var chip = asElement(chipNode);
+            chip.addEventListener('dragstart', /** @param {DragEvent} e */ function (e) {
                 e.dataTransfer.setData('text/plain', chip.dataset.chipId);
                 chip.classList.add('dragging');
             });
@@ -974,7 +1094,8 @@ import {
         initSlotDropListeners();
 
         // Touch drag on source chips
-        chips.forEach(function (chip) {
+        chips.forEach(function (chipNode) {
+            var chip = asElement(chipNode);
             chip.addEventListener('touchstart', function (e) {
                 startTouchDrag(chip, chip.dataset.chipId, e);
             }, { passive: true });
@@ -1011,7 +1132,7 @@ import {
             document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
             var el = document.elementFromPoint(centerX, centerY);
             if (el) {
-                var slotEl = el.closest('.slot');
+                var slotEl = asElement(el.closest('.slot'));
                 if (slotEl) {
                     placeChipInSlot(touchDragChip.chipId, slotEl.dataset.slotId);
                 }
@@ -1095,8 +1216,9 @@ import {
             slotEl.classList.add('filled');
 
             // Make placed chips re-draggable (mouse)
-            contentEl.querySelectorAll('.slot-chip[draggable]').forEach(function (sc) {
-                sc.addEventListener('dragstart', function (e) {
+            contentEl.querySelectorAll('.slot-chip[draggable]').forEach(function (scNode) {
+                var sc = asElement(scNode);
+                sc.addEventListener('dragstart', /** @param {DragEvent} e */ function (e) {
                     e.dataTransfer.setData('text/plain', sc.dataset.chipId);
                     sc.classList.add('dragging');
                 });
@@ -1132,7 +1254,7 @@ import {
     }
 
     function updateValidateButton() {
-        var btn = document.getElementById('validateBtn');
+        var btn = /** @type {HTMLButtonElement} */ (document.getElementById('validateBtn'));
         if (!btn) return;
         var hasChip = Object.keys(slotMapping).some(function (k) {
             var v = slotMapping[k];
@@ -1359,7 +1481,7 @@ import {
             // file the same run several times over before the first response
             // arrived. Disable for the whole round trip and re-enable only if
             // the submission actually failed.
-            var btn = event.currentTarget;
+            var btn = asButton(event.currentTarget);
             if (btn.disabled) return;
             btn.disabled = true;
             var originalLabel = btn.textContent;
@@ -1565,9 +1687,9 @@ import {
         if (!tokenData?.token) return;
 
         var qrContainer = document.getElementById('kioskQrCode');
-        if (!qrContainer || typeof qrcode !== 'function') return;
+        if (!qrContainer || typeof cdnGlobal('qrcode') !== 'function') return;
 
-        var qr = qrcode(0, 'M');
+        var qr = cdnGlobal('qrcode')(0, 'M');
         qr.addData(window.location.origin + '/share/go?d=' + encodeURIComponent(tokenData.token));
         qr.make();
         qrContainer.innerHTML = qr.createSvgTag(4, 0);
@@ -1627,7 +1749,7 @@ import {
 
         if (shareBtn) shareBtn.style.display = 'none';
         if (linkedinBtn) {
-            linkedinBtn.href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
+            /** @type {HTMLAnchorElement} */ (linkedinBtn).href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(shareUrl);
         }
         if (desktopRow) desktopRow.style.display = 'grid';
         if (!copyLinkBtn) return;
@@ -2123,8 +2245,8 @@ import {
         // would be a second thing to keep patched for no gain.
         DISPLAY_MODE_SCREENS.forEach(function (screen) {
             var target = document.getElementById('displayModeQr_' + screen.mode);
-            if (!target || typeof qrcode !== 'function') return;
-            var qr = qrcode(0, 'M');
+            if (!target || typeof cdnGlobal('qrcode') !== 'function') return;
+            var qr = cdnGlobal('qrcode')(0, 'M');
             qr.addData(displayModeUrl(screen.mode, token));
             qr.make();
             target.innerHTML = qr.createSvgTag(3, 0);
@@ -2218,7 +2340,7 @@ import {
      * otherwise see the stale value they just moved away from.
      */
     async function loadAdminSharing() {
-        var toggle = document.getElementById('sharingToggle');
+        var toggle = inputById('sharingToggle');
         var label = document.getElementById('sharingLabel');
         if (!toggle) return;
 
@@ -2250,7 +2372,7 @@ import {
     }
 
     async function loadAdminBoardWindow() {
-        var input = document.getElementById('boardWindowInput');
+        var input = inputById('boardWindowInput');
         if (!input) return;
 
         var data = await api('admin/get-board-window');
@@ -2270,7 +2392,7 @@ import {
 
         // Render weekly chart
         var canvas = document.getElementById('gamesWeeklyChart');
-        if (!canvas || typeof Chart === 'undefined') return;
+        if (!canvas || typeof cdnGlobal('Chart') === 'undefined') return;
 
         var stats = data.weekly_stats || [];
         var labels = stats.map(function (s) { return s.week; });
@@ -2289,7 +2411,7 @@ import {
         });
 
         if (gamesChart) gamesChart.destroy();
-        gamesChart = new Chart(canvas, {
+        gamesChart = new (cdnGlobal('Chart'))(canvas, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -2411,7 +2533,8 @@ import {
 
             // Update toolbar active states on selection change
             function updateToolbarState() {
-                overlay.querySelectorAll('.fact-fmt-btn').forEach(function (btn) {
+                overlay.querySelectorAll('.fact-fmt-btn').forEach(function (btnNode) {
+                    var btn = asElement(btnNode);
                     var fmt = btn.dataset.fmt;
                     var active = false;
                     if (fmt === 'bold') active = document.queryCommandState('bold');
@@ -2525,8 +2648,8 @@ import {
 
         // Sync color picker <-> text field
         Object.keys(themeLabels).forEach(function (key) {
-            var picker = document.getElementById('tc_' + key);
-            var text   = document.getElementById('tc_text_' + key);
+            var picker = inputById('tc_' + key);
+            var text   = inputById('tc_text_' + key);
             if (!picker || !text) return;
             picker.addEventListener('input', function () { text.value = picker.value; });
             text.addEventListener('input', function () {
@@ -2542,7 +2665,7 @@ import {
             saveBtn.onclick = async function () {
                 var colors = {};
                 Object.keys(themeLabels).forEach(function (key) {
-                    var t = document.getElementById('tc_text_' + key);
+                    var t = inputById('tc_text_' + key);
                     if (t && /^#[0-9a-fA-F]{6}$/.test(t.value)) colors[key] = t.value;
                 });
                 var resp = await api('admin/save-theme', { theme: colors });
@@ -2593,8 +2716,8 @@ import {
                 var theme = resp.theme || themeDefaults;
                 Object.keys(themeDefaults).forEach(function (key) {
                     var value  = theme[key] || themeDefaults[key];
-                    var picker = document.getElementById('tc_' + key);
-                    var text   = document.getElementById('tc_text_' + key);
+                    var picker = inputById('tc_' + key);
+                    var text   = inputById('tc_text_' + key);
                     if (picker) picker.value = value;
                     if (text)   text.value   = value;
                 });
@@ -2606,7 +2729,7 @@ import {
     async function loadAdminDeadline() {
         var data = await api('admin/get-deadline');
         if (data?.deadline) {
-            document.getElementById('deadlineInput').value = data.deadline;
+            inputById('deadlineInput').value = data.deadline;
             var status = document.getElementById('deadlineStatus');
             status.textContent = 'Current deadline: ' + new Date(data.deadline).toLocaleString();
             status.classList.remove('hidden');
@@ -2683,8 +2806,9 @@ import {
 
     function initAdminActions() {
         document.getElementById('kioskToggle').addEventListener('change', function () {
-            var label = this.parentElement.querySelector('.kiosk-label');
-            if (this.checked) {
+            var toggle = asInput(this);
+            var label = toggle.parentElement.querySelector('.kiosk-label');
+            if (toggle.checked) {
                 enableKioskMode();
                 if (label) label.textContent = 'Enabled';
             } else {
@@ -2694,7 +2818,7 @@ import {
         });
 
         document.getElementById('changePinBtn').addEventListener('click', async function () {
-            var newPin = document.getElementById('newPinInput').value;
+            var newPin = inputById('newPinInput').value;
             if (!/^\d{4,8}$/.test(newPin)) {
                 await showModal('PIN must be 4-8 digits');
                 return;
@@ -2702,14 +2826,14 @@ import {
             var data = await api('admin/change-pin', { new_pin: newPin });
             if (data?.success) {
                 await showModal('PIN updated successfully');
-                document.getElementById('newPinInput').value = '';
+                inputById('newPinInput').value = '';
             } else {
                 await showModal(data ? data.error : 'Error');
             }
         });
 
         document.getElementById('setDeadlineBtn').addEventListener('click', async function () {
-            var val = document.getElementById('deadlineInput').value;
+            var val = inputById('deadlineInput').value;
             if (!val) { await showModal('Please select a date and time.'); return; }
             var data = await api('admin/set-deadline', { deadline: val });
             if (data?.success) {
@@ -2725,7 +2849,7 @@ import {
         document.getElementById('clearDeadlineBtn').addEventListener('click', async function () {
             var data = await api('admin/set-deadline', { deadline: '' });
             if (data?.success) {
-                document.getElementById('deadlineInput').value = '';
+                inputById('deadlineInput').value = '';
                 var status = document.getElementById('deadlineStatus');
                 status.textContent = 'Deadline cleared';
                 status.classList.remove('hidden');
@@ -2734,7 +2858,7 @@ import {
         });
 
         document.getElementById('saveBoardWindowBtn').addEventListener('click', async function () {
-            var input = document.getElementById('boardWindowInput');
+            var input = inputById('boardWindowInput');
             var status = document.getElementById('boardWindowStatus');
             var raw = input.value.trim();
 
@@ -2797,13 +2921,13 @@ import {
     }
 
     function initDropzone() {
-        if (typeof Dropzone === 'undefined') return;
+        if (typeof cdnGlobal('Dropzone') === 'undefined') return;
 
-        Dropzone.autoDiscover = false;
+        cdnGlobal('Dropzone').autoDiscover = false;
         var dzEl = document.getElementById('excelDropzone');
         if (!dzEl) return;
 
-        new Dropzone(dzEl, {
+        new (cdnGlobal('Dropzone'))(dzEl, {
             url: API_URL,
             method: 'post',
             paramName: 'file',
@@ -3319,8 +3443,8 @@ import {
     function exitFullscreen() {
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(function(){});
-        } else if (document.webkitFullscreenElement) {
-            document.webkitExitFullscreen();
+        } else if (legacyFullscreen(document).webkitFullscreenElement) {
+            legacyFullscreen(document).webkitExitFullscreen();
         }
     }
 
@@ -3349,7 +3473,7 @@ import {
     }
 
     function onFullscreenChange() {
-        if (kioskMode && !document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (kioskMode && !document.fullscreenElement && !legacyFullscreen(document).webkitFullscreenElement) {
             setTimeout(function () {
                 if (kioskMode) enterFullscreen();
             }, 300);
@@ -3406,7 +3530,7 @@ import {
                 if (!banner) return;
                 var target = new Date(data.deadline);
                 updateCountdown(target, banner);
-                overlay._ssCountdownInterval = setInterval(function () {
+                screenSaverCountdownInterval = setInterval(function () {
                     updateCountdown(target, banner);
                 }, 1000);
             }
@@ -3434,9 +3558,9 @@ import {
         screenSaverActive = false;
         var overlay = document.getElementById('screenSaverOverlay');
         if (overlay) {
-            if (overlay._ssCountdownInterval) {
-                clearInterval(overlay._ssCountdownInterval);
-                overlay._ssCountdownInterval = null;
+            if (screenSaverCountdownInterval) {
+                clearInterval(screenSaverCountdownInterval);
+                screenSaverCountdownInterval = null;
             }
             if (screenSaverFactInterval) {
                 clearInterval(screenSaverFactInterval);

@@ -115,6 +115,9 @@ class BoardController
      * two rows can share a position and the offset is the rank. Computed here
      * regardless, rather than left to the browser: the client must never be
      * the thing that decides what number appears beside a name.
+     *
+     * @param  list<array<string, mixed>> $entries  rows from LeaderboardModel
+     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}>
      */
     private function rankTopEntries(array $entries): array
     {
@@ -134,6 +137,10 @@ class BoardController
      * it is reused rather than re-queried; only the ones that placed below the
      * fold cost a query. Those are exactly the players the banner exists for,
      * and there are at most ten of them.
+     *
+     * @param  list<array<string, mixed>> $topEntries  the visible top, in order
+     * @param  list<array<string, mixed>> $recent      newest first
+     * @return list<array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}>
      */
     private function rankRecentEntries(
         LeaderboardModel $model,
@@ -162,6 +169,9 @@ class BoardController
      * An allowlist rather than a blocklist: a column added to the leaderboard
      * table later must not appear on an unauthenticated route because nobody
      * remembered this one existed.
+     *
+     * @param  array<string, mixed> $entry
+     * @return array{id: int, player_name: string, game_score: int, time_seconds: int, created_at: string, rank: int}
      */
     private function publicFields(array $entry): array
     {
@@ -175,6 +185,9 @@ class BoardController
         ];
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function json(array $data, int $code = 200): void
     {
         http_response_code($code);

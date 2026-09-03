@@ -76,6 +76,8 @@ class LeaderboardModel
      * two orderings disagree, so a fast-but-imperfect run could outrank
      * everything displayed and still never appear. The database now applies the
      * same ordering the Hall of Fame uses.
+     *
+     * @return list<array{id: int, score: int, time_seconds: int, created_at: string, game_score: float, player_name: string}>
      */
     public function getTopEntries(int $limit = 10): array
     {
@@ -92,6 +94,8 @@ class LeaderboardModel
 
     /**
      * Get paginated entries sorted by game_score, decrypting names for display.
+     *
+     * @return list<array{id: int, score: int, time_seconds: int, created_at: string, game_score: float, player_name: string}>
      */
     public function getPaginatedEntries(int $page = 1, int $perPage = 50): array
     {
@@ -171,6 +175,8 @@ class LeaderboardModel
      * time_seconds ASC, created_at ASC. A different tie-break would let the
      * wall and the Hall of Fame disagree about who is ahead, in front of the
      * two people concerned.
+     *
+     * @return list<array{id: int, score: int, time_seconds: int, created_at: string, game_score: float, player_name: string}>
      */
     public function getBoardEntries(int $limit, ?int $windowHours): array
     {
@@ -194,6 +200,8 @@ class LeaderboardModel
      * Feeds the wall's "just arrived" banner, which has to name players who
      * placed too low to appear in the visible top — the ones for whom the
      * wall is the only acknowledgement they will get.
+     *
+     * @return list<array{id: int, score: int, time_seconds: int, created_at: string, game_score: float, player_name: string}>
      */
     public function getRecentEntries(int $limit, ?int $windowHours): array
     {
@@ -279,6 +287,9 @@ class LeaderboardModel
      *
      * Names that cannot be decrypted — typically after a key change — are shown
      * as [redacted] rather than failing the whole listing.
+     *
+     * @param  list<array<string, mixed>> $rows  raw rows, each carrying encrypted_name
+     * @return list<array{id: int, score: int, time_seconds: int, created_at: string, game_score: float, player_name: string}>
      */
     private function hydrate(array $rows): array
     {

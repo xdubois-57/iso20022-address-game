@@ -201,6 +201,12 @@ class AppIconController
         echo $png;
     }
 
+    /**
+     * The five theme colours, falling back to the defaults when the database
+     * is unreachable.
+     *
+     * @return array<string, string>
+     */
     private function loadTheme(): array
     {
         try {

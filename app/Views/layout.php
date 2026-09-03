@@ -77,7 +77,7 @@ if (!function_exists('assetReleaseStamp')) {
 
 // Cache busting helper: file modification timestamp plus the release stamp.
 if (!function_exists('assetUrl')) {
-    function assetUrl($path)
+    function assetUrl(string $path): string
     {
         $fullPath = __DIR__ . '/../../public/' . $path;
         $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
@@ -130,6 +130,9 @@ if (!isset($layoutTheme)) {
 
 // Version info helper: reads from config/version.php or falls back to git
 if (!function_exists('getVersionInfo')) {
+    /**
+     * @return array{tag: string, commit: string}
+     */
     function getVersionInfo(): array
     {
         $versionFile = __DIR__ . '/../../config/version.php';

@@ -811,6 +811,8 @@ class AdminController
 
     /**
      * Fetch all facts from the database (public helper).
+     *
+     * @return list<array{id: int, content: string, created_at: string}>
      */
     public static function fetchFactsStatic(): array
     {
@@ -1076,12 +1078,23 @@ class AdminController
      * (the channel allowlist, the required owner/repo) can be exercised
      * without a browser. Production behaviour is unchanged.
      */
+    /**
+     * The decoded JSON request body.
+     *
+     * The shape belongs to the caller, so values are mixed by definition —
+     * every string field is read through App\Support\Input::string().
+     *
+     * @return array<string, mixed>
+     */
     protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function jsonResponse(array $data, int $code = 200): void
     {
         http_response_code($code);

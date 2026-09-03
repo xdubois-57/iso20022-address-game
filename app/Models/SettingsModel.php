@@ -86,10 +86,28 @@ class SettingsModel
                 $this->pdo->commit();
             }
         } catch (\Throwable $e) {
-            if ($ownTransaction && $this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+            if ($ownTransaction) {
+                $this->rollBackIfOpen();
             }
             throw $e;
+        }
+    }
+
+    /**
+     * Roll back, unless the transaction has already gone.
+     *
+     * A method rather than two lines inline: `beginTransaction()` and
+     * `rollBack()` change what `inTransaction()` returns, and static analysis
+     * assumes it does not — so an inline second call is read as still holding
+     * the answer from the first, and the guard is reported as dead. Behind a
+     * call boundary there is no earlier answer to reuse. The check itself is
+     * not ceremony: the throw may have come from `commit()`, by which point
+     * there is nothing left to roll back.
+     */
+    private function rollBackIfOpen(): void
+    {
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->rollBack();
         }
     }
 
@@ -117,7 +135,7 @@ class SettingsModel
         $stmt = $this->pdo->prepare(
             "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($placeholders)"
         );
-        $stmt->execute(array_values($keys));
+        $stmt->execute($keys);
 
         return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }

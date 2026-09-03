@@ -33,6 +33,8 @@ class ScenarioModel
 
     /**
      * Get all scenarios.
+     *
+     * @return list<array{id: int, json_data: array<string, mixed>}>
      */
     public function getAll(): array
     {
@@ -53,6 +55,9 @@ class ScenarioModel
 
     /**
      * Get a random scenario, optionally excluding specific IDs.
+     *
+     * @param  array<mixed> $excludeIds  straight from the client, so any shape
+     * @return ?array{id: int, json_data: array<string, mixed>}
      */
     public function getRandom(array $excludeIds = []): ?array
     {
@@ -89,6 +94,8 @@ class ScenarioModel
 
     /**
      * Get a scenario by ID.
+     *
+     * @return ?array{id: int, json_data: array<string, mixed>}
      */
     public function getById(int $id): ?array
     {
@@ -103,6 +110,8 @@ class ScenarioModel
 
     /**
      * Insert a new scenario.
+     *
+     * @param array<string, mixed> $jsonData
      */
     public function create(array $jsonData): int
     {
@@ -135,9 +144,13 @@ class ScenarioModel
      *              the split point between lines does not matter. Each line
      *              must not exceed 70 characters.
      *
-     * @param string     $goalType      The player's chosen mode ('Structured' or 'Hybrid').
-     * @param array|null $adrFieldOrder Country-specific field order derived from the formatted
-     *                                  address (sent by the client). Falls back to HYBRID_FIELD_ORDER.
+     * @param array<string, mixed> $scenario      the scenario row's json_data
+     * @param array<string, mixed> $userMapping   slot id => chip value, from the client
+     * @param string               $goalType      The player's chosen mode ('Structured' or 'Hybrid').
+     * @param list<string>|null    $adrFieldOrder Country-specific field order derived from the formatted
+     *                                            address (sent by the client). Falls back to HYBRID_FIELD_ORDER.
+     *
+     * @return array{score: int, maxScore: int, percentage: float, errors: list<array<string, mixed>>, perfect: bool}
      */
     public function validateAnswer(
         array $scenario,

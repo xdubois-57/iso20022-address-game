@@ -523,32 +523,40 @@ general and wrong for this application.
 Neither is a finding to "clean up later": both were considered and declined. If
 you disagree, the argument to beat is in this table, not in the linter.
 
-### The baselines
+### There are no baselines
 
-Both commands pass today, and neither of them passes because the code is clean.
+Both commands pass, and they pass because the code is clean — not because a
+file forgives what they find. That was not true until recently: PHPStan carried
+`phpstan-baseline.neon` with **76** accepted findings and `tsc` carried
+`js-typecheck-baseline.json` with **81**. Both were paid off and both files are
+gone.
 
-| File | Findings accepted | Produced by |
+**Green here means "no findings", not "no new findings".** Keep it that way. A
+finding is either worth fixing or worth arguing about in review; a baseline is
+how it quietly becomes neither.
+
+What paying it off actually involved, since the shape of the debt is the useful
+part:
+
+| Debt | Count | What it turned out to be |
 |---|---|---|
-| `phpstan-baseline.neon` | **76** | `composer run analyse:baseline` |
-| `js-typecheck-baseline.json` | **82** (30 distinct file/code/message groups) | `npm run typecheck:baseline` |
+| `missingType.iterableValue` and friends | 54 | `array` with no value type. Declarative, and worth more than it sounds: writing `list<array{id: int, …}>` down is what let PHPStan check the callers |
+| `variable.undefined` | 13 | Views reading variables the controller sets before `include`. A real contract that only existed in a prose comment; now an `assert(isset(…))` the analyser reads |
+| Genuine defects | 9 | A loop counter that ran backwards and made its own bound unprovable; a `?? 0` after an `isset`; a `$path &&` that was always true; a property written and never read; a URL guard made redundant by the allowlist narrowing to one literal |
+| `Property 'value' does not exist on type 'HTMLElement'` and kin | ~74 | `getElementById()` returns `HTMLElement`, `querySelector()` returns `Element`. The fix is a handful of typed accessors — `inputById`, `canvasById`, `asElement`, `asButton` — which document what each lookup expects instead of asserting it at 74 call sites |
+| CDN globals | 11 | `Chart`, `confetti`, `Dropzone`, `qrcode`, reached through `cdnGlobal()`. No `.d.ts`: there is still no `.ts` file in this repository |
 
-Most of the JavaScript ones are one shape: `app.js` is close to three thousand
-lines and reaches for `.value`, `.disabled` or `.tagName` on the generic
-`Element` that `getElementById()` and `querySelector()` return. That is real
-debt, it is worth paying down, and paying it down is a different piece of work
-from installing the tools. Without a baseline the job would be red permanently,
-everybody would learn to ignore it, and a permanently ignored gate is worse
-than no gate — it costs a minute on every push and buys nothing.
+One of those found a real latent bug: the screen saver's countdown interval was
+stored as an expando property on the overlay element, so it was invisible to
+every tool and would have kept firing against a detached node if the overlay
+were ever replaced rather than reused. It lives beside its sibling timer now.
 
-So **green means "no NEW finding", never "no findings"**.
-
-PHPStan has this mechanism built in. `tsc` does not, so
-`scripts/js-typecheck.mjs` adds the same contract on top of it: it runs `tsc`,
-groups what comes back, and fails only on an occurrence beyond what the
-baseline accepts. It indexes by **file + error code + message, never by line
-number** — a line-keyed baseline would report every pre-existing finding below
-an edit as new, which is how a baseline mechanism becomes useless in one
-afternoon.
+The machinery for both baselines is still in place, and
+`composer run analyse:baseline` / `npm run typecheck:baseline` still work. That
+is deliberate: the alternative to a baseline is not "no baseline", it is
+somebody switching the gate off the first time a dependency upgrade produces
+fifty findings on a Friday afternoon. Use it if that day comes, and empty it
+again afterwards.
 
 #### Regenerating one
 
@@ -559,8 +567,8 @@ afternoon.
 > A baseline regenerated to hide a regression turns the whole gate into
 > decoration while leaving everybody sure it is working.
 
-Both files carry that warning in their own header, where somebody about to
-regenerate one will actually read it.
+Neither file exists at the moment, so there is nothing to read that warning in
+— which is the point of putting it here instead.
 
 ## Dynamic application security testing
 

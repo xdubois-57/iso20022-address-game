@@ -32,6 +32,13 @@
 // do not exist on the generic type. Those are dozens of findings, none of them
 // a regression, and none of them fixable as part of installing the tool.
 //
+// NOTE: there is no baseline file any more. It carried 81 findings and was
+// paid off rather than regenerated, so this script currently reports "no
+// findings at all". The machinery below is kept because the alternative to a
+// baseline is not "no baseline", it is somebody switching the gate off the
+// first time a dependency upgrade produces fifty findings on a Friday. Use it
+// if that day comes, and empty it again afterwards.
+//
 // Without a baseline the job would be red permanently and everybody would
 // learn to ignore it, which is strictly worse than having no analysis: a gate
 // nobody reads still costs a minute on every push and buys nothing.
@@ -215,10 +222,14 @@ if (newFindings.length > 0) {
     process.exit(1);
 }
 
-console.log(
-    `JavaScript static analysis OK: ${diagnostics.length} pre-existing finding(s) `
-    + 'within the accepted baseline (js-typecheck-baseline.json), 0 new.'
-);
+if (diagnostics.length === 0) {
+    console.log('JavaScript static analysis OK: no findings at all.');
+} else {
+    console.log(
+        `JavaScript static analysis OK: ${diagnostics.length} pre-existing finding(s) `
+        + 'within the accepted baseline (js-typecheck-baseline.json), 0 new.'
+    );
+}
 if (staleCount > 0) {
     console.log(
         `Note: ${staleCount} baselined occurrence(s) no longer reproduce. `
