@@ -109,11 +109,39 @@ jobs:
       # `tee` rather than a redirect: the output has to stay visible in the
       # job log whether or not this is an evidence run, and the pipeline's
       # exit status has to stay PHPStan's own — hence pipefail.
+      #
+      # The human-readable output alone was not evidence of anything. A clean
+      # PHPStan run prints "[OK] No errors" and nothing else — eighty-three
+      # bytes that a configuration analysing zero files would produce just as
+      # happily. The JSON report beside it carries the file list and the
+      # totals, and the versions are recorded because "no errors" only means
+      # something once you know which tool at which level said it.
       - name: PHPStan
         shell: bash
         run: |
           set -o pipefail
           mkdir -p evidence
+          {
+            echo "phpstan: $(vendor/bin/phpstan --version)"
+            echo "php: $(php -r 'echo PHP_VERSION;')"
+            echo "level: $(grep -E '^\s+level:' phpstan.neon | tr -d ' ' | cut -d: -f2)"
+            echo "paths:"
+            sed -n '/^    paths:/,/^$/p' phpstan.neon | grep -E '^\s+- ' || true
+          } > evidence/phpstan-scope.txt
+          cat evidence/phpstan-scope.txt
+
+          # --debug, because it prints every file as it analyses it. This is
+          # the part that turns "no errors" into a checkable statement: the
+          # JSON report was tried first and lists only files WITH errors, so
+          # on a clean run it is an empty object — exactly as uninformative as
+          # the line it was meant to back up. It costs a second pass and the
+          # loss of parallelism, which an evidence run can afford.
+          vendor/bin/phpstan analyse --memory-limit=512M --debug 2>/dev/null \
+            | grep -E '\.php$' | sed "s#^${PWD}/##" | sort \
+            > evidence/phpstan-files.txt || true
+          echo "files analysed: $(grep -c '' evidence/phpstan-files.txt)" \
+            >> evidence/phpstan-scope.txt
+
           composer run analyse | tee evidence/phpstan.txt
 
       - name: TypeScript (checker only, nothing is emitted)
@@ -121,6 +149,16 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p evidence
+          {
+            echo "typescript: $(npx tsc --version)"
+            echo "node: $(node --version)"
+            echo "config: tsconfig.json"
+            echo "files checked:"
+            npx tsc --noEmit --listFiles 2>/dev/null \
+              | grep -v '/node_modules/' | sed 's#^'"$PWD"'/##' || true
+          } > evidence/tsc-scope.txt
+          wc -l < evidence/tsc-scope.txt
+
           npm run typecheck | tee evidence/tsc.txt
 
       - name: Upload the analysers' output
