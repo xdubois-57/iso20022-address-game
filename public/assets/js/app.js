@@ -2130,19 +2130,35 @@ import {
             target.innerHTML = qr.createSvgTag(3, 0);
         });
 
-        document.querySelectorAll('.display-mode-copy').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                // getAttribute rather than .dataset: querySelectorAll yields
-                // Element, which has the attribute API but not the HTMLElement
-                // dataset property, and the typecheck gate is right to say so.
-                copyToClipboard(btn.getAttribute('data-copy')).then(function (ok) {
-                    if (!ok) return;
-                    var original = btn.textContent;
-                    btn.textContent = 'Copied';
-                    setTimeout(function () { btn.textContent = original; }, 1500);
-                });
+        document.querySelectorAll('.display-mode-copy').forEach(bindCopyButton);
+    }
+
+    /**
+     * Wire one "copy this address" button.
+     *
+     * Named rather than nested four closures deep inside the render function:
+     * the callbacks stack up (forEach, listener, promise, timeout) and the
+     * body that matters — flash "Copied", then put the label back — ends up
+     * indented past the point where it reads.
+     *
+     * getAttribute rather than .dataset: querySelectorAll yields Element,
+     * which has the attribute API but not the HTMLElement dataset property,
+     * and the typecheck gate is right to say so.
+     */
+    function bindCopyButton(btn) {
+        btn.addEventListener('click', function () {
+            copyToClipboard(btn.getAttribute('data-copy')).then(function (ok) {
+                if (!ok) return;
+                flashLabel(btn, 'Copied');
             });
         });
+    }
+
+    /** Show `text` on an element for a moment, then restore what was there. */
+    function flashLabel(el, text) {
+        var original = el.textContent;
+        el.textContent = text;
+        setTimeout(function () { el.textContent = original; }, 1500);
     }
 
     /**

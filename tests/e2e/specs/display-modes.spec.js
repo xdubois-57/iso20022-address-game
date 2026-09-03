@@ -38,6 +38,21 @@ async function enterPin(page, pin) {
     await page.click('.pin-key-submit');
 }
 
+/**
+ * Click real screen coordinates inside an element.
+ *
+ * Used where the target has pointer-events:none: a locator click would be
+ * refused as unactionable, and forcing it would prove nothing, since the whole
+ * question is what an ordinary tap does.
+ */
+async function tapAt(page, locator, offsetX, offsetY) {
+    const box = await locator.boundingBox();
+    expect(box, 'the element must be laid out to be tapped').not.toBeNull();
+    const x = offsetX === undefined ? box.x + box.width / 2 : box.x + offsetX;
+    const y = offsetY === undefined ? box.y + box.height / 2 : box.y + offsetY;
+    await page.mouse.click(x, y);
+}
+
 test.describe('display modes — the existing contexts are unchanged', () => {
     test('the bare URL still shows all four nav buttons', async ({ page }) => {
         await page.goto('/');
@@ -344,12 +359,16 @@ test.describe.serial('the wall (?mode=hof)', () => {
 
         const before = await page.locator('#appContainer').innerHTML();
 
-        // pointer-events:none means a real tap never lands on the board at
-        // all, so the click is dispatched with force and the assertion is that
-        // it still changes nothing.
-        await page.locator('.wall-screen').click({ force: true, position: { x: 40, y: 40 } });
-        await page.locator('.wall-title').click({ force: true });
-        await page.locator('.wall-list tbody tr').first().click({ force: true });
+        // Dispatched through page.mouse rather than locator.click(), and NOT
+        // with `force: true`. pointer-events:none means Playwright's
+        // actionability check would never let a locator click through, so a
+        // forced click was the old way to get one out — but forcing is exactly
+        // what a real finger cannot do. Clicking coordinates is what an
+        // accidental tap actually is, and the assertion is unchanged: nothing
+        // on the board reacts.
+        await tapAt(page, page.locator('.wall-screen'), 40, 40);
+        await tapAt(page, page.locator('.wall-title'));
+        await tapAt(page, page.locator('.wall-list tbody tr').first());
 
         await expect(page.locator('.wall-title')).toHaveText('Hall of Fame');
         expect(await page.locator('#appContainer').innerHTML()).toBe(before);

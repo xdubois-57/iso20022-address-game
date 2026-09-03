@@ -508,6 +508,21 @@ production still ships the plain unbundled JavaScript in `public/assets/js/`
 exactly as it is written. There is no `.ts` file in this repository and there
 should not be one.
 
+### SonarCloud findings deliberately not fixed
+
+SonarCloud's own analysis is a third checker, and it is kept at **zero open
+findings** — with two standing exceptions, marked *won't fix* in SonarCloud
+rather than worked around in code. Both are cases where the rule is right in
+general and wrong for this application.
+
+| Rule | Where | Why it stands |
+|---|---|---|
+| `javascript:S1874` (×7) | `document.execCommand` in `app.js` | Deprecated, and still the only formatting API for a `contentEditable` region that every browser implements. Four calls are the "Did you know?" rich-text editor; one is the clipboard fallback. Replacing them means hand-writing `Range`/`Selection` manipulation on an admin surface whose output is rendered as HTML to every visitor — real regression risk, against a deprecation that has no replacement and no removal date |
+| `Web:S7926` (×1) | `user-scalable=no` in `layout.php` | Disabling zoom is a genuine accessibility cost, taken deliberately. The game is a touch drag-and-drop kiosk running under Guided Access, where a mis-started drag would pinch-zoom the page mid-round and the player has no obvious way back |
+
+Neither is a finding to "clean up later": both were considered and declined. If
+you disagree, the argument to beat is in this table, not in the linter.
+
 ### The baselines
 
 Both commands pass today, and neither of them passes because the code is clean.
