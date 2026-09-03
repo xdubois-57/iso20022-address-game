@@ -104,6 +104,28 @@ describe('parseServerDate', () => {
         expect(parseServerDate('2026-03-05T10:00:00Z').toISOString()).toBe('2026-03-05T10:00:00.000Z');
         expect(Number.isNaN(parseServerDate('2027-02-31T25:99').getTime())).toBe(true);
     });
+
+    it('refuses a day that does not exist, even at a perfectly valid time', () => {
+        // The case above exits at the FIRST guard, on hour 25 — so the second
+        // one, which catches a date the Date constructor silently rolls over,
+        // had no test at all. SonarCloud found it: one new line, uncovered.
+        //
+        // It matters because rolling over is the default. `new Date(2027, 1,
+        // 31)` is 3 March and reports no error, so an impossible deadline
+        // would be stored, read back as a real date, and counted down to the
+        // wrong day rather than refused.
+        expect(Number.isNaN(parseServerDate('2027-02-31T10:00').getTime())).toBe(true);
+        expect(Number.isNaN(parseServerDate('2026-04-31 12:00:00').getTime())).toBe(true);
+        expect(Number.isNaN(parseServerDate('2026-13-01T10:00').getTime())).toBe(true);
+    });
+
+    it('accepts 29 February in a leap year and refuses it otherwise', () => {
+        // The rollover guard has to be exact rather than merely strict: 2028
+        // is a leap year and 2027 is not, and a guard that refused both would
+        // pass every test above while quietly losing one real day in four.
+        expect(Number.isNaN(parseServerDate('2028-02-29T10:00').getTime())).toBe(false);
+        expect(Number.isNaN(parseServerDate('2027-02-29T10:00').getTime())).toBe(true);
+    });
 });
 
 describe('countdownParts', () => {
