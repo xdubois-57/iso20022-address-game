@@ -144,14 +144,87 @@ jobs:
           path: evidence/
           retention-days: 7
 
+  # Coverage, computed exactly as the SonarCloud job in ci.yml computes it.
+  #
+  # The whole calculation is repeated rather than a cheaper half of it, and
+  # that is the point: PHP coverage has TWO producers, PHPUnit and the browser
+  # suite, and is only complete once merged. Attaching the unit half alone
+  # would put a number in this pack that disagrees with the number in the
+  # SonarCloud report in the same pack, which is worse for a reader than no
+  # number at all.
+  #
+  # It runs beside the other jobs rather than after them, so it costs the
+  # release little wall-clock time.
+  coverage-evidence:
+    name: Coverage evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd, zip, pdo_sqlite, mbstring
+          coverage: pcov
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: composer install --prefer-dist --no-progress --no-interaction
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: PHP unit coverage
+        run: composer run test:coverage
+
+      - name: PHP coverage from the browser suite
+        env:
+          E2E_COVERAGE: '1'
+        run: npm run e2e
+
+      - name: Merge PHP coverage into one Clover report
+        run: composer run coverage:merge
+
+      - name: JavaScript coverage (lcov)
+        run: npm run test:coverage
+
+      - name: Collect the reports, with the figure they add up to
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          cp coverage/php/clover.xml evidence/php-clover.xml
+          cp coverage/js/lcov.info evidence/js-lcov.info
+          php -r '$x = simplexml_load_file("coverage/php/clover.xml");
+            $m = $x->project->metrics;
+            printf("PHP: %.1f%% (%d of %d statements)\n",
+              100 * (int) $m["coveredstatements"] / max(1, (int) $m["statements"]),
+              (int) $m["coveredstatements"], (int) $m["statements"]);' \
+            > evidence/coverage-summary.txt
+          cat evidence/coverage-summary.txt
+
+      - name: Upload the coverage reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-coverage
+          path: evidence/
+          retention-days: 7
+
   # Nothing above this line has published anything. Everything below runs only
   # if every gate went green.
   release:
     name: Draft Release
     runs-on: ubuntu-latest
-    needs: [checks, codeql-evidence, sonar-evidence]
+    needs: [checks, codeql-evidence, sonar-evidence, coverage-evidence]
     permissions:
       contents: write
+      # Both are required by actions/attest-build-provenance: id-token to get
+      # the OIDC credential Sigstore signs against, attestations to record the
+      # result against the repository.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
 
@@ -168,6 +241,40 @@ jobs:
       # The guard is not ceremony. If a rename upstream ever makes the download
       # pattern match nothing, an empty zip would be attached to a Release and
       # would look exactly like evidence.
+      # WHAT this pack is evidence OF. Without it the archive is a set of
+      # reports with nothing tying them to a commit, a repository or a moment
+      # — the Release page says all three, but the zip somebody downloads and
+      # forwards does not, and that is the copy an auditor ends up holding.
+      #
+      # Every value comes from the runner's own context rather than from
+      # anything the repository can set, and the run URL is the point: it
+      # leads to a log GitHub keeps, timestamps, and nobody with write access
+      # here can edit. This file's job is to make that cross-check easy, not
+      # to replace it.
+      - name: Write the manifest
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence-raw
+          cat > evidence-raw/manifest.json <<JSON
+          {
+            "repository": "${{ github.repository }}",
+            "ref": "${{ github.ref }}",
+            "ref_type": "${{ github.ref_type }}",
+            "commit": "${{ github.sha }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${RUN_ATTEMPT}",
+            "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "triggered_by": "${{ github.event_name }}",
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner": "$(uname -srm)",
+            "note": "Cross-check this pack against run_url. That log is timestamped, retained by GitHub, and cannot be edited by anyone with write access to the repository - which this archive can."
+          }
+          JSON
+          cat evidence-raw/manifest.json
+
       - name: Pack it
         run: |
           set -euo pipefail
@@ -177,6 +284,14 @@ jobs:
           fi
           echo "Evidence pack contents:"
           find evidence-raw -type f | sort
+
+          # Checksums BEFORE zipping, so the list covers the files as they go
+          # in. It detects a pack edited after the fact; it does not prove who
+          # made it, which is what the attestation below is for.
+          ( cd evidence-raw && find . -type f ! -name SHA256SUMS -print0 \
+              | sort -z | xargs -0 sha256sum > SHA256SUMS )
+          echo "Checksums written for $(grep -c '' evidence-raw/SHA256SUMS) file(s)."
+
           ( cd evidence-raw && zip -qr ../evidence.zip . )
 
       # A last look before anything is published — with the sense reversed.
@@ -194,6 +309,23 @@ jobs:
             exit 1
           fi
           echo "Checked: the full DAST report is in the pack."
+
+      # The one thing in this pipeline that a reader does not have to take on
+      # trust. Everything else here — the reports, the manifest, the checksums
+      # — is produced by the repository and could be produced differently by
+      # anyone able to change this workflow. An attestation is signed by
+      # GitHub's own OIDC identity through Sigstore, recording which workflow,
+      # at which commit, in which repository, produced this exact file.
+      #
+      # Verified with:
+      #   gh attestation verify evidence.zip --repo ${{ github.repository }}
+      #
+      # That command fails if the archive was altered by so much as a byte, or
+      # if it was built anywhere other than this workflow in this repository.
+      - name: Attest where this pack came from
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: evidence.zip
 
       - name: Create the draft Release
         uses: softprops/action-gh-release@v3
@@ -217,7 +349,16 @@ jobs:
             every measure, every open issue and every security hotspot — are
             attached alongside.
 
-            `evidence.zip` contains only what each tool emits natively.
+            `evidence.zip` contains only what each tool emits natively, plus a
+            `manifest.json` naming the commit and the workflow run that
+            produced it, and a `SHA256SUMS` covering every file in it.
+
+            The archive is signed. To check that it came from this workflow
+            in this repository and has not been altered since:
+
+            ```
+            gh attestation verify evidence.zip --repo ${{ github.repository }}
+            ```
 
             The dynamic scan is included **in full** (`dast-passive.html`, with
             `dast-severity-summary.json` beside it). It describes a throwaway

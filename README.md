@@ -819,11 +819,50 @@ worse than no evidence.
 | PHP tests, 8.1 and 8.4 | PHPUnit `--log-junit` |
 | JavaScript tests | Vitest `--reporter=junit` |
 | End to end | Playwright's own HTML report, one screenshot per test |
-| PHP static analysis | PHPStan's output |
-| JavaScript static analysis | `tsc`, through `npm run typecheck` |
+| PHP static analysis | PHPStan's output, its version and level, **and the list of the 27 files it analysed** |
+| JavaScript static analysis | `tsc`'s output, its version, **and the list of files it checked** |
 | CodeQL | the workflow's SARIF |
 | SonarCloud | the complete analysis — quality gate, every measure, the same per file, every open issue and every security hotspot, plus a Markdown front page |
 | Dynamic scan | the full ZAP report, plus the counts per severity |
+| Coverage | the merged Clover report and the JavaScript lcov, computed exactly as the SonarCloud job computes them |
+| Provenance | `manifest.json` and `SHA256SUMS`, and the archive is signed |
+
+### Why the file lists are there
+
+A clean PHPStan run prints `[OK] No errors` and nothing else. Eighty-three
+bytes, which a configuration analysing **zero files** would produce just as
+happily — so as evidence it was worth nothing, and it was in the pack for
+several releases before anybody looked at it closely.
+
+The list of analysed files is what turns it into a checkable statement. It
+comes from `--debug`, which prints each file as it goes; the JSON report was
+tried first and lists only files *with* errors, so on a clean run it is an
+empty object — exactly as uninformative as the line it was meant to back up.
+
+### How an auditor checks this pack
+
+The reports are produced by the same pipeline they attest to, and anybody who
+can change that pipeline can change what it emits. Self-produced evidence is
+worth what it can be cross-checked against, so the pack is built to make that
+easy:
+
+1. **`manifest.json`** names the repository, the commit, the workflow run and
+   its URL. Nothing in it is set by the repository — every value comes from the
+   runner's context.
+2. **`SHA256SUMS`** covers every file in the archive. It detects a pack edited
+   after the fact.
+3. **The archive is signed** by GitHub's own identity through Sigstore, which
+   is the part nobody here can forge:
+
+   ```bash
+   gh attestation verify evidence.zip --repo xdubois-57/iso20022-address-game
+   ```
+
+   That fails if the archive was altered by a byte, or if it was built anywhere
+   other than this workflow in this repository.
+4. **The run URL** in the manifest leads to a log GitHub timestamps and retains
+   and that nobody with write access to this repository can edit. It is the
+   independent record; the pack's job is to point at it, not to replace it.
 
 ### One thing it deliberately does not contain
 
