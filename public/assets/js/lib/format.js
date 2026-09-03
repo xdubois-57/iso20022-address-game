@@ -61,7 +61,7 @@ export function parseServerDate(dateStr) {
     var minutes = Number(m[5]);
     var seconds = Number(m[6] || 0);
     if (hours > 23 || minutes > 59 || seconds > 59) {
-        return new Date(NaN);
+        return new Date(Number.NaN);
     }
 
     var d = new Date(Number(m[1]), month - 1, day, hours, minutes, seconds);
@@ -70,7 +70,7 @@ export function parseServerDate(dateStr) {
     // fields are compared back: a time inside a DST gap legitimately shifts
     // by an hour, and that must not turn a real row's date into nothing.
     if (d.getMonth() !== month - 1 || d.getDate() !== day) {
-        return new Date(NaN);
+        return new Date(Number.NaN);
     }
     return d;
 }
