@@ -106,7 +106,11 @@ jobs:
           path: codeql-sarif/
           retention-days: 7
 
-  # SonarCloud's quality gate, as their API returns it.
+  # SonarCloud's COMPLETE analysis, not just its verdict: the quality gate, every
+  # project measure, the same per file, every open issue and every security
+  # hotspot, plus a Markdown front page. The gate on its own says pass or fail
+  # and nothing about what was found — and a pack whose reader has to log in to
+  # SonarCloud to learn that is not evidence.
   sonar-evidence:
     name: SonarCloud evidence
     runs-on: ubuntu-latest
@@ -115,27 +119,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Recorded rather than skipped silently. Without the secret there is no
-      # quality gate to report, and the pack has to say so instead of quietly
-      # arriving one file short — a missing file reads as an oversight, and a
-      # file saying "not available, and why" reads as a fact.
-      - name: Fetch the quality gate
-        run: |
-          mkdir -p evidence
-          if [ -z "${SONAR_TOKEN}" ]; then
-            printf '%s\n' \
-              '{"status":"UNAVAILABLE","reason":"No SONAR_TOKEN secret was available to this run."}' \
-              > evidence/sonarcloud-quality-gate.json
-            echo "::warning::SONAR_TOKEN is not set; the quality gate could not be read."
-            exit 0
-          fi
-          curl --silent --show-error --fail-with-body \
-            --user "${SONAR_TOKEN}:" \
-            'https://sonarcloud.io/api/qualitygates/project_status?projectKey=xdubois-57_iso20022-address-game' \
-            --output evidence/sonarcloud-quality-gate.json
-          cat evidence/sonarcloud-quality-gate.json
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl
+          coverage: none
 
-      - name: Upload the quality gate
+      # The fetching, the pagination and the report all live in the script, so
+      # they can be read and run outside CI. Without the secret it writes an
+      # UNAVAILABLE marker and exits 0 rather than arriving one file short: a
+      # missing file reads as an oversight, a file saying "not available, and
+      # why" reads as a fact, and a pull request from a fork cannot see
+      # secrets.
+      - name: Fetch the whole SonarCloud analysis
+        run: |
+          php scripts/sonar-evidence.php evidence
+          cat evidence/sonarcloud-report.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload the SonarCloud report
         uses: actions/upload-artifact@v7
         with:
           name: evidence-sonarcloud

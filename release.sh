@@ -8,7 +8,28 @@
 #   ./release.sh minor    # minor bump  e.g. 1.2.3 → 1.3.0
 #   ./release.sh major    # major bump  e.g. 1.2.3 → 2.0.0
 #
-# Requirements: git, gh (GitHub CLI, authenticated), composer, zip
+# Requirements: git, gh (GitHub CLI, authenticated), composer, zip, php
+#
+# Release note (RELEASE_NOTES_FILE):
+#   Set RELEASE_NOTES_FILE to a Markdown file and its contents become the head
+#   of the published Release. Claude Code MUST always set it — a generated
+#   commit list tells a reader what was touched, never what it means for them.
+#   The note has to cover four things, in this order:
+#
+#     1. What changed, in the language of somebody using the game, not of the
+#        diff.
+#     2. Bugs fixed, each one said as the symptom that went away.
+#     3. Backward compatibility: what an existing installation has to do, or an
+#        explicit "nothing" — silence is not an answer, it is an oversight.
+#     4. The tests that ran, with their counts, and any gate that did not run.
+#
+#   The dependency inventory is appended automatically by
+#   scripts/dependency-inventory.php, so do not write one by hand.
+#
+#   Without the variable the script warns and keeps the notes the release
+#   workflow generated. That is fine for a human cutting a quick patch and is
+#   not fine for an agent, which has the context to write the note and no
+#   excuse for a Release nobody can read.
 #
 # Also builds a deploy-ready release-vX.Y.Z.zip artifact (vendor/ included,
 # --no-dev) — the zip to upload when deploying from a release rather than
@@ -132,7 +153,13 @@ echo "Tag $NEW_VERSION pushed."
 echo ""
 echo "Building release artifact..."
 composer install --no-dev --optimize-autoloader --no-interaction --quiet
-trap 'echo "Restoring dev dependencies (composer install)..."; composer install --no-interaction --quiet || echo "WARNING: failed to restore dev dependencies — run \`composer install\` manually." >&2' EXIT
+# One trap, extended rather than joined by a second: bash keeps only the last
+# handler registered for a signal, so `trap ... EXIT` further down would
+# silently replace this one and leave the checkout without its dev
+# dependencies. NOTES_FILE is declared empty here so the handler can refer to
+# it before the release note is composed.
+NOTES_FILE=""
+trap 'echo "Restoring dev dependencies (composer install)..."; composer install --no-interaction --quiet || echo "WARNING: failed to restore dev dependencies — run \`composer install\` manually." >&2; rm -f "${NOTES_FILE:-}"' EXIT
 
 ARTIFACT="release-${NEW_VERSION}.zip"
 rm -f "$ARTIFACT"
@@ -247,6 +274,42 @@ fi
 echo ""
 echo "Attaching $ARTIFACT to the draft..."
 gh release upload "$NEW_VERSION" "$ARTIFACT" --clobber
+
+# ── Compose the release note ────────────────────────────────────────────────
+# The workflow's own body describes the evidence pack and is worth keeping, so
+# the human note goes ABOVE it rather than replacing it. The dependency
+# inventory is generated: it is read from the lock files and from the CDN URLs
+# pinned in the views, so it says what actually shipped rather than what a
+# constraint allowed, and it cannot drift the way a hand-written list does.
+NOTES_FILE="$(mktemp)"
+
+if [[ -n "${RELEASE_NOTES_FILE:-}" ]]; then
+    if [[ ! -r "$RELEASE_NOTES_FILE" ]]; then
+        echo "ERROR: RELEASE_NOTES_FILE is set but '$RELEASE_NOTES_FILE' cannot be read." >&2
+        echo "Release $NEW_VERSION is still a draft; nothing was published." >&2
+        exit 1
+    fi
+    if [[ ! -s "$RELEASE_NOTES_FILE" ]]; then
+        echo "ERROR: '$RELEASE_NOTES_FILE' is empty. See the contract in this script's header." >&2
+        echo "Release $NEW_VERSION is still a draft; nothing was published." >&2
+        exit 1
+    fi
+
+    echo ""
+    echo "Composing the release note..."
+    cat "$RELEASE_NOTES_FILE" > "$NOTES_FILE"
+    printf '\n\n' >> "$NOTES_FILE"
+    php "$SCRIPT_DIR/scripts/dependency-inventory.php" >> "$NOTES_FILE"
+    printf '\n---\n\n' >> "$NOTES_FILE"
+    gh release view "$NEW_VERSION" --json body -q .body >> "$NOTES_FILE"
+
+    gh release edit "$NEW_VERSION" --notes-file "$NOTES_FILE"
+else
+    echo ""
+    echo "WARNING: RELEASE_NOTES_FILE is not set. The Release keeps the notes the" >&2
+    echo "workflow generated — a commit list, which says what was touched and not" >&2
+    echo "what it means. See this script's header." >&2
+fi
 
 # Publishing here rather than leaving the draft for a human is deliberate, and
 # it is not a loosening: the draft exists so that nothing is published before
