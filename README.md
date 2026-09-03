@@ -165,7 +165,10 @@ which is why the wall and the play station use a URL instead. See
 
 The countdown targets **28 November 2027 at 00:00** unless an administrator
 saves a date of their own under Admin → *Unstructured Address Deadline*. A
-saved date always wins.
+saved date always wins. Only a date that actually exists is accepted: a value
+such as `2027-02-31T25:99` is refused rather than rolled over to 4 March, and
+a browser that is handed an unreadable stored value hides the banner instead
+of counting down in `NaN`.
 
 Nothing writes that default into the database at install time, so it is the
 constant `GameController::DEFAULT_DEADLINE` that is in force until somebody
@@ -374,6 +377,12 @@ share buttons.
 | StrtNm | BldgNb | PstCd | TwnNm | Ctry | AdtlAdrInf |
 |--------|--------|-------|--------|------|------------|
 | Main St | 123 | 10001 | New York | US | Floor 10 |
+
+`TwnNm` and a two-letter `Ctry` are mandatory on every row; a row that has
+some data but no town is reported by row number and the whole upload is
+refused. Rows with nothing in any of the six columns — a formatted-but-empty
+row under the data, a stray space — are skipped as padding rather than
+reported, and any extra column is ignored.
 
 ## Scoring is client-authoritative
 

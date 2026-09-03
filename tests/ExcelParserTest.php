@@ -116,6 +116,71 @@ class ExcelParserTest extends TestCase
         $this->assertTrue($hasCtryError);
     }
 
+    /**
+     * Rows Excel keeps in the sheet's used range without any data in them —
+     * a formatted-but-empty row under the data, a stray space — are padding,
+     * not scenarios with a missing town. They used to be reported as errors,
+     * which rejected the whole upload over rows the author could not see.
+     */
+    public function testBlankRowsAreSkippedRatherThanReported(): void
+    {
+        $filePath = $this->createTestExcel([
+            ['Main St', '123', '10001', 'New York', 'US', ''],
+            [null, null, null, null, null, null],
+            [' ', '', '', '', '', ''],
+            ['Baker St', '221B', 'NW1 6XE', 'London', 'GB', 'Floor 2'],
+        ]);
+
+        $result = (new ExcelParser())->parse($filePath);
+
+        $this->assertSame([], $result['errors']);
+        $this->assertCount(2, $result['scenarios']);
+        $this->assertSame('London', $result['scenarios'][1]['json_data']['TwnNm']);
+    }
+
+    /**
+     * A row that has SOME data but no town is still an error — skipping
+     * blanks must not turn into skipping incomplete rows.
+     */
+    public function testPartialRowWithoutTownIsStillAnError(): void
+    {
+        $filePath = $this->createTestExcel([
+            ['Main St', '123', '10001', '', 'US', ''],
+        ]);
+
+        $result = (new ExcelParser())->parse($filePath);
+
+        $this->assertCount(1, $result['errors']);
+        $this->assertStringContainsString('Row 2', $result['errors'][0]);
+    }
+
+    /**
+     * A spare, headerless column — a note someone typed to the right of the
+     * data — must not raise a deprecation per upload: an empty header cell
+     * comes back as null, and trim(null) has warned since PHP 8.1.
+     */
+    public function testEmptyHeaderCellIsHarmless(): void
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray(['StrtNm', 'BldgNb', 'PstCd', 'TwnNm', 'Ctry', 'AdtlAdrInf', null, 'Notes'], null, 'A1');
+        $sheet->fromArray(['Main St', '123', '10001', 'New York', 'US', '', null, 'a note'], null, 'A2');
+        $filePath = $this->tmpDir . '/spare-column.xlsx';
+        (new Xlsx($spreadsheet))->save($filePath);
+
+        $previous = set_error_handler(static function (int $errno, string $errstr): bool {
+            throw new \ErrorException($errstr, 0, $errno);
+        });
+        try {
+            $result = (new ExcelParser())->parse($filePath);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $result['errors']);
+        $this->assertCount(1, $result['scenarios']);
+    }
+
     public function testParseNonExistentFileReportsError(): void
     {
         $parser = new ExcelParser();

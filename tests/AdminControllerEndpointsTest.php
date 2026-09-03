@@ -196,6 +196,31 @@ class AdminControllerEndpointsTest extends TestCase
         $this->assertSame(400, $status);
     }
 
+    /**
+     * Saving a fact whose text has not changed is a success, not a failure.
+     * The answer used to be read off rowCount(), which on MySQL counts
+     * AFFECTED rows — zero for an UPDATE that changed nothing — so the panel
+     * reported "Error updating fact" for an edit that had, in every sense
+     * that matters, gone through. (SQLite counts matched rows, so this test
+     * pins the contract rather than the MySQL symptom.)
+     */
+    public function testUpdatingAFactWithItsCurrentTextSucceeds(): void
+    {
+        $this->asAdmin();
+        [$added] = $this->call('addFact', ['content' => 'Unchanged fact text']);
+        $id = $added['id'];
+
+        [$updated] = $this->call('updateFact', ['id' => $id, 'content' => 'Unchanged fact text']);
+        $this->assertTrue($updated['success']);
+    }
+
+    public function testUpdatingAnUnknownFactReportsFailure(): void
+    {
+        $this->asAdmin();
+        [$updated] = $this->call('updateFact', ['id' => 999999, 'content' => 'Nobody is home']);
+        $this->assertFalse($updated['success']);
+    }
+
     public function testDeletingAFactRequiresAValidId(): void
     {
         $this->asAdmin();

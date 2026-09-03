@@ -24,6 +24,7 @@ use App\Controllers\GameController;
 use App\Controllers\LeaderboardController;
 use App\Controllers\SetupController;
 use App\Controllers\ShareController;
+use App\Models\ScenarioModel;
 use App\Models\SettingsModel;
 use App\Support\Input;
 use PHPUnit\Framework\TestCase;
@@ -284,6 +285,118 @@ class MalformedJsonInputTest extends TestCase
         [$json, $status] = $this->invoke($this->admin(['new_pin' => ['1', '2']]), 'changePin');
 
         $this->assertSame(400, $status, 'an array PIN used to fatal in preg_match()');
+    }
+
+    /**
+     * A deadline that is well-formed but impossible. createFromFormat()
+     * accepts it and rolls it over with only a warning, so it used to be
+     * stored verbatim — and the browser's Date() of it is Invalid Date,
+     * which turned the countdown into NaN on every screen.
+     *
+     * @dataProvider impossibleDeadlineProvider
+     */
+    public function testImpossibleDeadlineIsRejected(string $deadline): void
+    {
+        $_SESSION['admin'] = true;
+        $this->settings->set('unstructured_deadline', '2026-11-14T18:00');
+
+        [$json, $status] = $this->invoke($this->admin(['deadline' => $deadline]), 'setDeadline');
+
+        $this->assertSame(400, $status, "'$deadline' is not a date that exists");
+        $this->assertSame('2026-11-14T18:00', $this->settings->get('unstructured_deadline'));
+    }
+
+    public static function impossibleDeadlineProvider(): array
+    {
+        return [
+            '31 February'        => ['2027-02-31T00:00'],
+            '25th hour'          => ['2027-11-28T25:00'],
+            '99th minute'        => ['2027-11-28T10:99'],
+            'month 13'           => ['2027-13-01T00:00'],
+            'unpadded fields'    => ['2027-1-5T9:05'],
+        ];
+    }
+
+    public function testRealDeadlineStillSaves(): void
+    {
+        $_SESSION['admin'] = true;
+
+        [$json, $status] = $this->invoke($this->admin(['deadline' => '2028-02-29T09:30']), 'setDeadline');
+
+        $this->assertSame(200, $status, 'a leap day is a real date');
+        $this->assertSame('2028-02-29T09:30', $this->settings->get('unstructured_deadline'));
+    }
+
+    // -----------------------------------------------------------------
+    // Shapes that used to reach an array-typed parameter and fatal
+    // -----------------------------------------------------------------
+
+    /**
+     * @dataProvider nonListExcludeIdsProvider
+     */
+    public function testScenarioRequestWithNonListExcludeIdsIsNotFatal(mixed $excludeIds): void
+    {
+        (new ScenarioModel($this->memoryPdo()))->create([
+            'StrtNm' => 'Main St', 'BldgNb' => '1', 'PstCd' => '10001',
+            'TwnNm' => 'New York', 'Ctry' => 'US', 'AdtlAdrInf' => '',
+        ]);
+
+        [$json, $status] = $this->invoke($this->game(['exclude_ids' => $excludeIds]), 'getScenario');
+
+        $this->assertSame(200, $status, 'a non-list used to fatal in getRandom()');
+        $this->assertArrayHasKey('scenario', $json, 'and a non-list simply excludes nothing');
+    }
+
+    public static function nonListExcludeIdsProvider(): array
+    {
+        return [
+            'string' => ['abc'],
+            'int'    => [5],
+            'bool'   => [true],
+        ];
+    }
+
+    public function testThemeWithAnArrayColourIsSkippedNotFatal(): void
+    {
+        $_SESSION['admin'] = true;
+
+        [$json, $status] = $this->invoke(
+            $this->admin(['theme' => ['color_primary' => ['#ffffff'], 'color_bg' => '#123456']]),
+            'saveTheme'
+        );
+
+        $this->assertSame(200, $status, 'an array colour used to fatal in isValidHex()');
+        $theme = (new \App\Models\ThemeModel($this->memoryPdo()))->get();
+        $this->assertSame('#123456', $theme['color_bg'], 'the valid colour in the same request is kept');
+        $this->assertSame(
+            \App\Models\ThemeModel::defaults()['color_primary'],
+            $theme['color_primary'],
+            'the malformed one is ignored'
+        );
+    }
+
+    /**
+     * ?d[]=x on /share, /share/go or /share/image hands the controller an
+     * array, which used to reach the string-typed decryptToken() and fatal
+     * on three public routes.
+     *
+     * @dataProvider nonStringShareTokenProvider
+     */
+    public function testShareTokenThatIsNotAStringIsNotAToken(mixed $token): void
+    {
+        $decrypt = new \ReflectionMethod(ShareController::class, 'decryptToken');
+
+        $this->assertNull($decrypt->invoke(new ShareController(), $token));
+    }
+
+    public static function nonStringShareTokenProvider(): array
+    {
+        return [
+            'array'  => [['x']],
+            'int'    => [42],
+            'null'   => [null],
+            'empty'  => [''],
+        ];
     }
 
     // -----------------------------------------------------------------

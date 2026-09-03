@@ -448,9 +448,15 @@ class AdminController
             return;
         }
 
-        // Validate ISO 8601 date/time
+        // Validate ISO 8601 date/time. createFromFormat() alone is not enough:
+        // it accepts '2027-02-31T25:99' and rolls it over to 4 March with only
+        // a warning nobody reads, so the impossible date was stored verbatim —
+        // and the browser's `new Date()` of it is Invalid Date, which turned
+        // the countdown into NaN on every screen. Round-tripping through the
+        // same format is the check: a real date prints back as itself, an
+        // overflowed one does not.
         $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $deadline);
-        if (!$dt) {
+        if (!$dt || $dt->format('Y-m-d\TH:i') !== $deadline) {
             $this->jsonResponse(['error' => 'Invalid date/time format. Use YYYY-MM-DDTHH:MM.'], 400);
             return;
         }
@@ -782,9 +788,18 @@ class AdminController
         }
         $db = Database::getInstance();
         $pdo = $db->getPdo();
-        $stmt = $pdo->prepare('UPDATE facts SET content = ? WHERE id = ?');
-        $stmt->execute([$content, $id]);
-        $this->jsonResponse(['success' => $stmt->rowCount() > 0]);
+        // Existence is checked separately rather than read off rowCount():
+        // MySQL reports AFFECTED rows for an UPDATE, so saving a fact whose
+        // text had not changed came back as 0 and the panel reported the edit
+        // as failed. (SQLite counts MATCHED rows, which is why no test saw it.)
+        $exists = $pdo->prepare('SELECT 1 FROM facts WHERE id = ?');
+        $exists->execute([$id]);
+        if (!$exists->fetchColumn()) {
+            $this->jsonResponse(['success' => false]);
+            return;
+        }
+        $pdo->prepare('UPDATE facts SET content = ? WHERE id = ?')->execute([$content, $id]);
+        $this->jsonResponse(['success' => true]);
     }
 
     /**

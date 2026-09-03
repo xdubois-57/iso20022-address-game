@@ -231,13 +231,8 @@ if (!function_exists('getVersionInfo')) {
     <!-- Kept on one line, like the og/twitter descriptions below: wrapping a
          content="..." attribute puts the literal newline and its indentation
          inside the value a crawler reads and a search result displays. -->
-    <meta name="description"
-          content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of
-                   international address formatting standards. Perfect for developers, bankers,
-                   and financial professionals.">
-    <meta name="keywords"
-          content="ISO 20022, address formatting, banking standards, financial messaging,
-                   SWIFT, game, quiz, learning, education">
+    <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
+    <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
     <meta name="author" content="ISO 20022 Address Game">
     <!-- OpenGraph Meta Tags for Social Media Sharing.
          Titles stay short: LinkedIn truncates around 70 characters and the
@@ -246,9 +241,7 @@ if (!function_exists('getVersionInfo')) {
     <meta property="og:title" content="ISO 20022 Address Challenge">
     <!-- Kept on one line: wrapping a content="..." attribute puts the literal
          newline and indentation inside the value the crawler reads. -->
-    <meta property="og:description"
-          content="Master international address formatting standards. Supported by the
-                   Payments Market Practice Group. Test your skills and challenge your friends!">
+    <meta property="og:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group. Test your skills and challenge your friends!">
     <meta property="og:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -259,9 +252,7 @@ if (!function_exists('getVersionInfo')) {
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ISO 20022 Address Challenge">
-    <meta name="twitter:description"
-          content="Master international address formatting standards.
-                   Supported by the Payments Market Practice Group.">
+    <meta name="twitter:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group.">
     <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <?php

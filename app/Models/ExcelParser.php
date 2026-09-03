@@ -77,7 +77,10 @@ class ExcelParser
 
         // First row is header
         $headerRow = array_shift($rows);
-        $headers = array_map('trim', array_values($headerRow));
+        // Cast before trimming: an empty header cell comes back as null, and
+        // trim(null) has been a deprecation notice since PHP 8.1 — one per
+        // spare column, on every upload that has one.
+        $headers = array_map(static fn ($name) => trim((string) $name), array_values($headerRow));
 
         // Validate required columns exist
         foreach (self::SCENARIO_COLUMNS as $col) {
@@ -93,7 +96,7 @@ class ExcelParser
         // Map column letters to field names
         $colMap = [];
         foreach ($headerRow as $letter => $name) {
-            $colMap[trim($name)] = $letter;
+            $colMap[trim((string) $name)] = $letter;
         }
 
         $rowNum = 2;
@@ -101,6 +104,16 @@ class ExcelParser
             $scenario = [];
             foreach (self::SCENARIO_COLUMNS as $col) {
                 $scenario[$col] = trim((string) ($row[$colMap[$col]] ?? ''));
+            }
+
+            // A row with nothing in any scenario column is not a scenario
+            // with a missing town, it is padding — a formatted-but-empty row
+            // under the data, or a stray space, both of which Excel keeps in
+            // the sheet's used range. Reporting it as an error rejected the
+            // whole upload over rows the author could not even see.
+            if (implode('', $scenario) === '') {
+                $rowNum++;
+                continue;
             }
 
             // Validate mandatory fields

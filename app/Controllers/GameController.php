@@ -43,7 +43,14 @@ class GameController
     public function getScenario(): void
     {
         $input = $this->getJsonInput();
+        // The client sends a list, but the body's shape belongs to the caller:
+        // a string or a number here reached getRandom()'s array-typed
+        // parameter and fataled — a 500 any visitor could trigger. Anything
+        // that is not a list simply excludes nothing.
         $excludeIds = $input['exclude_ids'] ?? [];
+        if (!is_array($excludeIds)) {
+            $excludeIds = [];
+        }
 
         $scenario = $this->scenarioModel->getRandom($excludeIds);
         if (!$scenario) {
