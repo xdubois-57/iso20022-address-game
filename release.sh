@@ -10,10 +10,21 @@
 #
 # Requirements: git, gh (GitHub CLI, authenticated), composer, zip
 #
-# Also builds and publishes a deploy-ready release-vX.Y.Z.zip artifact
-# (vendor/ included, --no-dev) attached to the GitHub release — the zip to
-# upload when deploying from a release rather than from a checkout. See the
-# artifact-building block below for what is excluded and why.
+# Also builds a deploy-ready release-vX.Y.Z.zip artifact (vendor/ included,
+# --no-dev) — the zip to upload when deploying from a release rather than
+# from a checkout. See the artifact-building block below for what is excluded
+# and why.
+#
+# This script does NOT create the GitHub Release. Pushing the tag starts
+# .github/workflows/release.yml, which runs every gate in checks.yml and then
+# creates the Release as a DRAFT carrying the evidence pack. Creating one here
+# as well would collide: both target the same tag, the workflow lands last, and
+# it would quietly turn a published Release back into a draft.
+#
+# So the script waits for that workflow, attaches the deployable zip to the
+# draft it produced, and publishes it. Nothing reaches the Releases page unless
+# every gate went green — that condition is enforced by the workflow, which
+# creates no draft at all when one fails.
 
 set -euo pipefail
 
@@ -70,19 +81,12 @@ echo "  Bump type       : $BUMP"
 echo "  New version     : $NEW_VERSION"
 echo ""
 
-# Collect commits since last tag for release notes
-if [[ "$LATEST_TAG" == "v0.0.0" ]] && ! git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
-    NOTES=$(git log --pretty=format:"- %s" --no-merges | head -30)
-else
-    NOTES=$(git log "${LATEST_TAG}..HEAD" --pretty=format:"- %s" --no-merges)
-fi
-
-if [[ -z "$NOTES" ]]; then
-    NOTES="- Maintenance release"
-fi
+# The release body is written by release.yml — `generate_release_notes` for the
+# commit list, plus its own description of the evidence pack. Composing notes
+# here too would only give the workflow something to overwrite.
 
 # Confirm
-read -rp "Create tag $NEW_VERSION and publish GitHub release? [y/N] " CONFIRM
+read -rp "Create tag $NEW_VERSION, run every gate and publish the release? [y/N] " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
     echo "Aborted."
     exit 0
@@ -150,15 +154,15 @@ zip -rq "$ARTIFACT" . \
 
 echo "Artifact built: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 
-# Assert the exclusions actually held. This runs before `gh release create`,
-# so a surprise here costs a re-run rather than a published bad artifact —
-# the whole point is that nobody has to remember to check by hand.
+# Assert the exclusions actually held. This runs before anything is attached
+# to a Release, so a surprise here costs a re-run rather than a published bad
+# artifact — the whole point is that nobody has to remember to check by hand.
 STRAYS=$(unzip -Z1 "$ARTIFACT" | grep -cE ' [0-9]+(/|\.|$)' || true)
 if [[ "$STRAYS" -gt 0 ]]; then
     echo "ERROR: $STRAYS macOS conflict copies survived into $ARTIFACT:" >&2
     unzip -Z1 "$ARTIFACT" | grep -E ' [0-9]+(/|\.|$)' | head -10 >&2
     echo "Release NOT published. Tag $NEW_VERSION is already pushed; delete the" >&2
-    echo "strays (or move the repo off iCloud Drive) and re-run gh release create." >&2
+    echo "strays (or move the repo off iCloud Drive) and re-run this script." >&2
     exit 1
 fi
 
@@ -173,17 +177,77 @@ if [[ "$AUTOLOAD" -eq 0 ]]; then
     exit 1
 fi
 
-# Create GitHub release with the artifact attached, so the zip published
-# alongside the tag is the one carrying vendor/ rather than GitHub's
-# source-only zipball.
-gh release create "$NEW_VERSION" \
-    --title "$NEW_VERSION" \
-    --notes "$NOTES" \
-    --latest \
-    "$ARTIFACT"
+# ── Wait for the gates ──────────────────────────────────────────────────────
+# Pushing the tag started .github/workflows/release.yml. It runs every gate in
+# checks.yml and, only if all of them are green, creates the Release as a draft
+# carrying the evidence pack. Waiting here is what makes the whole chain one
+# command: the alternative is a human remembering to come back ten minutes
+# later to finish a release by hand, which is how a version ships with a red
+# gate nobody looked at.
+#
+# The run is found by tag rather than by commit: a tag push sets head_branch to
+# the tag name, and the release commit may also have a CI run against main.
+echo ""
+echo "Waiting for the Release workflow (every gate, then the evidence pack)..."
+
+RUN_ID=""
+for _ in $(seq 1 30); do
+    RUN_ID=$(gh run list --workflow=release.yml --branch "$NEW_VERSION" \
+        --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+    [[ -n "$RUN_ID" && "$RUN_ID" != "null" ]] && break
+    sleep 10
+done
+
+if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+    echo "ERROR: no Release workflow run appeared for $NEW_VERSION after 5 minutes." >&2
+    echo "The tag is pushed and nothing is published. Check Actions, then re-run" >&2
+    echo "the workflow for the tag rather than cutting another version." >&2
+    exit 1
+fi
+
+# Watched for the live job list, but NOT trusted for the verdict: `gh run watch`
+# refuses a run that has already completed, and a fast failure can finish before
+# the poll above even finds it. The conclusion is read separately afterwards, so
+# the decision is the same whether the run was watched or was already over.
+if [[ "$(gh run view "$RUN_ID" --json status -q .status)" != "completed" ]]; then
+    gh run watch "$RUN_ID" --interval 15 || true
+fi
+
+CONCLUSION=$(gh run view "$RUN_ID" --json conclusion -q .conclusion)
+if [[ "$CONCLUSION" != "success" ]]; then
+    echo "" >&2
+    echo "ERROR: the Release workflow concluded '$CONCLUSION' — a gate is red." >&2
+    echo "Nothing was published: the workflow creates no draft when a gate is red." >&2
+    echo "Tag $NEW_VERSION exists and points at nothing. Fix the cause, then:" >&2
+    echo "  git push --delete origin $NEW_VERSION && git tag -d $NEW_VERSION" >&2
+    echo "and run this script again." >&2
+    exit 1
+fi
+
+# ── Attach the deployable zip and publish ───────────────────────────────────
+# The workflow's draft carries evidence.zip only. The artifact built above is
+# the other half — the copy of the site somebody actually uploads — and the two
+# belong on the same Release.
+#
+# --clobber so a re-run replaces the asset instead of failing on a name that is
+# already there.
+echo ""
+echo "Attaching $ARTIFACT to the draft..."
+gh release upload "$NEW_VERSION" "$ARTIFACT" --clobber
+
+# Publishing here rather than leaving the draft for a human is deliberate, and
+# it is not a loosening: the draft exists so that nothing is published before
+# the gates have spoken, and by this line they have — a red run exited above,
+# and a run that never produced a draft would have failed the upload. What is
+# given up is a pair of eyes on the evidence BEFORE the Release is public; the
+# pack stays attached to the published Release, so it is still read, just not
+# as a blocking step. Cutting a version is the deliberate act; finishing it by
+# hand ten minutes later is only an opportunity to forget.
+gh release edit "$NEW_VERSION" --draft=false --latest
 
 rm -f "$ARTIFACT"
 
 echo ""
-echo "GitHub release $NEW_VERSION published."
+echo "GitHub release $NEW_VERSION published, with the evidence pack and the"
+echo "deployable zip attached."
 echo "  https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases/tag/$NEW_VERSION"

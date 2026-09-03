@@ -706,9 +706,24 @@ share is the gates, which live in the reusable `checks.yml` both of them call.
 ### Ordering
 
 All gates first. The Release is created **only if every one of them is green**,
-and it is created as a **draft**, so the evidence can be read before it becomes
-public. If a gate fails no Release is created at all — the tag exists and points
-at nothing published, which is fixed by deleting the tag and pushing it again.
+and the workflow creates it as a **draft**. If a gate fails no Release is
+created at all — the tag exists and points at nothing published, which is fixed
+by deleting the tag and pushing it again.
+
+`release.sh` is what turns that draft into a published Release, and it is the
+only thing that should: it tags, waits for this workflow, attaches the
+deployable zip to the draft, and publishes it. So a release is one command, and
+a version cannot ship past a red gate — the script reads the run's conclusion
+and stops on anything but success.
+
+The script deliberately does **not** create a Release of its own. Both would
+target the same tag, the workflow lands last, and it would quietly turn a
+published Release back into a draft.
+
+What that trades away is a human reading the evidence *before* the Release goes
+public. The pack stays attached to the published Release, so it is still read —
+just not as a blocking step. To keep the blocking read instead, push the tag by
+hand and finish with `gh release upload` and `gh release edit --draft=false`.
 
 ### What is in the pack
 
@@ -777,7 +792,8 @@ clone. Write your own, or deploy however suits your host.
 Each published release also carries a ready-to-upload zip built by
 `release.sh`, which already includes `vendor/`; GitHub's own auto-generated
 source zipball does not, so prefer the attached artifact if you deploy from
-a release.
+a release. It sits alongside `evidence.zip`, which the release workflow
+attaches — see [Releases and the evidence pack](#releases-and-the-evidence-pack).
 
 The application never updates itself: nothing in it downloads, installs or
 schedules code. An earlier version could install updates from a signed

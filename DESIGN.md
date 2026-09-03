@@ -501,7 +501,8 @@ text, and the PMPG lockup does not replace it.
 ├── vitest.config.js
 ├── sonar-project.properties # SonarCloud analysis + coverage scope
 ├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
-├── release.sh          # Tags a release, builds+publishes the deployable artifact, writes config/version.php
+├── release.sh          # Tags, writes config/version.php, waits for release.yml's gates,
+│                       # then attaches the deployable artifact to its draft and publishes it
 ├── README.md
 ├── DESIGN.md
 └── LICENSE
