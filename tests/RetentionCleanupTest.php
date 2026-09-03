@@ -40,14 +40,32 @@ class RetentionCleanupTest extends TestCase
 
     private \PDO $pdo;
 
+    /** Scratch directory for the poor man's cron stamp. */
+    private string $scratch;
+
     protected function setUp(): void
     {
         $this->pdo = $this->bootInMemoryDatabase();
+        $this->scratch = sys_get_temp_dir() . '/retention-' . bin2hex(random_bytes(8));
+        mkdir($this->scratch, 0755, true);
     }
 
     protected function tearDown(): void
     {
         $this->shutdownInMemoryDatabase();
+
+        if (is_dir($this->scratch)) {
+            foreach (glob($this->scratch . '/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir($this->scratch);
+        }
+    }
+
+    /** Path to a stamp inside this test's scratch directory. */
+    private function stampPath(string $name = 'last_cleanup.txt'): string
+    {
+        return $this->scratch . '/' . $name;
     }
 
     private function leaderboard(): LeaderboardModel
@@ -124,5 +142,134 @@ class RetentionCleanupTest extends TestCase
 
         $this->assertSame(1, $keyless->purgeExpired(365));
         $this->assertSame(0, $keyless->getTotalCount());
+    }
+
+    /*
+     * The poor man's cron gate.
+     *
+     * Everything above tests what the cleanup DELETES. These test whether it
+     * ever RUNS, which on an install with no real cron job is the same
+     * question as whether the 365-day retention in the privacy notice is true.
+     */
+
+    public function testFirstEverRequestIsDueAndCreatesTheStamp(): void
+    {
+        $stamp = $this->stampPath();
+        $this->assertFileDoesNotExist($stamp);
+
+        $this->assertTrue(RetentionCleanup::claimDueSlot($stamp, 1_000_000));
+        $this->assertSame('1000000', file_get_contents($stamp));
+    }
+
+    public function testMissingDirectoryIsCreated(): void
+    {
+        // storage/ does not exist on a fresh checkout.
+        $stamp = $this->scratch . '/nested/deeper/last_cleanup.txt';
+
+        $this->assertTrue(RetentionCleanup::claimDueSlot($stamp, 1_000_000));
+        $this->assertFileExists($stamp);
+
+        foreach ([$stamp, dirname($stamp), dirname($stamp, 2)] as $path) {
+            is_dir($path) ? @rmdir($path) : @unlink($path);
+        }
+    }
+
+    public function testASecondRequestInTheSameDayIsNotDue(): void
+    {
+        $stamp = $this->stampPath();
+
+        $this->assertTrue(RetentionCleanup::claimDueSlot($stamp, 1_000_000));
+        $this->assertFalse(
+            RetentionCleanup::claimDueSlot($stamp, 1_000_060),
+            'the slot is claimed by the first caller, so traffic does not re-run the sweep'
+        );
+    }
+
+    /**
+     * The boundary, spelled out in both directions. An off-by-one here is
+     * invisible: the sweep simply drifts, or stops.
+     */
+    public function testDueExactlyOnceTheIntervalHasElapsed(): void
+    {
+        $start = 1_000_000;
+
+        $atTheLimit = $this->stampPath('limit.txt');
+        file_put_contents($atTheLimit, (string)$start);
+        $this->assertFalse(
+            RetentionCleanup::claimDueSlot($atTheLimit, $start + RetentionCleanup::INTERVAL_SECONDS),
+            'a full interval has not yet ELAPSED at the instant it is reached'
+        );
+
+        $pastTheLimit = $this->stampPath('past.txt');
+        file_put_contents($pastTheLimit, (string)$start);
+        $this->assertTrue(
+            RetentionCleanup::claimDueSlot($pastTheLimit, $start + RetentionCleanup::INTERVAL_SECONDS + 1)
+        );
+    }
+
+    public function testTheClaimIsWrittenBeforeTheCallerSweeps(): void
+    {
+        // Two requests arriving together: only one may start a sweep. The
+        // stamp is written by claimDueSlot() itself, so the second caller is
+        // turned away without the first having finished — or even started.
+        $stamp = $this->stampPath();
+
+        $first = RetentionCleanup::claimDueSlot($stamp, 2_000_000);
+        $second = RetentionCleanup::claimDueSlot($stamp, 2_000_000);
+
+        $this->assertTrue($first);
+        $this->assertFalse($second);
+    }
+
+    /**
+     * @dataProvider unusableStamps
+     */
+    public function testAnUnreadableStampReadsAsNeverRan(string $contents): void
+    {
+        $stamp = $this->stampPath();
+        file_put_contents($stamp, $contents);
+
+        $this->assertTrue(
+            RetentionCleanup::claimDueSlot($stamp, 1_000_000),
+            'a stamp that cannot be believed must not be allowed to suppress the sweep forever'
+        );
+        $this->assertSame('1000000', file_get_contents($stamp), 'and it is repaired on the way through');
+    }
+
+    /** @return array<string, array{string}> */
+    public static function unusableStamps(): array
+    {
+        return [
+            'empty' => [''],
+            'not a number' => ['corrupted'],
+            'whitespace' => ["   \n"],
+            'a date rather than a timestamp' => ['2026-09-03 03:00:00'],
+        ];
+    }
+
+    /**
+     * A stamp that cannot be WRITTEN is the one case with no good answer, so
+     * the choice is pinned here rather than left to chance: the sweep still
+     * runs. It then runs on every request, which is wasteful and shows up in
+     * the logs — the opposite failure, a silently skipped retention, does not.
+     *
+     * The unwritable path is a directory that is really a FILE, rather than a
+     * chmod: a permission bit means nothing when the tests run as root, which
+     * is exactly what happens in a container, and a test that quietly skips
+     * itself on the machine you read the output on is not a test.
+     */
+    public function testAnUnwritableStampStillLetsTheSweepRun(): void
+    {
+        $blocker = $this->stampPath('not-a-directory');
+        file_put_contents($blocker, 'this is a file, so nothing can live under it');
+
+        $impossible = $blocker . '/last_cleanup.txt';
+
+        $this->assertTrue(RetentionCleanup::claimDueSlot($impossible, 1_000_000));
+        $this->assertTrue(
+            RetentionCleanup::claimDueSlot($impossible, 1_000_060),
+            'with nowhere to record the claim, every request is due — noisy, but never silent'
+        );
+        $this->assertFileDoesNotExist($impossible);
     }
 }

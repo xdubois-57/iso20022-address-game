@@ -57,6 +57,49 @@ final class RetentionCleanup
     }
 
     /**
+     * Decide whether the poor man's cron is due, and claim the slot if it is.
+     *
+     * Lifted out of public/index.php so it can be tested at all. The gate is
+     * the whole reliability of the fallback: get it wrong in one direction and
+     * the retention promised by the privacy notice silently stops happening;
+     * get it wrong in the other and every visitor pays for a full sweep.
+     * Neither failure is visible from the outside, which is why this now has
+     * tests rather than only a comment.
+     *
+     * CLAIMS RATHER THAN ASKS. The stamp is written BEFORE the caller runs the
+     * cleanup, not after, so two requests arriving together do not both start
+     * a sweep. It is a cheap lock, not a correct one — two processes can still
+     * interleave between the read and the write — but the cost of losing that
+     * race is a duplicated DELETE, which is idempotent here.
+     *
+     * A stamp that cannot be read (absent, unreadable, or garbage) reads as
+     * "never ran" and the run goes ahead: on the two occasions this matters —
+     * a fresh install and a corrupted file — deleting expired data one time
+     * too many beats never deleting it.
+     *
+     * @param string   $stampPath where the last-run timestamp lives
+     * @param int|null $now       current unix time; injected by the tests
+     */
+    public static function claimDueSlot(string $stampPath, ?int $now = null): bool
+    {
+        $now ??= time();
+
+        $directory = dirname($stampPath);
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0755, true);
+        }
+
+        $stamp = @file_get_contents($stampPath);
+        if ($stamp !== false && ($now - (int)$stamp) <= self::INTERVAL_SECONDS) {
+            return false;
+        }
+
+        @file_put_contents($stampPath, (string)$now);
+
+        return true;
+    }
+
+    /**
      * Delete everything that is past its retention period.
      *
      * @return array{leaderboard: int, rate_limits: int} rows deleted per table
