@@ -66,12 +66,16 @@ class ThemeModel
         'color_text'          => '#3d345f',
     ];
 
-    private PDO $pdo;
     private SettingsModel $settings;
 
+    /**
+     * The PDO handle is not kept: every read and write this class does goes
+     * through SettingsModel, which owns the driver-specific upsert. Holding a
+     * second handle to the same connection would only invite a query that
+     * bypasses it.
+     */
     public function __construct(PDO $pdo)
     {
-        $this->pdo = $pdo;
         $this->settings = new SettingsModel($pdo);
     }
 

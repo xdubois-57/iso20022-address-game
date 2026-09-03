@@ -35,7 +35,7 @@ class ExcelParser
      *
      * Sheet 1 ("Scenarios"): Address scenarios
      *
-     * @return array{scenarios: array, errors: array}
+     * @return array{scenarios: list<array{json_data: array<string, string>}>, errors: list<string>}
      */
     public function parse(string $filePath): array
     {
@@ -56,6 +56,9 @@ class ExcelParser
 
     /**
      * Parse the Scenarios sheet (first sheet).
+     *
+     * @param  array{scenarios: list<array{json_data: array<string, string>}>, errors: list<string>} $result
+     * @return array{scenarios: list<array{json_data: array<string, string>}>, errors: list<string>}
      */
     private function parseScenarios(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, array $result): array
     {

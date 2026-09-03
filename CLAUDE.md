@@ -50,6 +50,9 @@ British English.**
   composer run analyse # PHPStan
   npm run typecheck    # tsc
   ```
+  **Neither static analyser has a baseline.** Green means no findings at all,
+  not no new ones. Do not regenerate one to get past your own change — see
+  README § *Static analysis*.
 - **Documentation moves with the behaviour it describes**, in the same commit.
   `README.md` and `DESIGN.md` are the reference documentation and are currently
   accurate — keep them that way.

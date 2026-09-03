@@ -115,16 +115,22 @@ export function sanitizeToFragment(html) {
  * @returns {T}
  */
 function copyAllowedChildren(source, target) {
-    source.childNodes.forEach((node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            target.appendChild(document.createTextNode(node.nodeValue));
+    source.childNodes.forEach((child) => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            target.appendChild(document.createTextNode(child.nodeValue));
             return;
         }
-        if (node.nodeType !== Node.ELEMENT_NODE) {
+        if (child.nodeType !== Node.ELEMENT_NODE) {
             // Comments, CDATA and processing instructions carry nothing worth
             // keeping and are simply dropped.
             return;
         }
+
+        // childNodes yields ChildNode, which has neither tagName nor
+        // getAttribute. The nodeType check above is what makes this an
+        // Element, and saying so is what lets the type checker read the rest
+        // of this function rather than being told to ignore it.
+        const node = /** @type {Element} */ (/** @type {unknown} */ (child));
 
         if (DROP_WITH_CONTENT.has(node.tagName)) {
             return;

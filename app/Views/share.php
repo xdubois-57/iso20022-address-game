@@ -3,8 +3,16 @@
  * Share page — serves OpenGraph meta tags for social media previews.
  * Real visitors are redirected to the home page via JavaScript.
  *
- * Variables expected: $ogTitle, $ogDescription, $ogImageUrl, $baseUrl
+ * The controller sets these before including this file. The assert() below
+ * states that contract in a form both a reader and static analysis take
+ * seriously — a renamed variable in ShareController fails the build instead of
+ * rendering an empty og:title to a crawler, which nobody would ever see.
+ *
+ * assert() costs nothing in production, where zend.assertions is -1 and the
+ * call is not even compiled, and it is a real check everywhere else.
  */
+assert(isset($ogTitle, $ogDescription, $ogImageUrl, $baseUrl));
+
 $homeUrl = $baseUrl . '/';
 // REQUEST_URI is attacker-supplied; go through the shared sanitiser rather than
 // interpolating it into canonical/og:url directly.

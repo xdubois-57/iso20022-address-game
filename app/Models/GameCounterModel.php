@@ -63,6 +63,8 @@ class GameCounterModel
     /**
      * Get games per week for the last year (52 weeks).
      * Returns an array of ['week' => 'YYYY-Www', 'count' => int] sorted chronologically.
+     *
+     * @return list<array{week: string, count: int}>
      */
     public function getWeeklyStats(int $weeks = 52): array
     {

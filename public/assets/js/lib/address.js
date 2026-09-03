@@ -25,7 +25,15 @@
 export function formatAddressForDisplay(addressData) {
     if (!addressData) return '';
 
-    if (typeof window === 'undefined' || window.addressFormatter === undefined) {
+    // The formatter is a bundled global, not an import: it is loaded by a
+    // plain <script> so a kiosk with no network still has it. It is therefore
+    // not on the Window type, and reaching it through a cast says that once
+    // rather than suppressing the complaint at both call sites.
+    const globalWindow = /** @type {{ addressFormatter?: { format: Function } }} */ (
+        typeof window === 'undefined' ? {} : window
+    );
+
+    if (globalWindow.addressFormatter === undefined) {
         const lines = [];
         // Additional info first (like floor, suite)
         if (addressData.attention) lines.push(addressData.attention);
@@ -60,7 +68,7 @@ export function formatAddressForDisplay(addressData) {
         countryCode: (addressData.countryCode || '').toUpperCase(),
     };
 
-    let lines = window.addressFormatter.format(addr, { output: 'array' });
+    let lines = globalWindow.addressFormatter.format(addr, { output: 'array' });
 
     // Remove empty lines
     lines = lines.filter(function (l) { return l && l.trim() !== ''; });

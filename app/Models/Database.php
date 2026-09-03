@@ -95,6 +95,8 @@ class Database
      * against a throwaway file-backed SQLite database with no MySQL
      * involved. Never used by a production install: db_config.json is only
      * ever written by SetupController, which never offers this driver.
+     *
+     * @param array<string, mixed> $dbConfig
      */
     public function tryConnect(array $dbConfig): bool
     {

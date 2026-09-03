@@ -3,8 +3,12 @@
  * Share trigger page — opens native share dialog on mobile devices.
  * When scanned via QR code in kiosk mode, triggers navigator.share().
  *
- * Variables expected: $shareUrl, $shareTitle, $shareText
+ * The controller sets these before including this file. The assert() below
+ * states that contract in a form static analysis takes seriously. Note that
+ * $shareScore and $shareName were used here while the prose list named only
+ * three variables — exactly the drift an uncheckable contract permits.
  */
+assert(isset($shareUrl, $shareTitle, $shareText, $shareScore, $shareName));
 use App\Models\Database;
 use App\Models\ThemeModel;
 

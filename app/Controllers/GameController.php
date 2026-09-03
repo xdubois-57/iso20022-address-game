@@ -172,6 +172,9 @@ class GameController
     /**
      * Generate draggable chips from scenario data.
      * Chips are shuffled so users cannot rely on order.
+     *
+     * @param  array<string, mixed> $data  a scenario's json_data
+     * @return list<array{id: string, label: string, value: string}>
      */
     private function generateChips(array $data): array
     {
@@ -204,6 +207,8 @@ class GameController
 
     /**
      * Get the target slots for the given goal type.
+     *
+     * @return list<array{id: string, label: string, tag: string, mandatory: bool}>
      */
     private function getSlots(string $goalType): array
     {
@@ -236,6 +241,9 @@ class GameController
      * Build address object for frontend formatter.
      * Returns structured address components that @fragaria/address-formatter
      * can format according to country-specific rules.
+     *
+     * @param  array<string, mixed> $data  a scenario's json_data
+     * @return array<string, string>
      */
     private function formatAddressDisplay(array $data): array
     {
@@ -335,12 +343,23 @@ class GameController
      * so this is the only seam through which these endpoints' validation can
      * be exercised without a browser. Production behaviour is unchanged.
      */
+    /**
+     * The decoded JSON request body.
+     *
+     * The shape belongs to the caller, so values are mixed by definition —
+     * every string field is read through App\Support\Input::string().
+     *
+     * @return array<string, mixed>
+     */
     protected function getJsonInput(): array
     {
         $raw = file_get_contents('php://input');
         return json_decode($raw, true) ?? [];
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function jsonResponse(array $data, int $code = 200): void
     {
         http_response_code($code);
