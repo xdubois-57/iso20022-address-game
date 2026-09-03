@@ -35,14 +35,25 @@ const ADMIN_PIN = '1234';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
 
-/** A session cookie plus its CSRF token. */
+/**
+ * A session cookie plus its CSRF token.
+ *
+ * Fetched with page.request rather than by navigating, and from about:blank,
+ * so that no SPA is running while the caller logs in as an administrator.
+ * Logging in regenerates the session and deletes the old one, so a poll still
+ * in flight — the countdown ticks every second — is handed a brand new session
+ * and a brand new CSRF token, and the token this function returned is dead
+ * before it is used. See displayModeToken() in ../support/display-mode.js.
+ */
 async function session(page) {
-    await page.goto('/');
-    const csrf = await page.evaluate(
-        () => document.querySelector('meta[name="csrf-token"]')?.content || ''
-    );
-    expect(csrf).toMatch(/^[0-9a-f]{64}$/);
-    return csrf;
+    await page.goto('about:blank');
+
+    const shell = await page.request.get('/');
+    expect(shell.status()).toBe(200);
+
+    const match = /<meta name="csrf-token" content="([0-9a-f]{64})">/.exec(await shell.text());
+    expect(match, 'the shell must carry a CSRF token').not.toBeNull();
+    return match[1];
 }
 
 function api(page, csrf, action, body) {
