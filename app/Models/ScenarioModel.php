@@ -246,10 +246,9 @@ class ScenarioModel
             } else {
                 // Check 70-character limit per line
                 $joinFields = static function (array $fields) use ($correct): string {
-                    return implode(' ', array_map(
-                        static fn ($f) => trim($correct[$f] ?? ''),
-                        $fields
-                    ));
+                    $trim = static fn ($f) => trim($correct[$f] ?? '');
+
+                    return implode(' ', array_map($trim, $fields));
                 };
                 $line1Text = $joinFields($adrLine1Fields);
                 $line2Text = $joinFields($adrLine2Fields);
