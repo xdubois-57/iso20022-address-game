@@ -210,6 +210,47 @@ test.describe('boot', () => {
         expect(await logo.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
     });
 
+    // Regression: a screen render that finishes AFTER the player has navigated
+    // away used to paint over whatever they chose instead.
+    //
+    // Found by the passive security scan, of all things. Every request there
+    // crosses a proxy, and the added latency turned a race that never lost
+    // locally into a reliable failure: the Hall of Fame's response landed a
+    // second after the admin screen had been drawn and replaced it. The same
+    // thing happens to a real player on a slow connection who taps two tabs in
+    // quick succession.
+    //
+    // The delay is injected rather than hoped for, so this fails deterministically
+    // if the guard in showScreen() is ever removed.
+    for (const [label, action, survivor] of [
+        ['the Hall of Fame', 'leaderboard', '.pin-panel'],
+        ['a game round', 'game', '.pin-panel'],
+    ]) {
+        test(`a slow ${label} render does not paint over the screen chosen next`, async ({ page }) => {
+            await page.goto('/');
+
+            await page.route('**/index.php', async (route) => {
+                const slow = ['leaderboard/top', 'game/scenario'];
+                if (slow.includes(route.request().headers()['x-action'])) {
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                }
+                return route.fallback();
+            });
+
+            await page.click(`[data-screen="${action}"]`);
+            await page.click('[data-screen="admin"]');
+            await expect(page.locator(survivor)).toBeVisible();
+
+            // The late response lands about here. The admin screen has to
+            // still be the one on display.
+            await page.waitForTimeout(2500);
+            await expect(
+                page.locator(survivor),
+                'the screen the player chose must survive the earlier render'
+            ).toBeVisible();
+        });
+    }
+
     test('nav switches between Play, Hall of Fame and Admin screens', async ({ page }) => {
         await page.goto('/');
 

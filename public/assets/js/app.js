@@ -250,12 +250,39 @@ import {
     /* =======================================================
        Screen Router
        ======================================================= */
+    /**
+     * Which screen the SPA is currently showing, as a number that changes on
+     * every navigation.
+     *
+     * An async render writes appContainer AFTER awaiting the network. If the
+     * player navigated away in the meantime, that write lands on top of the
+     * screen they actually chose — the Hall of Fame reappearing over the admin
+     * panel a second after it was opened. Fast enough locally that it never
+     * showed; through a proxy, or on a slow connection, it is reproducible.
+     *
+     * Each async render captures this value before its first await and checks
+     * it afterwards through screenIsStale(). Cheaper and far easier to reason
+     * about than cancelling requests: the response still arrives, it simply is
+     * not allowed to paint over a screen it no longer belongs to.
+     */
+    var screenGeneration = 0;
+
+    /** True once the caller's screen has been navigated away from. */
+    function screenIsStale(generation) {
+        return generation !== screenGeneration;
+    }
+
     function showScreen(name) {
         // The wall renders one thing and never navigates. Nothing on that
         // screen calls this — there is no nav and no handler — but a future
         // caller reaching it by accident would replace the board with a
         // welcome card on a display nobody is watching.
         if (displayMode === 'hof') return;
+
+        // Every navigation invalidates any render still waiting on the
+        // network, so its late write is dropped rather than painted over
+        // whatever this call is about to draw.
+        screenGeneration++;
 
         // Any navigation away from the play station's result screen cancels
         // its hand-back timer. Without this, a player who taps Play again
@@ -754,6 +781,11 @@ import {
     }
 
     async function loadNextRound() {
+        // Same hazard as renderLeaderboardScreen: this writes appContainer
+        // after awaiting the scenario, so a player who leaves the game while a
+        // round is loading would be dragged back into it a moment later.
+        var generation = screenGeneration;
+
         currentRound++;
         if (currentRound > TOTAL_ROUNDS) { showFinalScore(); return; }
         resetInactivityTimer();
@@ -762,6 +794,7 @@ import {
             currentRound + ' / ' + TOTAL_ROUNDS + '...</p>';
 
         var data = await api('game/scenario', { exclude_ids: playedScenarioIds });
+        if (screenIsStale(generation)) return;
         if (!data || data.error) {
             if (currentRound > 1) { showFinalScore(); return; }
             appContainer.innerHTML = '<div class="screen-notice">' +
@@ -1673,6 +1706,8 @@ import {
     }
 
     async function renderLeaderboardScreen(page) {
+        var generation = screenGeneration;
+
         // Navigate to the submitted entry's page if available
         if (!page && lastSubmittedPage) {
             page = lastSubmittedPage;
@@ -1683,7 +1718,9 @@ import {
             '<p class="text-centred">Loading...</p></section>';
 
         var data = await api('leaderboard/top', { page: page });
-        if (!data) return;
+        // The player may have moved on while this was in flight; the answer is
+        // no longer theirs to see.
+        if (!data || screenIsStale(generation)) return;
 
         var entries = data.entries || [];
         var currentPage = data.page || 1;
