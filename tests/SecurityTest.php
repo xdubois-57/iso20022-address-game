@@ -198,7 +198,7 @@ class SecurityTest extends TestCase
         foreach ($validSettings as $setting) {
             // ini_get returns false for unknown settings
             $value = ini_get($setting);
-            $this->assertNotFalse($value, "PHP should recognize setting: $setting");
+            $this->assertNotFalse($value, "PHP should recognise setting: $setting");
         }
     }
 

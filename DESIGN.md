@@ -34,7 +34,7 @@ A secure, high-performance Single Page Application (SPA) built to educate users 
 ### 2.2 View (UI/UX)
 
 - **Framework**: PicoCSS (semantic HTML, minimal footprint)
-- **Branding** (Color Palette) — sampled from the PMPG logo:
+- **Branding** (Colour Palette) — sampled from the PMPG logo:
   - Primary: `#3d345f` (PMPG Violet)
   - Primary Hover: `#2c2646` (Violet, darkened)
   - Primary Light: `#dceaf3` (Pale Blue)
@@ -116,7 +116,7 @@ Hall of Fame is for fun rather than adjudication.
 - Players can share their score via an encrypted URL token (AES-256-GCM)
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
 - Dynamic 1200×630 PNG share card generated server-side (Imagick, GD fallback)
-- Share card features theme-branded colors with decorative balloons
+- Share card features theme-branded colours with decorative balloons
 - The card closes with the PMPG lockup on a white plate, with no label above
   it. This is the branding's most public surface — a LinkedIn post shows it to
   people who never open the game — so both render paths draw the same thing

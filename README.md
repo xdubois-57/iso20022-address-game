@@ -46,17 +46,17 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Hall of Fame** — Encrypted leaderboard ranked by a game score that weights accuracy quadratically and rewards speed, GDPR-compliant 365-day retention
 - **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards carrying the PMPG endorsement
 - **Dynamic Apple Touch Icon** — Themed PNG icon carrying the PMPG sunburst on a white disc, regenerated automatically when the theme changes
-- **Theme System** — 5 customizable colors (primary, hover, light, background, text) editable via admin panel, defaulting to the PMPG palette
+- **Theme System** — 5 customisable colours (primary, hover, light, background, text) editable via admin panel, defaulting to the PMPG palette
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
-- **Fun Facts** — Rotating educational facts about ISO 20022 (customizable via admin)
+- **Fun Facts** — Rotating educational facts about ISO 20022 (customisable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
 - **Display modes** — `?mode=hof` drives an unattended Hall of Fame wall that
   refreshes itself and survives a network outage; `?mode=play` drives a standing
   play station with an on-screen keyboard and an end-of-game that hands the
   machine back to the next player. See [Display modes](#display-modes)
 - **Responsive** — Mobile hamburger menu, touch-first design for tablets
-- **Cache Busting** — Theme-aware cache busting for background images and icons (includes theme colors + file mtimes)
+- **Cache Busting** — Theme-aware cache busting for background images and icons (includes theme colours + file mtimes)
 
 ## Requirements
 
@@ -113,12 +113,12 @@ Configure your web server's document root to the `public/` directory.
 1. Access the Admin panel (default PIN: `1234`)
 2. Upload a `Scenarios.xlsx` file with the required columns (see DESIGN.md)
 
-### 5. Customize Theme (Optional)
+### 5. Customise Theme (Optional)
 
 1. Access the Admin panel
 2. Navigate to the "Theme" section
-3. Adjust any of the 5 color variables:
-   - **Primary** — Main brand color (buttons, chips, accents)
+3. Adjust any of the 5 colour variables:
+   - **Primary** — Main brand colour (buttons, chips, accents)
    - **Primary Hover** — Darker shade for hover states
    - **Primary Light** — Very light tint for filled slots/highlights
    - **Background** — Page background and image background
@@ -853,7 +853,7 @@ answers wrong.
 Derived from [Simplified World Map.svg](https://commons.wikimedia.org/wiki/File:Simplified_World_Map.svg)
 by Guilherme de Souza Vieira and Hogweard (Wikimedia Commons), licensed under
 [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/deed.en).
-Colors are replaced at request time to match the application theme; no structural changes are made.
+Colours are replaced at request time to match the application theme; no structural changes are made.
 
 ## License
 

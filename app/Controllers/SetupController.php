@@ -57,7 +57,7 @@ class SetupController
     }
 
     /**
-     * POST /api/setup/save — Save DB config, generate encryption key, initialize schema.
+     * POST /api/setup/save — Save DB config, generate encryption key, initialise schema.
      */
     public function saveConfig(): void
     {
@@ -132,12 +132,12 @@ class SetupController
             return;
         }
 
-        // Initialize schema
+        // Initialise schema
         $db->initSchema();
 
         $this->jsonResponse([
             'success' => true,
-            'message' => 'Configuration saved and database initialized. '
+            'message' => 'Configuration saved and database initialised. '
                 . 'Default admin PIN is 1234 — change it immediately.',
         ]);
     }

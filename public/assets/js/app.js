@@ -1984,7 +1984,7 @@ import {
 
         // Theme Colors
         html += '<div class="admin-section"><h3>Theme Colors</h3>';
-        html += '<p>Customize the brand colors. Changes take effect after saving and reloading the page.</p>';
+        html += '<p>Customise the brand colours. Changes take effect after saving and reloading the page.</p>';
         html += '<div class="theme-color-grid" id="themeColorGrid"><p>Loading...</p></div>';
         html += '<div class="theme-actions">';
         html += '<button class="btn-primary" id="saveThemeBtn">Save Colors</button>';

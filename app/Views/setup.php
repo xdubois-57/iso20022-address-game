@@ -86,7 +86,7 @@
                         Test Connection
                     </button>
                     <button type="submit" id="saveConfigBtn" class="btn-primary" disabled>
-                        Save &amp; Initialize
+                        Save &amp; Initialise
                     </button>
                 </div>
             </form>
@@ -175,7 +175,7 @@
                 showStatus('Network error: ' + e.message, true);
                 saveBtn.disabled = false;
             }
-            saveBtn.textContent = 'Save & Initialize';
+            saveBtn.textContent = 'Save & Initialise';
         });
     })();
     </script>

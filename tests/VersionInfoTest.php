@@ -1,6 +1,6 @@
 <?php
 /**
- * Tests for the version info system: config/version.php reading and fallback behavior.
+ * Tests for the version info system: config/version.php reading and fallback behaviour.
  */
 
 namespace Tests;
