@@ -326,14 +326,11 @@ ensureSchema($db);
 // and an install that had lost its encryption key did the same. Both are
 // fixed at the source; this stays so that the next such failure degrades to
 // a log line rather than an unreachable site.
-$cleanupStamp = __DIR__ . '/../storage/last_cleanup.txt';
-$cleanupDir = dirname($cleanupStamp);
-if (!is_dir($cleanupDir)) {
-    @mkdir($cleanupDir, 0755, true);
-}
-$lastCleanup = @file_get_contents($cleanupStamp);
-if ($lastCleanup === false || (time() - (int)$lastCleanup) > \App\Models\RetentionCleanup::INTERVAL_SECONDS) {
-    @file_put_contents($cleanupStamp, (string)time());
+//
+// The "is it due yet" decision lives in RetentionCleanup::claimDueSlot() so it
+// can be tested; inline here it never was, and a gate nobody tests is a gate
+// that stops opening without telling anyone.
+if (\App\Models\RetentionCleanup::claimDueSlot(__DIR__ . '/../storage/last_cleanup.txt')) {
     try {
         (new \App\Models\RetentionCleanup($db->getPdo()))->run();
     } catch (\Throwable $cleanupError) {
