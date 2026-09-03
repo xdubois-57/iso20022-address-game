@@ -238,20 +238,41 @@ if (!function_exists('getVersionInfo')) {
     <meta name="apple-mobile-web-app-title" content="ISO 20022 Game">
     <link rel="apple-touch-icon" href="/app-icon?v=<?= $bgVersion ?>">
     <meta name="robots" content="index, follow">
-    <!-- Kept on one line, like the og/twitter descriptions below: wrapping a
-         content="..." attribute puts the literal newline and its indentation
-         inside the value a crawler reads and a search result displays. -->
-    <meta name="description" content="Play the ISO 20022 Address Structuring Game - Learn and test your knowledge of international address formatting standards. Perfect for developers, bankers, and financial professionals.">
-    <meta name="keywords" content="ISO 20022, address formatting, banking standards, financial messaging, SWIFT, game, quiz, learning, education">
+    <?php
+    // Built as strings and echoed, rather than written inline.
+    //
+    // These values must reach a crawler as ONE line: wrapping a content="..."
+    // attribute across source lines puts the literal newline and its
+    // indentation inside the value, and a search result then displays it.
+    // They were therefore kept on one very long source line — which is a
+    // genuine reason, and still leaves a 224-character line that no reviewer
+    // can read and that the line-length rule reports.
+    //
+    // Concatenation settles both: the source wraps, the value does not.
+    $metaDescription = 'Play the ISO 20022 Address Structuring Game - Learn and test your '
+        . 'knowledge of international address formatting standards. Perfect for '
+        . 'developers, bankers, and financial professionals.';
+    $metaKeywords = 'ISO 20022, address formatting, banking standards, financial messaging, '
+        . 'SWIFT, game, quiz, learning, education';
+    ?>
+    <meta name="description" content="<?= $metaDescription ?>">
+    <meta name="keywords" content="<?= $metaKeywords ?>">
     <meta name="author" content="ISO 20022 Address Game">
     <!-- OpenGraph Meta Tags for Social Media Sharing.
          Titles stay short: LinkedIn truncates around 70 characters and the
          PMPG mention is worth nothing if it lands past the ellipsis, so it
          rides in og:site_name and the description rather than the title. -->
     <meta property="og:title" content="ISO 20022 Address Challenge">
-    <!-- Kept on one line: wrapping a content="..." attribute puts the literal
-         newline and indentation inside the value the crawler reads. -->
-    <meta property="og:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group. Test your skills and challenge your friends!">
+    <?php
+    // One line in the VALUE, wrapped in the source — see the note above the
+    // description meta. The Twitter description below is the same sentence
+    // without the closing call to action, which LinkedIn and X both truncate.
+    $ogDescription = 'Master international address formatting standards. Supported by the '
+        . 'Payments Market Practice Group. Test your skills and challenge your friends!';
+    $twitterDescription = 'Master international address formatting standards. Supported by '
+        . 'the Payments Market Practice Group.';
+    ?>
+    <meta property="og:description" content="<?= $ogDescription ?>">
     <meta property="og:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -262,7 +283,7 @@ if (!function_exists('getVersionInfo')) {
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="ISO 20022 Address Challenge">
-    <meta name="twitter:description" content="Master international address formatting standards. Supported by the Payments Market Practice Group.">
+    <meta name="twitter:description" content="<?= $twitterDescription ?>">
     <meta name="twitter:image" content="<?= \App\Support\Url::absoluteHtml('/share/home-image') ?>">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <?php

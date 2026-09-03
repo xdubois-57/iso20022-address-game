@@ -133,6 +133,39 @@ class DisplayModeShellTest extends TestCase
         }
     }
 
+    /**
+     * The crawler-facing descriptions must be one line, whatever the source
+     * looks like.
+     *
+     * They used to be written as single 224-character source lines, with a
+     * comment explaining why: wrapping a content="..." attribute puts the
+     * literal newline and its indentation inside the value a search result
+     * displays. The reason was sound and the line was still unreadable, so the
+     * values are built by concatenation now — the source wraps, the value does
+     * not. This is the test that says the second half of that is true.
+     */
+    public function testTheCrawlerFacingDescriptionsAreSingleLine(): void
+    {
+        $html = $this->renderShell(null);
+
+        $matched = preg_match_all(
+            '/<meta (?:name|property)="(description|keywords|og:description|twitter:description)"'
+            . ' content="([^"]*)"/',
+            $html,
+            $matches,
+            PREG_SET_ORDER
+        );
+
+        $this->assertSame(4, $matched, 'all four crawler-facing meta tags must be present');
+
+        foreach ($matches as [, $name, $value]) {
+            $this->assertStringNotContainsString("\n", $value, "{$name} must not contain a newline");
+            $this->assertStringNotContainsString('  ', $value, "{$name} must not contain runs of spaces");
+            $this->assertSame(trim($value), $value, "{$name} must not be padded");
+            $this->assertNotSame('', $value, "{$name} must not be empty");
+        }
+    }
+
     public function testWallFooterDropsPrivacyAndGithubButKeepsTheEndorsement(): void
     {
         $html = $this->renderShell('hof');
