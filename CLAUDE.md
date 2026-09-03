@@ -31,7 +31,7 @@ project and changing them breaks code:
    `color_text`, the CSS custom properties that mirror them, and helpers such
    as `ttfCentered()`. They are a stored schema and a public contract; renaming
    them would be a migration, not a spelling fix.
-3. **Proper nouns.** *Payments Market Practice Group*, *GNU General Public
+3. **Proper nouns.** *Payments Market Practice Group*, *GNU Affero General Public
    License*.
 
 The rule of thumb: **if a machine reads it, leave it; if a person reads it,
@@ -58,7 +58,7 @@ British English.**
   accurate — keep them that way.
 - **Never touch `config/`, `storage/` or `uploads/`.** They are runtime
   directories, gitignored or holding secrets.
-- Every new source file (PHP, JS, CSS) carries the GPL v3 header used
+- Every new source file (PHP, JS, CSS) carries the AGPL v3 header used
   throughout the repository.
 
 ## Releasing
