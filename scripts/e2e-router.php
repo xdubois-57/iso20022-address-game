@@ -36,7 +36,54 @@ $file = $docroot . $path;
 // coverage bootstrap below, which is why every API-driven controller looked
 // untested while the pretty-URL ones did not.
 if ($path !== '/' && is_file($file) && !str_ends_with(strtolower($path), '.php')) {
-    return false; // A genuine static asset; let the built-in server serve it.
+    // Served from here rather than by `return false`, so that the response
+    // carries the headers public/.htaccess sets on a static file in
+    // production. Handing the file back to the built-in server discards
+    // anything set above the return, which left every asset answered bare —
+    // and the passive scan reported a site less protected than the deployed
+    // one, which is a false picture in the safe direction and therefore the
+    // worse direction to be wrong in.
+    //
+    // An unrecognised extension falls through to the server rather than being
+    // guessed at: a wrong Content-Type on a module script or a stylesheet
+    // breaks the page, and getting the header set matters less than that.
+    $types = [
+        'css'  => 'text/css',
+        'js'   => 'text/javascript',
+        'mjs'  => 'text/javascript',
+        'json' => 'application/json',
+        'svg'  => 'image/svg+xml',
+        'png'  => 'image/png',
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif'  => 'image/gif',
+        'ico'  => 'image/vnd.microsoft.icon',
+        'webp' => 'image/webp',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf'  => 'font/ttf',
+        'txt'  => 'text/plain',
+        'html' => 'text/html',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    if (!isset($types[$extension])) {
+        return false; // Unknown type; let the built-in server serve it as-is.
+    }
+
+    $type = $types[$extension];
+    header_remove('X-Powered-By');
+    header('Content-Type: ' . $type . (str_starts_with($type, 'text/') ? '; charset=UTF-8' : ''));
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+    }
+
+    readfile($file);
+
+    return true;
 }
 
 // Coverage is started HERE rather than through auto_prepend_file, which runs
