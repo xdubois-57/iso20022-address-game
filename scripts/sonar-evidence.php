@@ -230,29 +230,35 @@ $lines[] = '|---|---|';
 // Built row by row rather than as one concatenation per line: each of these
 // reads three or four measures, and on a single line none of them could be
 // scanned for the one that is wrong.
-$row = static function (string $label, string $value) use (&$lines): void {
-    $lines[] = '| ' . $label . ' | ' . $value . ' |';
-};
+// Each value is built first and the table row written on one line. The
+// arithmetic and the formatting are separate concerns, and putting them on the
+// same line was how this block reached 200 characters the first time.
+$m = static fn (string $key): string => metric($measureMap, $key);
 
-$row('Reliability', rating(metric($measureMap, 'reliability_rating'))
-    . ' — ' . metric($measureMap, 'bugs') . ' bug(s)');
-$row('Security', rating(metric($measureMap, 'security_rating'))
-    . ' — ' . metric($measureMap, 'vulnerabilities') . ' vulnerability(ies)');
-$row('Security review', rating(metric($measureMap, 'security_review_rating'))
-    . ' — ' . metric($measureMap, 'security_hotspots') . ' hotspot(s), '
-    . metric($measureMap, 'security_hotspots_reviewed') . '% reviewed');
-$row('Maintainability', rating(metric($measureMap, 'sqale_rating'))
-    . ' — ' . metric($measureMap, 'code_smells') . ' code smell(s), '
-    . metric($measureMap, 'sqale_index') . ' min of debt');
-$row('Coverage', metric($measureMap, 'coverage') . '% ('
-    . metric($measureMap, 'uncovered_lines') . ' uncovered of '
-    . metric($measureMap, 'lines_to_cover') . ')');
-$row('Duplication', metric($measureMap, 'duplicated_lines_density') . '% over '
-    . metric($measureMap, 'duplicated_blocks') . ' block(s)');
-$row('Size', metric($measureMap, 'ncloc') . ' lines of code, '
-    . metric($measureMap, 'files') . ' file(s)');
-$row('Complexity', metric($measureMap, 'cognitive_complexity') . ' cognitive, '
-    . metric($measureMap, 'complexity') . ' cyclomatic');
+$reliability   = rating($m('reliability_rating')) . ' — ' . $m('bugs') . ' bug(s)';
+$security      = rating($m('security_rating')) . ' — ' . $m('vulnerabilities') . ' vulnerability(ies)';
+$review        = rating($m('security_review_rating')) . ' — ' . $m('security_hotspots')
+    . ' hotspot(s), ' . $m('security_hotspots_reviewed') . '% reviewed';
+$maintain      = rating($m('sqale_rating')) . ' — ' . $m('code_smells') . ' code smell(s), '
+    . $m('sqale_index') . ' min of debt';
+$coverageText  = $m('coverage') . '% (' . $m('uncovered_lines') . ' uncovered of '
+    . $m('lines_to_cover') . ')';
+$duplication   = $m('duplicated_lines_density') . '% over ' . $m('duplicated_blocks') . ' block(s)';
+$size          = $m('ncloc') . ' lines of code, ' . $m('files') . ' file(s)';
+$complexity    = $m('cognitive_complexity') . ' cognitive, ' . $m('complexity') . ' cyclomatic';
+
+foreach ([
+    'Reliability'     => $reliability,
+    'Security'        => $security,
+    'Security review' => $review,
+    'Maintainability' => $maintain,
+    'Coverage'        => $coverageText,
+    'Duplication'     => $duplication,
+    'Size'            => $size,
+    'Complexity'      => $complexity,
+] as $label => $value) {
+    $lines[] = '| ' . $label . ' | ' . $value . ' |';
+}
 
 $lines[] = '';
 
