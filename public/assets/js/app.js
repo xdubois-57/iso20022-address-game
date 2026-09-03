@@ -18,7 +18,7 @@
 
 import { computeGameScore } from './lib/scoring.js';
 import { formatAddressForDisplay, isAdrLineSlot } from './lib/address.js';
-import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts } from './lib/format.js';
+import { escapeHtml, decodeHtml, formatDate, stripLinks, countdownParts, parseServerDate } from './lib/format.js';
 import { setSanitizedHtml } from './lib/sanitize.js';
 import { randomIndex } from './lib/random.js';
 import { createApi } from './lib/api.js';
@@ -176,6 +176,7 @@ import {
     let selectedGoalType = 'Structured';
     let touchDragChip = null;
     let touchDragClone = null;
+    let touchListenersBound = false;
     var factsCache = [];
     var factRotationInterval = null;
     var currentFactIndex = -1;
@@ -560,7 +561,7 @@ import {
             if (!banner) return;
 
             banner.className = 'countdown-banner';
-            var target = new Date(data.deadline);
+            var target = parseServerDate(data.deadline);
             updateCountdown(target, banner);
 
             stopDeadlineCountdown();
@@ -577,6 +578,16 @@ import {
 
     function updateCountdown(targetDate, el) {
         var parts = countdownParts(targetDate, new Date());
+        if ('invalid' in parts) {
+            // A stored deadline this browser cannot read (a value saved before
+            // the server validated dates) must not put "NaN" on a wall. The
+            // banner is emptied and its class dropped so no styled, empty box
+            // is left behind; the timer is stopped, since nothing will change.
+            el.replaceChildren();
+            el.className = '';
+            stopDeadlineCountdown();
+            return;
+        }
         if (parts.expired) {
             el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
                 + '<div class="countdown-expired">Deadline reached</div>';
@@ -711,11 +722,18 @@ import {
         })();
 
         var nameInput = inputById('welcomeNameInput');
-        document.getElementById('startGameBtn').addEventListener('click', async function () {
+        var startBtn = /** @type {HTMLButtonElement} */ (document.getElementById('startGameBtn'));
+        startBtn.addEventListener('click', async function () {
+            // Held while the name check is in flight: a second tap used to
+            // start a second game on top of the first, which loaded two
+            // scenarios for round one and burnt one of them unplayed.
+            if (startBtn.disabled) return;
             playerName = nameInput.value.trim();
             if (!playerName) { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
             // Check name for profanity
+            startBtn.disabled = true;
             var check = await api('game/check-name', { name: playerName });
+            startBtn.disabled = false;
             if (!check) return;
             if (!check.allowed) {
                 nameInput.style.borderColor = 'var(--game-danger)';
@@ -907,7 +925,14 @@ import {
             appContainer.innerHTML = '<div class="screen-notice">' +
                 '<h2>No Scenarios Available</h2>' +
                 '<p>' + escapeHtml(data ? data.error : 'Network error') + '</p>' +
-                '<button class="btn-primary" onclick="location.reload()">Retry</button></div>';
+                '<button class="btn-primary" id="retryScenarioBtn">Retry</button></div>';
+            // Bound here rather than as an onclick="" attribute: the CSP has
+            // no 'unsafe-inline' for scripts, and a nonce authorises <script>
+            // elements only, never handler attributes — so the inline version
+            // was a button that did nothing at all.
+            document.getElementById('retryScenarioBtn').addEventListener('click', function () {
+                location.reload();
+            });
             return;
         }
 
@@ -1091,7 +1116,15 @@ import {
             }, { passive: true });
         });
 
-        // Global touch move/end (handles both source and slot chip drags)
+        // Global touch move/end (handles both source and slot chip drags).
+        // Bound ONCE: this runs for every round, and each call used to add
+        // another pair of document-level listeners that were never removed —
+        // on a kiosk that plays all day, hundreds of touchmove handlers each
+        // doing an elementFromPoint() per finger movement. Both handlers read
+        // module state and the live DOM, so one pair serves every round.
+        if (touchListenersBound) return;
+        touchListenersBound = true;
+
         document.addEventListener('touchmove', function (e) {
             if (!touchDragClone) return;
             var touch = e.touches[0];
@@ -1257,6 +1290,15 @@ import {
        Game Validation & Result (multi-round)
        ======================================================= */
     async function validateRound() {
+        // One validation per round. Nothing used to stop a second tap while
+        // the first was in flight, and each response pushed its own round
+        // score and stacked its own result overlay — so a double-tap on the
+        // iPad recorded six scores for five rounds and, once the top overlay
+        // was dismissed, offered a second "Next Round" that skipped one.
+        var validateBtn = /** @type {HTMLButtonElement} */ (document.getElementById('validateBtn'));
+        if (!validateBtn || validateBtn.disabled) return;
+        validateBtn.disabled = true;
+
         var mapping = {};
         Object.keys(slotMapping).forEach(function (slotId) {
             var v = slotMapping[slotId];
@@ -1307,7 +1349,12 @@ import {
         }
 
         var data = await api('game/validate', validatePayload);
-        if (!data) return;
+        if (!data || data.error) {
+            // Re-enabled only on failure: on success the round is over and
+            // the button leaves with the screen.
+            validateBtn.disabled = false;
+            return;
+        }
 
         roundScores.push({
             round: currentRound,
@@ -2941,7 +2988,20 @@ import {
                 });
                 this.on('error', function (file, errorMessage) {
                     var status = document.getElementById('uploadStatus');
-                    var msg = typeof errorMessage === 'string' ? errorMessage : (errorMessage.error || 'Upload failed');
+                    // A rejected sheet comes back as HTTP 422 with an `errors`
+                    // LIST ("Row 3: TwnNm is mandatory", …), which Dropzone
+                    // hands to this handler rather than to 'success'. Only
+                    // the singular `error` key was read here, so every
+                    // row-level problem collapsed into a bare "Upload failed"
+                    // and the author had no idea which row to fix.
+                    var msg = 'Upload failed';
+                    if (typeof errorMessage === 'string') {
+                        msg = errorMessage;
+                    } else if (Array.isArray(errorMessage?.errors) && errorMessage.errors.length > 0) {
+                        msg = errorMessage.errors.join('; ');
+                    } else if (errorMessage?.error) {
+                        msg = errorMessage.error;
+                    }
                     status.textContent = msg;
                     status.className = 'upload-status status-error';
                     status.classList.remove('hidden');
@@ -3516,11 +3576,17 @@ import {
         // Start countdown in screen saver
         (async function () {
             var data = await api('game/deadline', {});
+            // The saver may already have been dismissed by a touch while this
+            // was in flight. Starting the timer then left an interval nobody
+            // would ever clear, ticking against a node the next showing
+            // replaced.
+            if (!screenSaverActive) return;
             if (data?.deadline) {
                 var banner = document.getElementById('ssCountdown');
                 if (!banner) return;
-                var target = new Date(data.deadline);
+                var target = parseServerDate(data.deadline);
                 updateCountdown(target, banner);
+                if (screenSaverCountdownInterval) clearInterval(screenSaverCountdownInterval);
                 screenSaverCountdownInterval = setInterval(function () {
                     updateCountdown(target, banner);
                 }, 1000);

@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { countdownParts, decodeHtml, escapeHtml, formatDate, stripLinks } from '../../public/assets/js/lib/format.js';
+import { countdownParts, decodeHtml, escapeHtml, formatDate, parseServerDate, stripLinks } from '../../public/assets/js/lib/format.js';
 
 describe('escapeHtml', () => {
     it('escapes HTML-significant characters', () => {
@@ -69,6 +69,41 @@ describe('formatDate', () => {
         expect(formatDate('')).toBe('');
         expect(formatDate(null)).toBe('');
     });
+
+    it('formats the space-separated timestamp MySQL writes', () => {
+        // Safari's Date() cannot read this shape; the Hall of Fame on the
+        // iPad kiosk showed "Invalid Date" in every row.
+        expect(formatDate('2026-03-05 10:00:00')).toBe('05 Mar 2026');
+    });
+
+    it('shows nothing rather than "Invalid Date" for an unreadable value', () => {
+        expect(formatDate('not a date')).toBe('');
+    });
+});
+
+describe('parseServerDate', () => {
+    it('reads the MySQL shape as local time, field by field', () => {
+        const d = parseServerDate('2026-03-05 10:07:09');
+        expect(d.getFullYear()).toBe(2026);
+        expect(d.getMonth()).toBe(2);
+        expect(d.getDate()).toBe(5);
+        expect(d.getHours()).toBe(10);
+        expect(d.getMinutes()).toBe(7);
+        expect(d.getSeconds()).toBe(9);
+    });
+
+    it('reads the admin deadline shape, which has no seconds', () => {
+        const d = parseServerDate('2027-11-28T00:00');
+        expect(d.getFullYear()).toBe(2027);
+        expect(d.getMonth()).toBe(10);
+        expect(d.getDate()).toBe(28);
+        expect(d.getSeconds()).toBe(0);
+    });
+
+    it('hands anything else to the native parser', () => {
+        expect(parseServerDate('2026-03-05T10:00:00Z').toISOString()).toBe('2026-03-05T10:00:00.000Z');
+        expect(Number.isNaN(parseServerDate('2027-02-31T25:99').getTime())).toBe(true);
+    });
 });
 
 describe('countdownParts', () => {
@@ -76,6 +111,11 @@ describe('countdownParts', () => {
         const now = new Date('2026-01-01T00:00:00Z');
         const target = new Date('2025-12-31T23:59:59Z');
         expect(countdownParts(target, now)).toEqual({ expired: true });
+    });
+
+    it('reports an unreadable target as invalid rather than as NaN fields', () => {
+        const now = new Date('2026-01-01T00:00:00Z');
+        expect(countdownParts(new Date('not a date'), now)).toEqual({ expired: false, invalid: true });
     });
 
     it('reports expired exactly at the target instant', () => {

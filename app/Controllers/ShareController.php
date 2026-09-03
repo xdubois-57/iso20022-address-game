@@ -699,9 +699,13 @@ class ShareController
     /**
      * @return array{s: int, n: string}|null
      */
-    private function decryptToken(string $urlToken): ?array
+    private function decryptToken(mixed $urlToken): ?array
     {
-        if ($urlToken === '') {
+        // ?d comes straight from the query string, so ?d[]=x hands PHP an
+        // array — which reached a string-typed parameter and fataled on all
+        // three share routes, a 500 any visitor could trigger. Anything that
+        // is not a string is simply not a token.
+        if (!is_string($urlToken) || $urlToken === '') {
             return null;
         }
         // Reverse URL-safe base64

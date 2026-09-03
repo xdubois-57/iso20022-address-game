@@ -100,14 +100,20 @@ class ThemeModel
     /**
      * Persist a partial or full theme update. Only valid hex values are saved.
      *
-     * @param array<string,string> $colors
+     * The values come from a JSON body whose shape belongs to the caller, so
+     * they are mixed by definition: an array where a colour belonged used to
+     * reach the string-typed isValidHex() and fatal. A non-string is simply
+     * not a colour, and is skipped like an invalid one.
+     *
+     * @param array<string, mixed> $colors
      */
     public function save(array $colors): void
     {
         $valid = [];
         foreach (self::KEYS as $key) {
-            if (isset($colors[$key]) && $this->isValidHex($colors[$key])) {
-                $valid[$key] = strtolower($colors[$key]);
+            $value = $colors[$key] ?? null;
+            if (is_string($value) && $this->isValidHex($value)) {
+                $valid[$key] = strtolower($value);
             }
         }
         $this->settings->setMany($valid);
