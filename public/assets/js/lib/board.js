@@ -73,14 +73,7 @@ export function createArrivalTracker() {
 export function diffArrivals(tracker, data, visibleCount) {
     const entries = Array.isArray(data?.entries) ? data.entries : [];
     const recent = Array.isArray(data?.recent) ? data.recent : [];
-
-    // Every id the response mentions, in either list. Built before any
-    // decision, so the tracker ends up consistent whichever branch is taken.
-    const seen = [];
-    for (const row of entries.concat(recent)) {
-        const id = Number(row?.id);
-        if (Number.isFinite(id)) seen.push({ id, row });
-    }
+    const seen = identifiableRows(entries.concat(recent));
 
     if (!tracker.primed) {
         for (const { id } of seen) tracker.known.add(id);
@@ -88,11 +81,47 @@ export function diffArrivals(tracker, data, visibleCount) {
         return { firstLoad: true, highlightIds: [], banners: [] };
     }
 
-    // The ids on screen right now, which decides highlight versus banner.
-    const visibleIds = new Set(
+    const visibleIds = visibleIdSet(entries, visibleCount);
+    const { highlightIds, banners } = classifyArrivals(seen, tracker, visibleIds);
+
+    for (const { id } of seen) tracker.known.add(id);
+
+    return { firstLoad: false, highlightIds, banners };
+}
+
+/**
+ * Every row the response mentions that has a usable id, paired with that id.
+ *
+ * Built before any decision is taken, so the tracker ends up consistent
+ * whichever branch of diffArrivals runs. A row without a finite id is dropped
+ * rather than defaulted: `Number(null)` is 0, a perfectly finite number that
+ * would otherwise enter the tracker as a real entry and be celebrated once.
+ */
+function identifiableRows(rows) {
+    const seen = [];
+    for (const row of rows) {
+        const id = Number(row?.id);
+        if (Number.isFinite(id)) seen.push({ id, row });
+    }
+    return seen;
+}
+
+/** The ids on screen right now, which decides highlight versus banner. */
+function visibleIdSet(entries, visibleCount) {
+    return new Set(
         entries.slice(0, Math.max(0, visibleCount)).map((e) => Number(e.id))
     );
+}
 
+/**
+ * Split the new arrivals into the ones to highlight in place and the ones
+ * that need a banner because they landed below the fold.
+ *
+ * `celebrated` is not the same set as `tracker.known`: a single response can
+ * name one player in both `entries` and `recent`, and without it that player
+ * would be greeted twice.
+ */
+function classifyArrivals(seen, tracker, visibleIds) {
     const highlightIds = [];
     const banners = [];
     const celebrated = new Set();
@@ -103,22 +132,21 @@ export function diffArrivals(tracker, data, visibleCount) {
 
         if (visibleIds.has(id)) {
             highlightIds.push(id);
-        } else {
-            banners.push({
-                id,
-                name: String(row.player_name == null ? '' : row.player_name),
-                // The rank the SERVER computed. Deriving it from a position in
-                // this array would be wrong for anyone outside the top slice,
-                // which is precisely who these banners are about.
-                rank: boardNumber(row.rank),
-                score: boardNumber(row.game_score),
-            });
+            continue;
         }
+
+        banners.push({
+            id,
+            name: String(row.player_name == null ? '' : row.player_name),
+            // The rank the SERVER computed. Deriving it from a position in
+            // this array would be wrong for anyone outside the top slice,
+            // which is precisely who these banners are about.
+            rank: boardNumber(row.rank),
+            score: boardNumber(row.game_score),
+        });
     }
 
-    for (const { id } of seen) tracker.known.add(id);
-
-    return { firstLoad: false, highlightIds, banners };
+    return { highlightIds, banners };
 }
 
 /**
