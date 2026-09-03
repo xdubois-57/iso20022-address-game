@@ -73,17 +73,27 @@ final class Csp
     }
 
     /**
-     * The nonce as a ready-to-echo HTML attribute, leading space included.
+     * The nonce as a ready-to-echo HTML attribute — NO leading space.
      *
      * Views use this rather than building the attribute themselves, so the
      * escaping happens in one place. Base64 can contain `+` and `/` but never
      * a quote, so htmlspecialchars() is belt and braces rather than a fix for
      * a known problem — and belt and braces is the right posture for a value
      * that gates script execution.
+     *
+     * The absent leading space is load-bearing, and callers must write one
+     * themselves: `<script <?= Csp::nonceAttribute() ?>>`. When the space
+     * lived in here, views read `<script<?= … ?>>` — the PHP tag glued
+     * straight onto the element name. Every HTML parser that is not PHP then
+     * fails to see an opening `script` tag at all, and reports the matching
+     * `</script>` as unbalanced; SonarCloud raised three such bugs (Web:S4645)
+     * and held the project's reliability rating at C over markup that was
+     * perfectly correct once PHP had run. Keeping the space outside the helper
+     * makes the tag name readable to a plain parser again.
      */
     public static function nonceAttribute(): string
     {
-        return ' nonce="' . htmlspecialchars(self::nonce(), ENT_QUOTES, 'UTF-8') . '"';
+        return 'nonce="' . htmlspecialchars(self::nonce(), ENT_QUOTES, 'UTF-8') . '"';
     }
 
     /**

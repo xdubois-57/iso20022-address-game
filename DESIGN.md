@@ -243,7 +243,12 @@ Two supporting choices, for the same reason:
   Facts render through `innerHTML` on public screens, so this is the boundary
   that keeps an admin-authored fact from executing in every visitor's browser
 - **Display**: Rotates on welcome screen and screen saver (20s interval)
-- **API**: Public `GET /api/game/facts` endpoint returns all facts
+- **API**: `game/facts`, reached the way every other route is — a POST to `/`
+  carrying `X-Action`, a session and a CSRF token. It is public in the sense
+  that it needs no admin session, not in the sense of being a GET: there is no
+  `/api/game/facts` URL, and asking for one lands on the SPA shell. § 2.3 names
+  `/board/data` as the single GET exception in the application, and that is
+  still true
 
 ### PMPG Endorsement
 - The white welcome card closes with the PMPG lockup above a hairline rule

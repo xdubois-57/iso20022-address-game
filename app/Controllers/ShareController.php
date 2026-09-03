@@ -332,8 +332,8 @@ class ShareController
         };
 
         $drawText('ISO 20022 Address Game', 52, '#ffffff', -160);
-        $drawText($name,                   110, '#ffffff',  -15);
-        $drawText($score . ' pts',          80, '#FFD700',  130);
+        $drawText($name, 110, '#ffffff', -15);
+        $drawText($score . ' pts', 80, '#FFD700', 130);
 
         // ── 4. Endorsement strip at the foot of the card ────────────────────
         // This is the most public surface the branding has: a LinkedIn post
@@ -403,13 +403,13 @@ class ShareController
         $fontRegular = $this->findFont(false);
 
         if ($fontBold && $fontRegular) {
-            $this->ttfCentered($img, 42, $fontBold,    'ISO 20022 Address Game', $w, 130, $emerald);
-            $this->ttfCentered($img, 56, $fontBold,    $name,                    $w, 320, $darkGreen);
-            $this->ttfCentered($img, 52, $fontBold,    $score . ' pts',          $w, 450, $emerald);
+            $this->ttfCentered($img, 42, $fontBold, 'ISO 20022 Address Game', $w, 130, $emerald);
+            $this->ttfCentered($img, 56, $fontBold, $name, $w, 320, $darkGreen);
+            $this->ttfCentered($img, 52, $fontBold, $score . ' pts', $w, 450, $emerald);
         } else {
             $this->gdCentered($img, 5, 'ISO 20022 Address Game', $w, 100, $emerald);
-            $this->gdCentered($img, 5, $name,                    $w, 280, $darkGreen);
-            $this->gdCentered($img, 5, $score . ' pts',          $w, 400, $emerald);
+            $this->gdCentered($img, 5, $name, $w, 280, $darkGreen);
+            $this->gdCentered($img, 5, $score . ' pts', $w, 400, $emerald);
         }
 
         // The endorsement, on this path too. A host without Imagick posting

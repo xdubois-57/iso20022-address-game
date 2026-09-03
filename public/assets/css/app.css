@@ -921,7 +921,9 @@ html, body {
     flex: 1;
     font-size: 0.9rem;
     line-height: 1.5;
-    word-break: break-word;
+    /* overflow-wrap, not the deprecated `word-break: break-word`: same effect,
+       and the only spelling still in the specification. */
+    overflow-wrap: break-word;
 }
 .fact-actions {
     display: flex;

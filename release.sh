@@ -144,11 +144,24 @@ rm -f "$ARTIFACT"
 # ~229 KB of dead weight including dev-only binaries this build is meant to
 # strip. Excluding them here keeps the artifact correct on any machine
 # rather than depending on where someone happens to have cloned the repo.
+#
+# The second block is the development toolchain. None of it is reachable over
+# the web — `scripts/` and the dotfiles are denied by .htaccess — but none of
+# it belongs on a web host either, and `scripts/dast*` in particular is a
+# scanner harness that exists to be pointed at a running instance. Shipping
+# it is not an exploit; it is handing someone the tools and saving them the
+# download. It arrived with the v3 roadmap and nothing was excluding it.
 zip -rq "$ARTIFACT" . \
     -x ".git/*" ".github/*" "tests/*" "storage/*" "uploads/*" "*.zip" \
        "config/credentials.php" "config/db_config.json" \
        "node_modules/*" "coverage/*" "test-results/*" "playwright-report/*" \
        ".claude/*" ".idea/*" ".vscode/*" "*.DS_Store" "deploy.sh" \
+       "scripts/dast*" "scripts/e2e*" "scripts/serve.sh" \
+       "scripts/merge-coverage.php" "scripts/js-typecheck.mjs" \
+       "phpstan.neon" "phpstan-baseline.neon" "js-typecheck-baseline.json" \
+       "tsconfig.json" "phpunit.xml" "vitest.config.js" \
+       "package.json" "package-lock.json" "sonar-project.properties" \
+       "DESIGN.md" "docs/*" "release.sh" \
        "* [0-9]" "* [0-9].*" "* [0-9]/" "* [0-9]/*" \
        "* [0-9][0-9]" "* [0-9][0-9].*" "* [0-9][0-9]/" "* [0-9][0-9]/*"
 

@@ -25,7 +25,7 @@
 export function formatAddressForDisplay(addressData) {
     if (!addressData) return '';
 
-    if (typeof window === 'undefined' || typeof window.addressFormatter === 'undefined') {
+    if (typeof window === 'undefined' || window.addressFormatter === undefined) {
         const lines = [];
         // Additional info first (like floor, suite)
         if (addressData.attention) lines.push(addressData.attention);
@@ -69,7 +69,7 @@ export function formatAddressForDisplay(addressData) {
     // The library sometimes omits country when components are sparse
     if (addressData.country && lines.length > 0) {
         const hasCountry = lines.some(function (line) {
-            return line.toLowerCase().indexOf(addressData.country.toLowerCase()) !== -1;
+            return line.toLowerCase().includes(addressData.country.toLowerCase());
         });
         if (!hasCountry) {
             lines.push(addressData.country);

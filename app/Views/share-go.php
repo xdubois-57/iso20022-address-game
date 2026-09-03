@@ -27,7 +27,7 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Share Result - ISO 20022 Address Game</title>
-    <style<?= \App\Support\Csp::nonceAttribute() ?>>
+    <style <?= \App\Support\Csp::nonceAttribute() ?>>
         html, body {
             margin: 0; padding: 0;
             font-family: 'Arial Nova', Arial, Helvetica, sans-serif;
@@ -161,7 +161,7 @@ $sgText    = htmlspecialchars($shareGoTheme['color_text'], ENT_QUOTES);
         </div>
         <p class="copy-status" id="copyStatus"></p>
     </div>
-    <script<?= \App\Support\Csp::nonceAttribute() ?>>
+    <script <?= \App\Support\Csp::nonceAttribute() ?>>
         var shareUrl = <?= json_encode($shareUrl) ?>;
         var shareTitle = <?= json_encode($shareTitle) ?>;
         var shareText = <?= json_encode($shareText) ?>;

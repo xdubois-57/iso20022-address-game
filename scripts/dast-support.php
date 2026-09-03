@@ -689,6 +689,7 @@ switch ($command) {
             dastFail('usage: dast-support.php gate-alerts <zap-base-url> <api-key> <site-url> <threshold> [summary]');
         }
         dastGateAlerts($argv[2], $argv[3], $argv[4], $argv[5], (string) ($argv[6] ?? ''));
+        break;
 
     default:
         dastFail("unknown subcommand '{$command}'. See the docblock at the top of this file.");

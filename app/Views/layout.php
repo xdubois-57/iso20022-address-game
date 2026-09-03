@@ -53,7 +53,8 @@ if (!headers_sent()) {
  * mtime, and a release whose mtimes were preserved still busts on the commit.
  */
 if (!function_exists('assetReleaseStamp')) {
-    function assetReleaseStamp(): string {
+    function assetReleaseStamp(): string
+    {
         static $stamp = null;
         if ($stamp !== null) {
             return $stamp;
@@ -76,7 +77,8 @@ if (!function_exists('assetReleaseStamp')) {
 
 // Cache busting helper: file modification timestamp plus the release stamp.
 if (!function_exists('assetUrl')) {
-    function assetUrl($path) {
+    function assetUrl($path)
+    {
         $fullPath = __DIR__ . '/../../public/' . $path;
         $mtime = file_exists($fullPath) ? filemtime($fullPath) : time();
         $release = assetReleaseStamp();
@@ -128,7 +130,8 @@ if (!isset($layoutTheme)) {
 
 // Version info helper: reads from config/version.php or falls back to git
 if (!function_exists('getVersionInfo')) {
-    function getVersionInfo(): array {
+    function getVersionInfo(): array
+    {
         $versionFile = __DIR__ . '/../../config/version.php';
         if (file_exists($versionFile)) {
             $info = include $versionFile;
@@ -167,12 +170,12 @@ if (!function_exists('getVersionInfo')) {
     // Compute a version hash for the background image:
     // includes theme colors + SVG asset mtime + controller mtime so any
     // code or asset change forces browsers to reload the image.
-    $bgVersion = substr(md5(implode('', $layoutTheme)
+    $bgFingerprint = implode('', $layoutTheme)
         . filemtime(__DIR__ . '/../../public/assets/images/world_map.svg')
         . filemtime(__DIR__ . '/../Controllers/BackgroundController.php')
         . filemtime(__DIR__ . '/../Controllers/AppIconController.php')
-        . filemtime(__DIR__ . '/../../public/assets/images/emoji-controller.png')
-    ), 0, 8);
+        . filemtime(__DIR__ . '/../../public/assets/images/emoji-controller.png');
+    $bgVersion = substr(md5($bgFingerprint), 0, 8);
     $p = $layoutTheme['color_primary'];
     $ph = $layoutTheme['color_primary_hover'];
     $pl = $layoutTheme['color_primary_light'];
@@ -182,7 +185,7 @@ if (!function_exists('getVersionInfo')) {
     $pRgb = \App\Models\ThemeModel::hexToRgb($p) ?? [1, 169, 144];
     $picoFocus = 'rgba(' . $pRgb[0] . ',' . $pRgb[1] . ',' . $pRgb[2] . ',0.25)';
     ?>
-    <style<?= \App\Support\Csp::nonceAttribute() ?>>
+    <style <?= \App\Support\Csp::nonceAttribute() ?>>
         :root {
             --game-peppermint: <?= htmlspecialchars($bg, ENT_QUOTES) ?>;
             --game-dark-green: <?= htmlspecialchars($tx, ENT_QUOTES) ?>;
@@ -264,7 +267,8 @@ if (!function_exists('getVersionInfo')) {
     // never change: replacing the logo file would have left every browser
     // showing the old one forever.
     ?>
-    <meta name="pmpg-logo-url" content="<?= htmlspecialchars(assetUrl('assets/images/pmpg-logo.png'), ENT_QUOTES, 'UTF-8') ?>">
+    <?php $pmpgLogoUrl = htmlspecialchars(assetUrl('assets/images/pmpg-logo.png'), ENT_QUOTES, 'UTF-8'); ?>
+    <meta name="pmpg-logo-url" content="<?= $pmpgLogoUrl ?>">
     <?php
     // app.js is versioned by the <script> tag below, but its `import`s are
     // bare relative paths that carry no version at all — so editing
@@ -289,11 +293,17 @@ if (!function_exists('getVersionInfo')) {
         $moduleVersions['./assets/js/lib/' . $lib . '.js'] = './' . assetUrl('assets/js/lib/' . $lib . '.js');
     }
     ?>
-    <script type="importmap"<?= \App\Support\Csp::nonceAttribute() ?>>
+    <script type="importmap" <?= \App\Support\Csp::nonceAttribute() ?>>
         <?= json_encode(['imports' => $moduleVersions], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
     </script>
 </head>
-<body<?= $layoutDisplayMode === '' ? '' : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"' ?><?= $layoutSharingEnabled ? '' : ' data-sharing="off"' ?>>
+<?php
+$bodyAttributes = $layoutDisplayMode === ''
+    ? ''
+    : ' data-mode="' . htmlspecialchars($layoutDisplayMode, ENT_QUOTES, 'UTF-8') . '"';
+$bodyAttributes .= $layoutSharingEnabled ? '' : ' data-sharing="off"';
+?>
+<body<?= $bodyAttributes ?>>
     <header class="game-header">
         <div class="header-content">
             <h1 class="logo">ISO 20022 Address Game</h1>

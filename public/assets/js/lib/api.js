@@ -58,7 +58,7 @@ export function createApi(config) {
             return null;
         }
 
-        if (data && data.setup_required) {
+        if (data?.setup_required) {
             // Database connection failed, redirect to setup page
             window.location.href = 'index.php';
             return null;
