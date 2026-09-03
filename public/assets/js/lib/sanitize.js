@@ -106,8 +106,13 @@ export function sanitizeToFragment(html) {
 }
 
 /**
+ * Returns the same node it was handed, so a caller keeps the precise type it
+ * passed in — a DocumentFragment stays a DocumentFragment, not a bare Node.
+ *
+ * @template {Node} T
  * @param {Node} source
- * @param {Node} target
+ * @param {T} target
+ * @returns {T}
  */
 function copyAllowedChildren(source, target) {
     source.childNodes.forEach((node) => {

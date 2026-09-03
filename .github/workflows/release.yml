@@ -84,13 +84,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
           output: codeql-sarif
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Collect every piece of evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: evidence-*
           path: evidence-raw
@@ -194,7 +194,7 @@ jobs:
           echo "Checked: no detailed DAST report in the pack."
 
       - name: Create the draft Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # DRAFT. The evidence is read before it becomes public, which is the
           # entire reason the gates run before this step rather than after.

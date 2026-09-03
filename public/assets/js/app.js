@@ -2963,6 +2963,9 @@ import {
 
     /**
      * Custom overlay modal to replace window.alert() — stays in fullscreen.
+     *
+     * @param {string} message
+     * @returns {Promise<void>} settles when the reader dismisses the overlay
      */
     function showModal(message) {
         return new Promise(function (resolve) {

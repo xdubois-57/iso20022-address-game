@@ -156,11 +156,6 @@
             "code": "TS2339",
             "message": "Property 'tagName' does not exist on type 'ChildNode'.",
             "count": 4
-        },
-        {
-            "code": "TS2740",
-            "message": "Type 'Node' is missing the following properties from type 'DocumentFragment': getElementById, childElementCount, children, firstElementChild, and 6 more.",
-            "count": 1
         }
     ]
 }
