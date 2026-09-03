@@ -49,6 +49,20 @@ async function csrfToken(page) {
 
 /** The token this installation currently holds, read as an administrator. */
 export async function displayModeToken(page) {
+    // Park the page first. Logging in calls session_regenerate_id(true),
+    // which deletes the old session immediately — correct, and the reason
+    // this matters: any request the SPA has in flight at that moment lands
+    // on a session that no longer exists, is given a fresh one with a fresh
+    // CSRF token, and the browser keeps that cookie. Every later call in the
+    // test then fails 403 with a token that was valid when it was read.
+    //
+    // The SPA polls: the deadline counts down every second and the wall
+    // refreshes every five, so on a screen left open there is nearly always
+    // something in flight. It surfaced under the ZAP proxy, where the extra
+    // hop widens the window, and it produced a different failure on each run
+    // — which is what a race looks like from the outside.
+    await page.goto('about:blank');
+
     const csrf = await csrfToken(page);
 
     const post = (action, body) => page.request.post('/index.php', {
@@ -60,7 +74,12 @@ export async function displayModeToken(page) {
         data: JSON.stringify(body ?? {}),
     });
 
-    expect((await (await post('admin/login', { pin: ADMIN_PIN })).json()).success).toBe(true);
+    // The body is put in the message on purpose: when this failed under the
+    // ZAP proxy it reported only "expected true, received undefined", which
+    // says nothing about whether the PIN was refused, the session had gone or
+    // the response was not JSON at all.
+    const login = await (await post('admin/login', { pin: ADMIN_PIN })).json();
+    expect(login.success, `admin/login refused: ${JSON.stringify(login)}`).toBe(true);
 
     const { token } = await (await post('admin/get-display-token')).json();
     expect(token, 'the instance must hand out a display mode token').toMatch(/^[0-9a-f]{32}$/);
