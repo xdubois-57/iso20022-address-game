@@ -126,19 +126,19 @@ Hall of Fame is for fun rather than adjudication.
 - Share page serves OpenGraph meta tags for Facebook/Twitter previews
 - Dynamic 1200×630 PNG share card generated server-side (Imagick, GD fallback)
 - Share card features theme-branded colours with decorative balloons
-- The card closes with the PMPG lockup on a white plate, with no label above
-  it. This is the branding's most public surface — a LinkedIn post shows it to
-  people who never open the game — so both render paths draw the same thing
+- The card closes with the logo on a white plate, with no label above it. This
+  is the most public surface the images have — a LinkedIn post shows the card
+  to people who never open the game — so both render paths draw the same
+  thing
 - **Balloons are kept off it.** `ShareController::exclusionZones()` reserves
-  the centre text block *and* the endorsement strip, and
+  the centre text block *and* the strip the logo sits in, and
   `planBalloons()` — extracted from the drawing code precisely so it can be
   tested — honours both. The layout is deterministic per seed, so
   `tests/ShareCardLayoutTest.php` checks 300 seeds rather than the one the
-  application uses; without the endorsement zone, seed 4 alone puts a balloon
-  on the logo
-- `og:site_name` and the descriptions name the PMPG. Titles stay short —
-  LinkedIn truncates around 70 characters, and an endorsement past the
-  ellipsis is worth nothing
+  application uses; without that second zone, seed 4 alone puts a balloon on
+  the logo
+- Titles stay short: LinkedIn truncates around 70 characters, and anything
+  past the ellipsis is worth nothing
 - Gzip-encoded image responses for Facebook crawler compatibility
 - **Mobile**: Native share button (navigator.share) with clipboard fallback
 - **Kiosk Mode**: QR code displayed for scanning and sharing on mobile devices
@@ -259,44 +259,37 @@ Two supporting choices, for the same reason:
   `/board/data` as the single GET exception in the application, and that is
   still true
 
-### PMPG Endorsement
-- The white welcome card closes with the PMPG lockup above a hairline rule
-  (`.card-endorsement` in `app.css`). The lockup stands alone: the `Supported
-  by` label that used to sit above it was removed on 2026-09-01 at the
-  maintainer's request, on every surface at once
-- Rendered by `endorsementHtml()` in `app.js` at the foot of
-  `renderWelcomeCard()` — the first screen every player sees
-- The logo is **not** a link. A kiosk runs in Guided Access, where an outbound
+### The logo images
+
+Two images ship with the game and are drawn on four surfaces. The notes here
+are about how they are drawn, and why each choice is not arbitrary.
+
+- The white welcome card closes with the lockup above a hairline rule
+  (`.card-endorsement` in `app.css`), rendered by `endorsementHtml()` in
+  `app.js` at the foot of `renderWelcomeCard()`
+- The page footer carries the same image at ~24px (`.footer-endorsement`, in
+  `app/Views/layout.php`), so it holds on every screen rather than only the
+  welcome card. Hidden below 768px, where both would otherwise land in one
+  short viewport; the card keeps its own
+- **The image is not a link.** A kiosk runs in Guided Access, where an outbound
   navigation strands the player in a browser they cannot leave
-- `alt="Payments Market Practice Group"` is load-bearing, not decorative, and
-  more so since the label went: the lockup *is* the whole statement now, and a
-  screen reader that skipped it would find nothing else on screen saying who
-  supports the game
-- The page footer carries the same bare lockup at ~24px
-  (`.footer-endorsement`), in `app/Views/layout.php` — so it holds on every
-  screen, not only the welcome card. Hidden below 768px, where both logos
-  would otherwise land in one short viewport; the card keeps its own
+- Its `alt` text is load-bearing rather than decorative: a screen reader that
+  skipped it would find nothing else on screen carrying the same information
 - The `<h1 class="logo">ISO 20022 Address Game</h1>` heading stays text and
-  stays the title. The PMPG lockup does not replace it — the game keeps its
-  own name
-- The apple-touch-icon (`AppIconController`) composites `pmpg-mark.png` — the
-  sunburst alone — on a **white disc** over the themed ground. The disc is not
-  decoration: the sunburst's lower petals fade to near white and vanish
-  against `#8abed9`, and it holds for any background an admin might choose.
-  Both render paths, Imagick and the GD fallback, draw the same thing; a host
-  without Imagick still serving the old icon would be a half-applied rebrand.
-  `emoji-controller.png` stays in the repo so reverting is a one-line change
+  stays the title. The image does not replace it — the game keeps its own name
+- The apple-touch-icon (`AppIconController`) composites `pmpg-mark.png` on a
+  **white disc** over the themed ground. The disc is not decoration: the mark's
+  lower petals fade to near white and vanish against `#8abed9`, and the disc
+  holds for any background an admin might choose. Both render paths, Imagick
+  and the GD fallback, draw the same thing, so a host without Imagick does not
+  quietly serve something different. `emoji-controller.png` stays in the repo
+  so reverting is a one-line change
 - Served from `public/assets/images/`, never a CDN — the CSP allows
-  `img-src 'self' data:` as it stands, and widening it for a logo would trade
+  `img-src 'self' data:` as it stands, and widening it for an image would trade
   security for nothing
-- **The mark is not under the AGPL.** The licence covers this project's source;
-  it grants no right to the PMPG's trademarks. A fork must strip the logo
-  assets and the "Supported by" wording — see README § *Third-party assets*
-- The endorsement wording is load-bearing in one more place: the Privacy
-  screen. It says the PMPG *endorses* the game and does not *operate* it,
-  while § 1 Data Controller continues to name only Xavier Dubois and Niel
-  Buchan. The PMPG processes no personal data, and naming it there would be an
-  inaccurate GDPR declaration — do not "tidy" the two paragraphs together
+- **The marks are not under the AGPL.** The licence covers this project's
+  source and grants no rights over a trademark. See README § *Third-party
+  assets*
 
 ### Responsive Design
 - Hamburger menu on mobile (≤768px) collapses header navigation
@@ -400,56 +393,15 @@ discarding the session cookie does not reset them.
 - **Client-side HTML sanitisation**: "Did you know?" facts carry admin-authored inline markup, so they are rendered as HTML rather than escaped. `public/assets/js/lib/sanitize.js` applies the same allowlist as `App\Models\HtmlSanitizer` before anything reaches the DOM, parsing with `DOMParser` (an inert document that never runs scripts) and rebuilding from allowed nodes only. The two implementations are deliberately kept in step — same tags, same attributes, same URL schemes, same treatment of `<script>`/`<style>` (dropped with their contents) and of a link whose `href` is rejected (unwrapped, not merely stripped). Sanitising on both ends means a fact written by an older version, or a missed server-side call, still cannot execute in a visitor's browser
 - **CSPRNG for index selection**: `lib/random.js` draws from `crypto.getRandomValues` with rejection sampling rather than `Math.random()`. Which fact appears first is not a secret; the point is that every avoidable finding a scanner raises is one more a reviewer must dismiss before reaching a real one
 
-## 6. Branding — the PMPG endorsement
-
-The rule, so the next person does not have to reconstruct it:
-
-**The PMPG supports the game. Xavier Dubois and Niel Buchan wrote it and
-maintain it.** Every piece of wording has to leave both halves standing, and
-nothing may imply that the PMPG authors, publishes or operates the game.
-
-The agreed phrasing is *"Supported by"*, and it still reads that way wherever
-the relationship is stated in prose: the README's legal notice, the Privacy
-screen, and the OpenGraph and Twitter descriptions. What it no longer does is
-label the logo. The `Supported by` caption that sat above the lockup on the
-welcome card, the footer and the share card was removed on 2026-09-01 at the
-maintainer's request; the four surfaces now show the mark on its own. If that
-ever needs revisiting, note what the caption was doing: it was the thing that
-stopped a bare lockup reading as "the PMPG publishes this", which is precisely
-the reading the agreement rules out. The prose statements are what carry that
-weight now.
-
-Where the mark appears, and who draws it:
-
-| Surface | Code |
-|---|---|
-| Welcome card | `endorsementHtml()` in `public/assets/js/app.js` |
-| Page footer, every screen | `app/Views/layout.php` (`.footer-endorsement`) |
-| Apple touch icon | `App\Controllers\AppIconController` — the sunburst on a white disc |
-| Share card + home card | `App\Controllers\ShareController` |
-| OpenGraph / Twitter meta | `app/Views/layout.php`, `app/Views/share.php` |
-
-Four things that are easy to get wrong:
-
-1. **The mark is not covered by the AGPL.** The licence grants rights over this
-   project's source code, not over the Payments Market Practice Group's
-   trademarks. A fork receives the code and no right to the mark, and must
-   strip `pmpg-logo.png`, `pmpg-mark.png` and the endorsement wording that
-   remains in prose before redistributing. README § *Third-party assets* says
-   so in the place a forker will actually look.
-2. **The PMPG is not a data controller.** The Privacy screen says it endorses
-   the game and does not operate it; § 1 Data Controller names only the two
-   authors. Naming the PMPG there would be an inaccurate GDPR declaration. The
-   two paragraphs sit close together and must not be merged.
-3. **The logo is never a link.** A kiosk runs in Guided Access, where an
-   outbound navigation strands the player in a browser they cannot leave.
-4. **The lockup keeps its own colours, on a light ground.** The sunburst fades
-   to near white at the bottom, so it needs the white disc on the icon and the
-   white plate on the share card. Do not recolour it and do not stretch it —
-   both are trademark problems, not merely ugly.
+## 6. Branding
 
 The game keeps its own name. `<h1 class="logo">ISO 20022 Address Game</h1>` is
-text, and the PMPG lockup does not replace it.
+text, and no image replaces it.
+
+The logo images, where they are drawn and why each choice is what it is, are
+covered in § 2.2 under *The logo images*. The one point worth repeating here:
+the licence over this project's source grants no rights over a trademark, which
+is why README § *Third-party assets* names those two files separately.
 
 ## 7. Directory Structure
 
