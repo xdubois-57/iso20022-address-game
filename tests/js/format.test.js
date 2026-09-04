@@ -32,6 +32,15 @@ describe('escapeHtml', () => {
     it('leaves plain text untouched', () => {
         expect(escapeHtml('Main St')).toBe('Main St');
     });
+
+    // "0" is a legal one-character player name, and the falsy-test version of
+    // this rendered it as an empty cell in the Hall of Fame, the admin
+    // listing and the wall.
+    it('keeps a value that is falsy but not empty', () => {
+        expect(escapeHtml('0')).toBe('0');
+        expect(escapeHtml(0)).toBe('0');
+        expect(escapeHtml(false)).toBe('false');
+    });
 });
 
 describe('decodeHtml', () => {
@@ -42,6 +51,10 @@ describe('decodeHtml', () => {
     it('returns an empty string for null/undefined', () => {
         expect(decodeHtml(null)).toBe('');
         expect(decodeHtml(undefined)).toBe('');
+    });
+
+    it('keeps a value that is falsy but not empty', () => {
+        expect(decodeHtml('0')).toBe('0');
     });
 });
 

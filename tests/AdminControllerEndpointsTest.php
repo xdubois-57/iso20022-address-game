@@ -307,6 +307,91 @@ class AdminControllerEndpointsTest extends TestCase
         $this->assertCount(2, $after['entries']);
     }
 
+    /**
+     * The listing has to reach the LAST entry, not merely the leading ones.
+     *
+     * This is the regression that started it: the endpoint answered with the
+     * top 200 rows, so an installation past its 200th entry showed a name on
+     * the public Hall of Fame that the admin screen — the only place it can
+     * be deleted — did not list at all. 60 rows and a 50-row page make the
+     * point without seeding two hundred encryptions.
+     */
+    public function testEveryEntryIsReachableThroughPagination(): void
+    {
+        $this->seedLeaderboard(60);
+        $this->asAdmin();
+
+        [$first, $status] = $this->call('getLeaderboardEntries');
+        $this->assertSame(200, $status);
+        $this->assertSame(60, $first['total_count']);
+        $this->assertSame(2, $first['total_pages']);
+        $this->assertSame(1, $first['page']);
+        $this->assertCount(50, $first['entries']);
+
+        [$second] = $this->call('getLeaderboardEntries', ['page' => 2]);
+        $this->assertCount(10, $second['entries']);
+
+        $seen = array_merge(
+            array_column($first['entries'], 'player_name'),
+            array_column($second['entries'], 'player_name')
+        );
+        $this->assertCount(60, array_unique($seen));
+        // The worst run is last, and it is the one an organiser is asked
+        // about — so it must be on a page the dashboard can ask for.
+        $this->assertContains('Player 1', $seen);
+    }
+
+    /**
+     * The admin's ordering is the player's ordering.
+     *
+     * The dashboard numbers its rows from the page offset now instead of
+     * re-sorting what it received, which is only correct while the server
+     * hands the pages back in the same order the public Hall of Fame uses.
+     */
+    public function testPagesAreOrderedByGameScoreLikeTheHallOfFame(): void
+    {
+        $this->seedLeaderboard(60);
+        $this->asAdmin();
+
+        [$first] = $this->call('getLeaderboardEntries');
+        [$second] = $this->call('getLeaderboardEntries', ['page' => 2]);
+
+        $scores = array_map(
+            static fn ($row) => (float) $row['game_score'],
+            array_merge($first['entries'], $second['entries'])
+        );
+        $sorted = $scores;
+        rsort($sorted);
+        $this->assertSame($sorted, $scores);
+    }
+
+    /**
+     * A page number past the end comes back as the last page rather than as
+     * an empty listing — the state the dashboard lands in after deleting the
+     * only entry on the final page.
+     */
+    public function testAPageBeyondTheEndIsClampedToTheLastOne(): void
+    {
+        $this->seedLeaderboard(60);
+        $this->asAdmin();
+
+        [$listed] = $this->call('getLeaderboardEntries', ['page' => 99]);
+        $this->assertSame(2, $listed['page']);
+        $this->assertCount(10, $listed['entries']);
+    }
+
+    /** A one-character name is a name, and survives the round trip intact. */
+    public function testSingleCharacterNamesAreListedForTheAdmin(): void
+    {
+        $model = new \App\Models\LeaderboardModel($this->memoryPdo());
+        $model->addEntry('N', 95, 20);
+        $model->addEntry('0', 90, 30);
+        $this->asAdmin();
+
+        [$listed] = $this->call('getLeaderboardEntries');
+        $this->assertSame(['N', '0'], array_column($listed['entries'], 'player_name'));
+    }
+
     public function testDeletingAnEntryRequiresAValidId(): void
     {
         $this->asAdmin();

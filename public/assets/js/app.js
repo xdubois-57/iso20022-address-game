@@ -695,7 +695,10 @@ import {
         html += '<h2>ISO 20022 Address Game</h2>';
         html += '<p>Structure <strong>' + TOTAL_ROUNDS + ' addresses</strong> into ISO 20022 format as fast as you can!</p>';
         html += '<input type="text" id="welcomeNameInput" placeholder="Enter your name to start" maxlength="50" class="name-input"';
-        if (playerName) html += ' value="' + escapeHtml(playerName) + '"';
+        // `playerName !== ''` rather than a truthiness test: "0" is a name a
+        // player is allowed to have, and the truthy form silently declined to
+        // put it back in the field it had just been typed into.
+        if (playerName !== '') html += ' value="' + escapeHtml(playerName) + '"';
         html += '>';
         html += '<button class="btn-primary btn-start" id="startGameBtn">Start Game</button>';
         // Below the button, which puts it below the spot the profanity
@@ -729,7 +732,10 @@ import {
             // scenarios for round one and burnt one of them unplayed.
             if (startBtn.disabled) return;
             playerName = nameInput.value.trim();
-            if (!playerName) { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
+            // Empty, not falsy. `!playerName` refused "0" as though the field
+            // had been left blank, so a player whose whole name was that one
+            // character could not start a game at all.
+            if (playerName === '') { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
             // Check name for profanity
             startBtn.disabled = true;
             var check = await api('game/check-name', { name: playerName });
@@ -1592,10 +1598,17 @@ import {
         playCountdownInterval = null;
     }
 
-    /** "Nice one, Rafael" — the first name only, and only if there is one. */
+    /**
+     * "Nice one, Rafael" — the first word of a player's name, or "you" when
+     * there is nothing to greet by name.
+     *
+     * `name || ''` and `first || 'you'` both read a name of "0" as absent, so
+     * the one player entitled to be greeted by a single digit was the one
+     * greeted as "you". Emptiness is tested for explicitly instead.
+     */
     function firstNameOf(name) {
-        var first = String(name || '').trim().split(/\s+/)[0];
-        return first || 'you';
+        var first = String(name == null ? '' : name).trim().split(/\s+/)[0];
+        return first === '' ? 'you' : first;
     }
 
     function playStatsHtml(summary) {
@@ -2479,11 +2492,28 @@ import {
         });
     }
 
-    async function loadAdminLeaderboard() {
+    /**
+     * One page of the Hall of Fame, with a delete button on every row.
+     *
+     * Paginated against the server rather than filtered in here, because the
+     * dashboard has to be able to reach EVERY entry: this screen is the only
+     * place a name can be taken off the public board, and the request to take
+     * one off almost never concerns a run near the top. The endpoint used to
+     * answer with the leading 200 rows, so on a busy installation the entries
+     * an organiser was actually asked about were the ones it could not show.
+     *
+     * The rank, the score and the ordering all come from the server — the same
+     * numbers the player sees on the public Hall of Fame. They used to be
+     * recomputed and re-sorted here, which was harmless while the whole table
+     * arrived in one response and is wrong the moment it does not: a page's
+     * worth of rows re-sorted among themselves would number the first row on
+     * page four "1".
+     */
+    async function loadAdminLeaderboard(page) {
         var container = document.getElementById('adminLeaderboard');
         if (!container) return;
 
-        var data = await api('admin/leaderboard-entries');
+        var data = await api('admin/leaderboard-entries', { page: page || 1 });
         if (!data?.entries) {
             container.innerHTML = '<p>Could not load entries.</p>';
             return;
@@ -2495,29 +2525,42 @@ import {
             return;
         }
 
-        // Compute game score and sort (same as Hall of Fame)
-        entries.forEach(function (entry) {
-            var pct = Number.parseInt(entry.score) || 0;
-            var ts = Number.parseInt(entry.time_seconds) || 0;
-            entry.gameScore = computeGameScore(pct, ts);
-        });
-        entries.sort(function (a, b) { return b.gameScore - a.gameScore; });
+        // The server clamps the page it was asked for, so this is the page
+        // actually returned rather than the one requested.
+        var currentPage = data.page || 1;
+        var totalPages = data.total_pages || 1;
+        var totalCount = data.total_count || entries.length;
+        var startRank = (currentPage - 1) * (data.per_page || entries.length);
 
         var html = '<table class="leaderboard-table admin-leaderboard-table"><thead><tr>';
         html += '<th>Rank</th><th>Player</th><th>Score</th><th>Date</th><th></th>';
         html += '</tr></thead><tbody>';
         entries.forEach(function (entry, i) {
             var safeId = Number.parseInt(entry.id) || 0;
+            var score = entry.game_score !== undefined
+                ? entry.game_score
+                : computeGameScore(Number.parseInt(entry.score, 10) || 0, Number.parseInt(entry.time_seconds, 10) || 0);
             html += '<tr data-entry-id="' + safeId + '">';
-            html += '<td>' + (i + 1) + '</td>';
+            html += '<td>' + (startRank + i + 1) + '</td>';
             html += '<td>' + escapeHtml(entry.player_name) + '</td>';
-            html += '<td>' + entry.gameScore + '</td>';
+            html += '<td>' + score + '</td>';
             html += '<td>' + formatDate(entry.created_at) + '</td>';
             html += '<td><button class="btn-delete-entry" data-id="' + safeId + '" title="Delete">&times;</button></td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
+        html += buildPaginationControls(currentPage, totalPages, totalCount);
         container.innerHTML = html;
+
+        // Scoped to the container: the same markup and the same class name
+        // serve the public Hall of Fame, and only this screen's buttons should
+        // reload this screen.
+        container.querySelectorAll('.btn-page').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var p = Number.parseInt(this.dataset.page, 10);
+                if (p) loadAdminLeaderboard(p);
+            });
+        });
 
         container.querySelectorAll('.btn-delete-entry').forEach(function (btn) {
             btn.addEventListener('click', async function () {
@@ -2526,10 +2569,16 @@ import {
                 if (!confirmed) return;
                 var resp = await api('admin/delete-entry', { id: id });
                 if (resp?.success) {
-                    var row = container.querySelector('tr[data-entry-id="' + id + '"]');
-                    if (row) row.remove();
+                    // Reload rather than drop the row: every rank below it has
+                    // just shifted up by one, and deleting the last entry on
+                    // the last page removes the page itself.
+                    loadAdminLeaderboard(currentPage);
                 } else {
-                    await showModal(resp ? resp.error : 'Error deleting entry');
+                    // `resp.error` alone was undefined whenever the endpoint
+                    // reported `success: false` without one — an entry already
+                    // deleted in another tab — and the organiser got an empty
+                    // dialog with an OK button and no sentence in it.
+                    await showModal(resp?.error || 'Error deleting entry');
                 }
             });
         });

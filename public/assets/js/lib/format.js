@@ -16,17 +16,31 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+/**
+ * A value with no text of its own — null or undefined — as the empty string,
+ * and everything else as itself.
+ *
+ * The obvious `str || ''` is wrong for exactly the values JavaScript calls
+ * falsy but a person would call content: a player named "0" is a legal
+ * one-character name, and `'0' || ''` is the empty string. That name reached
+ * the Hall of Fame, the admin listing and the wall as a blank cell — the row
+ * was there, scored and ranked, with nobody in it.
+ */
+function textOf(str) {
+    return str == null ? '' : String(str);
+}
+
 /** Escapes a string for safe HTML text-node insertion, via the DOM itself. */
 export function escapeHtml(str) {
     var div = document.createElement('div');
-    div.textContent = str || '';
+    div.textContent = textOf(str);
     return div.innerHTML;
 }
 
 /** Inverse of escapeHtml() — decodes HTML entities back to plain text. */
 export function decodeHtml(str) {
     var ta = document.createElement('textarea');
-    ta.innerHTML = str || '';
+    ta.innerHTML = textOf(str);
     return ta.value;
 }
 

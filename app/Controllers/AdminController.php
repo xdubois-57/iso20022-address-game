@@ -366,7 +366,31 @@ class AdminController
     }
 
     /**
-     * POST /api/admin/leaderboard-entries — Get all leaderboard entries for admin management.
+     * How many rows one page of the admin's Hall of Fame listing holds.
+     *
+     * Larger than the public wall's 20 — an organiser tidying up wants to see
+     * a lot at once — but still a page rather than the whole table, because
+     * every row costs a decryption and the listing is read on every dashboard
+     * load.
+     */
+    private const ENTRIES_PER_PAGE = 50;
+
+    /**
+     * POST /api/admin/leaderboard-entries — one page of the Hall of Fame, for
+     * admin management.
+     *
+     * Paginated, and deliberately paginated the same way the public Hall of
+     * Fame is. It used to answer with `getTopEntries(200)` — the top 200 rows
+     * and nothing else — while the public listing pages through every row
+     * there is. On any installation past its 200th entry that meant the two
+     * screens disagreed about what exists: a low-scoring run was on the public
+     * wall for everyone to read, and simply absent from the only screen that
+     * can delete it. The admin could remove the entries it happened to show
+     * and had no way at all to remove the ones it did not, which is the wrong
+     * answer to "please take my name off that board".
+     *
+     * The ordering matches getTop()'s exactly, so a rank shown here is the
+     * rank a player sees.
      */
     public function getLeaderboardEntries(): void
     {
@@ -375,8 +399,25 @@ class AdminController
             return;
         }
 
-        $entries = $this->leaderboardModel->getTopEntries(200);
-        $this->jsonResponse(['entries' => $entries]);
+        $input = $this->getJsonInput();
+        $page = max(1, (int) ($input['page'] ?? 1));
+
+        $totalCount = $this->leaderboardModel->getTotalCount();
+        $totalPages = max(1, (int) ceil($totalCount / self::ENTRIES_PER_PAGE));
+        // Clamp rather than answer with an empty page: an entry deleted off
+        // the end of the last page would otherwise leave the dashboard asking
+        // for a page that no longer exists and showing nothing at all.
+        $page = min($page, $totalPages);
+
+        $entries = $this->leaderboardModel->getPaginatedEntries($page, self::ENTRIES_PER_PAGE);
+
+        $this->jsonResponse([
+            'entries' => $entries,
+            'page' => $page,
+            'total_pages' => $totalPages,
+            'total_count' => $totalCount,
+            'per_page' => self::ENTRIES_PER_PAGE,
+        ]);
     }
 
     /**

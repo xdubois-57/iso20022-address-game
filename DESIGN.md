@@ -106,6 +106,15 @@ Each chip must match its specific semantic slot:
 - Hall of Fame and admin leaderboard both sort by this score, computed in SQL
   (`LeaderboardModel::GAME_SCORE_EXPR`) so the ordering matches the JavaScript
   in `computeGameScore()`. Keep the two in step when changing either
+- Both screens also *page* through the same ordering — 20 rows on the public
+  Hall of Fame, 50 in the admin dashboard — and the admin listing pages rather
+  than truncating for a reason worth stating: it is the only screen that can
+  delete an entry, and the entries people ask to have deleted are the ones far
+  down the board. It used to answer with the leading 200 rows and nothing
+  else, so any installation past its 200th entry had names on the public wall
+  that the dashboard could not show, let alone remove. Rank and score are
+  rendered from what the server sent; recomputing or re-sorting a single page
+  in the browser would number the first row of page four "1"
 
 **Scoring is client-authoritative.** The browser computes the percentage and
 posts it, and in hybrid mode supplies the country-specific field order the
