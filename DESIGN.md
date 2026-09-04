@@ -517,10 +517,447 @@ text, and the PMPG lockup does not replace it.
 ├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
 ├── release.sh          # Tags, writes config/version.php, waits for release.yml's gates,
 │                       # then attaches the deployable artifact to its draft and publishes it
-├── README.md
-├── DESIGN.md
+├── README.md           # Install, run, deploy
+├── SPECIFICATIONS.md   # Functional and non-functional requirements
+├── DESIGN.md           # Why it is built this way, and how it is assured
+├── CLAUDE.md           # Instructions for agents working in this repository
 └── LICENSE
 
-Note: `deploy.sh` is referenced by the maintainers' workflow but is gitignored
-(it carries production FTP credentials) and is not part of a clone.
+Note: `deploy.sh` **is** in the repository, and holds no secret. Its
+credentials come from `config/deploy.conf`, which is gitignored and excluded
+from the upload. It was gitignored until 2026-09-04, and that had a cost worth
+recording: the exclusion list deciding what reaches a web server lived on one
+laptop, unreviewable, and a second machine deploying from a clone would have
+shipped the development toolchain to production.
 ```
+
+## 8. Assurance — how this project convinces itself
+
+Moved here from `README.md`, which had grown to a thousand lines by absorbing
+the reasoning behind every gate. A reader installing the game does not need to
+know why the dynamic scan insists on HTTPS; a reader changing how the project
+is tested does, and this is where they will look.
+
+`SPECIFICATIONS.md` § 17 states these as requirements. This part says why they
+are the ones chosen.
+
+### Security
+
+- **Encryption**: Player names encrypted with AES-256-GCM (authenticated encryption) at rest
+- **CSRF protection**: Token-based validation on all POST requests
+- **Rate limiting**: Keyed on the client address and stored server-side, so it survives a discarded session cookie. Admin login locks after 5 failed attempts (5-minute lockout); leaderboard submissions throttled to 10 per 5 minutes. Only a keyed hash of the address is stored, and spent rows are deleted by the daily cleanup
+- **Session hardening**: HttpOnly, SameSite=Strict, secure cookie flags
+- **Security headers**: CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy. The CSP names `frame-ancestors`, `form-action` and `base-uri` explicitly, because none of the three falls back to `default-src` — omitting them leaves them unset rather than restricted. It carries **no `'unsafe-inline'`**: a per-request nonce (`App\Support\Csp`) authorises the few inline `<script>` and `<style>` blocks the application actually serves, so an injected one does not run. A nonce cannot authorise `style="…"` *attributes*, so those were moved into CSS classes rather than bought back with `'unsafe-hashes'`
+- **Subresource Integrity (SRI)**: All CDN resources loaded with `integrity` hashes to prevent supply-chain attacks
+- **Host header validation**: `HTTP_HOST` validated against safe patterns to prevent host injection
+- **Admin PIN**: Stored only in `config/credentials.php` — never in the database. A PIN typed into that file in clear is accepted once and then replaced in place by a bcrypt hash of itself, so it does not stay readable. The file is rewritten atomically and the write is abandoned unless the AES encryption key alongside it survives intact. Installs that predate this have their PIN migrated out of the `settings` table on first use and the row removed
+- **Prepared statements**: All database queries use parameterised PDO statements
+- **Input validation**: Server-side bounds on all inputs (score 0–100, time 0–3600s, name 1–50 chars). Note that these are *bounds*, not proof of authenticity — see "Scoring is client-authoritative" below
+- **XSS prevention**: `escapeHtml()` on client, `htmlspecialchars()` on server for all dynamic output. The Hall of Fame wall additionally coerces every number it receives from `/board/data` to a finite number before concatenating it into its markup, so a compromised response cannot inject through a field the server declares as an integer. "Did you know?" facts accept a little inline markup and are therefore run through an allowlist sanitiser (`<a href>`, `<b>`, `<strong>`, `<i>`, `<em>`, `<br>`) on both write and read. The browser enforces the same allowlist independently before rendering a fact, so a row written by an older version cannot reach the DOM as markup
+- **Setup lockdown**: The unauthenticated setup routes refuse to run once the installation is configured, whatever the database is doing — a database outage cannot be used to repoint the app or overwrite its encryption key
+- **Authenticated encryption only for untrusted input**: share tokens are accepted in AES-256-GCM form only; the legacy unauthenticated AES-256-CTR format is read for pre-migration leaderboard rows and nothing else
+- **Security logging**: Failed login attempts and CSRF violations logged with IP address
+- **Session cookie**: A single strictly necessary PHPSESSID cookie for CSRF protection (no tracking)
+
+
+### Static analysis
+
+Two checkers, both looking for **defects rather than style**: unresolved
+identifiers, wrong argument counts, properties that do not exist on the thing
+being touched. This is the class of mistake the three test suites cannot see,
+because it lives in code they never run.
+
+```bash
+composer run analyse    # PHPStan level 6 over app/ and public/index.php
+npm run typecheck       # tsc --noEmit over public/assets/js/
+```
+
+There is deliberately **no ESLint and no PHP_CodeSniffer**. Reformatting a
+codebase produces a very large diff, no fewer bugs, and a review nobody can
+read.
+
+TypeScript here is a **checker, never a build step**. `tsconfig.json` sets
+`allowJs`, `checkJs` and `noEmit`; nothing is compiled, nothing is bundled, and
+production still ships the plain unbundled JavaScript in `public/assets/js/`
+exactly as it is written. There is no `.ts` file in this repository and there
+should not be one.
+
+#### SonarCloud findings deliberately not fixed
+
+SonarCloud's own analysis is a third checker, and it is kept at **zero open
+findings** — with two standing exceptions, marked *won't fix* in SonarCloud
+rather than worked around in code. Both are cases where the rule is right in
+general and wrong for this application.
+
+| Rule | Where | Why it stands |
+|---|---|---|
+| `javascript:S1874` (×7) | `document.execCommand` in `app.js` | Deprecated, and still the only formatting API for a `contentEditable` region that every browser implements. Four calls are the "Did you know?" rich-text editor; one is the clipboard fallback. Replacing them means hand-writing `Range`/`Selection` manipulation on an admin surface whose output is rendered as HTML to every visitor — real regression risk, against a deprecation that has no replacement and no removal date |
+| `Web:S7926` (×1) | `user-scalable=no` in `layout.php` | Disabling zoom is a genuine accessibility cost, taken deliberately. The game is a touch drag-and-drop kiosk running under Guided Access, where a mis-started drag would pinch-zoom the page mid-round and the player has no obvious way back |
+
+Neither is a finding to "clean up later": both were considered and declined. If
+you disagree, the argument to beat is in this table, not in the linter.
+
+#### There are no baselines
+
+Both commands pass, and they pass because the code is clean — not because a
+file forgives what they find. That was not true until recently: PHPStan carried
+`phpstan-baseline.neon` with **76** accepted findings and `tsc` carried
+`js-typecheck-baseline.json` with **81**. Both were paid off and both files are
+gone.
+
+**Green here means "no findings", not "no new findings".** Keep it that way. A
+finding is either worth fixing or worth arguing about in review; a baseline is
+how it quietly becomes neither.
+
+What paying it off actually involved, since the shape of the debt is the useful
+part:
+
+| Debt | Count | What it turned out to be |
+|---|---|---|
+| `missingType.iterableValue` and friends | 54 | `array` with no value type. Declarative, and worth more than it sounds: writing `list<array{id: int, …}>` down is what let PHPStan check the callers |
+| `variable.undefined` | 13 | Views reading variables the controller sets before `include`. A real contract that only existed in a prose comment; now an `assert(isset(…))` the analyser reads |
+| Genuine defects | 9 | A loop counter that ran backwards and made its own bound unprovable; a `?? 0` after an `isset`; a `$path &&` that was always true; a property written and never read; a URL guard made redundant by the allowlist narrowing to one literal |
+| `Property 'value' does not exist on type 'HTMLElement'` and kin | ~74 | `getElementById()` returns `HTMLElement`, `querySelector()` returns `Element`. The fix is a handful of typed accessors — `inputById`, `canvasById`, `asElement`, `asButton` — which document what each lookup expects instead of asserting it at 74 call sites |
+| CDN globals | 11 | `Chart`, `confetti`, `Dropzone`, `qrcode`, reached through `cdnGlobal()`. No `.d.ts`: there is still no `.ts` file in this repository |
+
+One of those found a real latent bug: the screen saver's countdown interval was
+stored as an expando property on the overlay element, so it was invisible to
+every tool and would have kept firing against a detached node if the overlay
+were ever replaced rather than reused. It lives beside its sibling timer now.
+
+The machinery for both baselines is still in place, and
+`composer run analyse:baseline` / `npm run typecheck:baseline` still work. That
+is deliberate: the alternative to a baseline is not "no baseline", it is
+somebody switching the gate off the first time a dependency upgrade produces
+fifty findings on a Friday afternoon. Use it if that day comes, and empty it
+again afterwards.
+
+##### Regenerating one
+
+> Regenerate a baseline **only** to deliberately accept existing debt you are
+> not fixing right now. **Never** to silence a finding your own change just
+> introduced — fix that one instead.
+>
+> A baseline regenerated to hide a regression turns the whole gate into
+> decoration while leaving everybody sure it is working.
+
+Neither file exists at the moment, so there is nothing to read that warning in
+— which is the point of putting it here instead.
+
+
+### Dynamic application security testing
+
+A **passive** OWASP ZAP scan of the running application, on every push and on
+demand:
+
+```bash
+npm install
+npx playwright install --with-deps chromium
+docker pull ghcr.io/zaproxy/zaproxy:stable   # once, about 1.2 GB
+npm run dast                                 # scripts/dast.sh
+```
+
+`scripts/dast.sh` provisions a throwaway SQLite-backed instance, serves it over
+**HTTPS** through the real entry point (`public/index.php`), replays the
+Playwright suite through ZAP acting as a proxy, gates on the findings, and
+tears the whole thing down from an `EXIT` trap — on success, on failure and on
+Ctrl-C. It uses its own temporary directory, its own database and its own
+ports, so it cannot collide with `npm run e2e`.
+
+#### The browser suite is the attack surface
+
+Not ZAP's spider. The end-to-end suite already drives the admin screen from
+behind its PIN pad, both dedicated display modes with their token, a full
+five-round game, the end-of-game screen and the share flow. A crawler pointed
+at this application sees the welcome card and stops. Replaying the suite
+through a proxy is the most faithful picture of the real surface that exists.
+
+That has a consequence worth stating: **a failed browser run fails the scan**,
+even with no security finding. A scan is only as complete as the traffic it was
+given.
+
+#### Why it has to be HTTPS
+
+`scripts/e2e.sh` serves plain HTTP, and two of this application's protections
+are conditional on the request having arrived over TLS — the HSTS header
+(`public/index.php` ~l.97) and `session.cookie_secure` (~l.155). A scan in the
+clear would report *"no HSTS"* and *"cookie without the Secure flag"*: two
+findings that are **false**, about code that is **correct**.
+
+The tempting fix is an alert filter silencing both rules. That is exactly how a
+report stops being read — two rules muted for a harness defect, and the day one
+of them fires for real nobody notices. So the harness is fixed instead:
+
+- `scripts/dast-tls-proxy.php` terminates TLS in front of `php -S` and sets
+  `X-Forwarded-Proto`, stripping any copy the client sent first;
+- `scripts/dast-https-prepend.php` translates that into `$_SERVER['HTTPS']` for
+  the backend process only, through `auto_prepend_file` — **the application
+  itself is untouched and does not trust any forwarded header**;
+- both ZAP rules stay fully armed, and `scripts/dast.sh` proves HSTS and the
+  `Secure` cookie are live *before* the scan starts, so a broken harness fails
+  in ten seconds rather than producing twenty minutes of false findings.
+
+#### The gate
+
+`DAST_THRESHOLD` defaults to `Medium`: the run fails on any finding at Medium
+or above. Informational and Low are printed but do not fail.
+
+There is deliberately **no baseline of accepted findings** — the opposite
+choice from the PHPStan and `tsc` baselines, and the difference is the point.
+Those record thousands of pre-existing type findings nobody introduced today.
+This records live security findings against a running instance, and a growing
+list of "accepted" ones is how a scan stops meaning anything. A finding is
+either fixed, or filtered as a false positive **with the reason written into
+`tests/dast/zap-passive.yaml`** where a reviewer will see it. Today nothing is
+filtered.
+
+#### Why the findings are not in the Security tab
+
+There is no SARIF upload, and that is a decision rather than an omission.
+
+Code scanning anchors a result to a path inside the checkout so it can blame a
+commit and a line. A DAST result is an observation about a **running
+instance**: ZAP records the URL it actually requested, and the harness serves
+that instance on a free port picked at run time, so every location reads
+`https://localhost:<random>/…` — an origin that never existed outside that one
+job. Rewriting those URLs into repository paths would make the upload succeed
+by inventing a source location for a finding that has none.
+
+The gate loses nothing by it: the exit code fails the job on the push that
+introduced the finding, which the Security tab never did.
+
+#### The report is published in full
+
+The whole `dast-report/` directory — the HTML report and the severity counts —
+is uploaded on an evidence run and attached to the Release. That was not always
+so: until 2026-09-03 only `dast-severity-summary.json` left the job, and the
+release workflow actively refused a pack containing anything more.
+
+The reasoning, so the decision can be re-taken rather than merely inherited.
+Against publishing: this repository is public, so Release assets are public,
+and so are workflow artifacts — which is less widely known than it should be.
+For publishing: the scan target is a throwaway instance on `127.0.0.1` that
+`scripts/dast.sh` builds for the occasion, with a generated certificate and a
+scratch database. It is not a production host, and the application it probes is
+open source, so the report describes code anybody can already read. An evidence
+pack that can be audited without a GitHub account is worth something in return.
+
+What does not go away: header and cookie findings on that instance are findings
+about the shipped configuration, so they apply to production too. Publishing
+them publishes a to-do list before it is done. **That trade is only worth
+making while the report stays clean** — the gate at Medium is what keeps it
+so, and lowering that gate and publishing the report are not two independent
+decisions.
+
+#### What it reports today
+
+**Nothing at Low or above.** The 66 Low findings the scan used to report were
+all one of four things, and all four are fixed rather than filtered:
+
+| Finding | What it was |
+|---|---|
+| `X-Powered-By` leaked | PHP names itself and its exact version unless `expose_php` is off, which this project cannot assume of a shared host. `header_remove()` now covers it whatever the host's `php.ini` says |
+| Unix timestamp disclosure | Every asset URL carried `?v={filemtime}`, saying when each file was last touched on the server. The stamp is hashed now — the mtime and the release still decide it, they are just no longer printed |
+| `X-Content-Type-Options` missing | On **static** files only. They never reach `public/index.php`, so they were answered with none of its headers — and they are most of what a browser fetches |
+| HSTS not set | The same responses, for the same reason |
+
+The last two are set by `public/.htaccess` in production and by
+`scripts/e2e-router.php` in the harness, which now serves assets itself rather
+than handing them to PHP's built-in server — that discards headers set before
+`return false`, so the scan was reporting a site less protected than the
+deployed one. A false picture in the safe direction, which is the worse
+direction for a scan report to be wrong in.
+
+The remaining 78 findings are Informational: "Modern Web Application",
+"Session Management Response Identified" and similar observations that describe
+the application rather than fault it.
+
+#### Not an active scan
+
+The passive profile observes traffic and sends nothing of its own. An active
+profile would **replay every recorded request with attack payloads, carrying
+the session cookies the browser was using** — including an authenticated admin
+one, which on this application can purge the leaderboard and overwrite the
+scenarios. A passive scan is a gate; an active scan is an attack, and it needs
+an exclusion list written before it rather than after.
+
+
+### Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`. The
+gates themselves live in `.github/workflows/checks.yml`, a reusable workflow
+that CI and the release pipeline both call — so the two can never drift apart
+on what "green" means, and the `setup-php` block exists once rather than six
+times:
+
+| Job | What it does |
+|---|---|
+| **PHP** | PHPUnit on 8.1 and 8.4 — the floor this project advertises and the current release |
+| **Static analysis** | PHPStan and `tsc`, both against their baselines — see [Static analysis](#static-analysis) |
+| **JavaScript** | Vitest unit suite |
+| **End-to-end** | Playwright against a throwaway SQLite instance |
+| **Dynamic scan** | Passive OWASP ZAP scan over HTTPS, gated at Medium — see [Dynamic application security testing](#dynamic-application-security-testing) |
+| **SonarCloud** | Static analysis with merged PHP + JavaScript coverage |
+
+CodeQL runs through GitHub's **default setup**, configured in the repository's
+settings rather than by a workflow file in this repo. It covers
+`javascript-typescript` and `actions`, and publishes to the Security tab.
+
+There is deliberately no `codeql.yml` here: GitHub refuses a SARIF upload from
+an advanced configuration while the default setup is enabled, so a workflow
+file would analyse the code and then fail on the upload every single run. The
+release pipeline still produces CodeQL's SARIF for its evidence pack, with
+`upload: never`, for the same reason.
+
+**CodeQL does not support PHP.** Everything under `app/` — the majority of this
+application's logic — is therefore outside it, whichever setup runs. The PHP is
+covered by PHPStan, SonarCloud and the passive DAST scan. Worth stating plainly,
+because a green badge is a claim somebody will read as more than it is.
+
+#### SonarCloud setup
+
+Analysis is configured by `sonar-project.properties`
+([dashboard](https://sonarcloud.io/project/overview?id=xdubois-57_iso20022-address-game)).
+Two things are needed for the job to run:
+
+1. **A `SONAR_TOKEN` repository secret.** Generate it in SonarCloud (My Account
+   → Security) and add it under Settings → Secrets and variables → Actions.
+   Without it the scan step is *skipped* rather than failed, so pull requests
+   from forks — which cannot read secrets — still run the rest of CI.
+2. **Automatic Analysis turned off**, in SonarCloud under Administration →
+   Analysis Method. SonarCloud refuses a CI-based analysis while its own
+   automatic analysis is enabled, and only the CI one can carry coverage.
+
+
+### Releases and the evidence pack
+
+`.github/workflows/release.yml` runs on a `v*` tag **and** on
+`workflow_dispatch`. The second matters as much as the first: it is how a set
+of evidence is produced for what is already deployed, or how the whole chain is
+rehearsed, without cutting a version.
+
+It is deliberately **not** merged with `ci.yml`. That one is the fast loop on
+every push and has to stay fast; this one is the slow complete pass. What they
+share is the gates, which live in the reusable `checks.yml` both of them call.
+
+#### Ordering
+
+All gates first. The Release is created **only if every one of them is green**,
+and the workflow creates it as a **draft**. If a gate fails no Release is
+created at all — the tag exists and points at nothing published, which is fixed
+by deleting the tag and pushing it again.
+
+`release.sh` is what turns that draft into a published Release, and it is the
+only thing that should: it tags, waits for this workflow, attaches the
+deployable zip to the draft, and publishes it. So a release is one command, and
+a version cannot ship past a red gate — the script reads the run's conclusion
+and stops on anything but success.
+
+The script deliberately does **not** create a Release of its own. Both would
+target the same tag, the workflow lands last, and it would quietly turn a
+published Release back into a draft.
+
+What that trades away is a human reading the evidence *before* the Release goes
+public. The pack stays attached to the published Release, so it is still read —
+just not as a blocking step. To keep the blocking read instead, push the tag by
+hand and finish with `gh release upload` and `gh release edit --draft=false`.
+
+#### The release note
+
+`release.sh` reads `RELEASE_NOTES_FILE` and puts its contents at the head of
+the published Release, above the workflow's description of the evidence pack.
+The note must cover four things: what changed in the language of somebody
+using the game, the bugs fixed said as the symptom that went away, what an
+existing installation has to do for backward compatibility — or an explicit
+"nothing", because silence there is an oversight rather than an answer — and
+the tests that ran.
+
+The test table carries **three** columns: the gate, one line on what it
+actually checks, and the result. The middle one is there because the people
+most likely to read a release note closely are auditing the project, and have
+no reason to know what Vitest or a passive DAST scan is. `Vitest — 111` tells
+them nothing they can assess; `Vitest — unit tests for the browser JavaScript,
+run without a browser — 111` does.
+
+Below it, `scripts/dependency-inventory.php` appends every dependency, its
+version **and its licence**: PHP production and development from
+`composer.lock`, JavaScript from `package-lock.json`, and the CDN libraries
+scraped from the `<script>` and `<link>` tags in `app/Views/`. It closes with
+the compatibility reasoning against this project's own AGPL-3.0 — which is not
+decoration, since whether a dependency may be combined with the strongest
+copyleft in common use depends entirely on that column. Versions come from the lock files rather than
+the manifests, so the list says what shipped and not what a constraint allowed.
+The CDN ones are there because they are in no lock file at all and are the only
+third-party code a player's browser actually executes.
+
+Without the variable the script warns and keeps the generated commit list. That
+is fine for a human cutting a quick patch; it is not fine for an agent, which
+has the context to write the note.
+
+#### What is in the pack
+
+Only what each tool emits natively. Nothing in it is written by hand: a
+document somebody writes once to describe a pipeline is a document nobody
+updates when the pipeline changes, and evidence that has stopped being true is
+worse than no evidence.
+
+| Evidence | Where it comes from |
+|---|---|
+| PHP tests, 8.1 and 8.4 | PHPUnit `--log-junit` |
+| JavaScript tests | Vitest `--reporter=junit` |
+| End to end | Playwright's own HTML report, one screenshot per test |
+| PHP static analysis | PHPStan's output, its version and level, **and the list of the 27 files it analysed** |
+| JavaScript static analysis | `tsc`'s output, its version, **and the list of files it checked** |
+| CodeQL | the workflow's SARIF |
+| SonarCloud | the complete analysis — quality gate, every measure, the same per file, every open issue and every security hotspot, plus a Markdown front page |
+| Dynamic scan | the full ZAP report, plus the counts per severity |
+| Coverage | the merged Clover report and the JavaScript lcov, computed exactly as the SonarCloud job computes them |
+| Coverage note | why the Clover figure and the SonarCloud figure differ, so a reader comparing them is not left guessing |
+| Provenance | `manifest.json` and `SHA256SUMS`, and the archive is signed |
+
+#### Why the file lists are there
+
+A clean PHPStan run prints `[OK] No errors` and nothing else. Eighty-three
+bytes, which a configuration analysing **zero files** would produce just as
+happily — so as evidence it was worth nothing, and it was in the pack for
+several releases before anybody looked at it closely.
+
+The list of analysed files is what turns it into a checkable statement. It
+comes from `--debug`, which prints each file as it goes; the JSON report was
+tried first and lists only files *with* errors, so on a clean run it is an
+empty object — exactly as uninformative as the line it was meant to back up.
+
+#### How an auditor checks this pack
+
+The reports are produced by the same pipeline they attest to, and anybody who
+can change that pipeline can change what it emits. Self-produced evidence is
+worth what it can be cross-checked against, so the pack is built to make that
+easy:
+
+1. **`manifest.json`** names the repository, the commit, the workflow run and
+   its URL. Nothing in it is set by the repository — every value comes from the
+   runner's context.
+2. **`SHA256SUMS`** covers every file in the archive. It detects a pack edited
+   after the fact.
+3. **The archive is signed** by GitHub's own identity through Sigstore, which
+   is the part nobody here can forge:
+
+   ```bash
+   gh attestation verify evidence.zip --repo xdubois-57/iso20022-address-game
+   ```
+
+   That fails if the archive was altered by a byte, or if it was built anywhere
+   other than this workflow in this repository.
+4. **The run URL** in the manifest leads to a log GitHub timestamps and retains
+   and that nobody with write access to this repository can edit. It is the
+   independent record; the pack's job is to point at it, not to replace it.
+
+#### One thing it deliberately does not contain
+
+**Videos and traces of tests that passed.** They are what makes an evidence
+pack enormous, and a video of a test that behaved is not evidence anybody
+watches. Both stay `retain-on-failure` in every mode. Screenshots go to `'on'`
+only for a release, driven by `E2E_EVIDENCE` — an ordinary `npm run e2e` stays
+light.
+
+
