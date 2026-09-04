@@ -918,9 +918,20 @@ chmod 600 config/deploy.conf     # then fill in host, user and password
 ./deploy.sh
 ```
 
-`config/deploy.conf` is gitignored; anything already exported in the
-environment wins over it, so CI can pass the three values as secrets and write
-no file. `DRY_RUN=1 ./deploy.sh` shows exactly what would be uploaded and
+`config/deploy.conf` is gitignored **and excluded from the upload**, which is
+not the same statement and was learned the hard way: the first deploy after
+that file was introduced sent it to the web server. It was unreachable there —
+`config/.htaccess` denies the directory — and it was removed, but "unreachable"
+is a weaker promise than "never sent", and it rested entirely on one
+`.htaccess` being honoured.
+
+So `deploy.sh` now asks the mirror what it *would* send and refuses to run if a
+credentials file is in the answer. The exclusion list is defined once and used
+by both the guard and the real transfer: a guard checking a different list from
+the one that runs would report success about something it never examined.
+
+Anything already exported in the environment wins over the file, so CI can pass
+the three values as secrets and write no file. `DRY_RUN=1 ./deploy.sh` shows exactly what would be uploaded and
 deleted without touching the server — worth doing before any `--delete` mirror.
 
 It was gitignored until 2026-09-04, because the credentials were written into

@@ -150,6 +150,36 @@ cleanup() {
 trap cleanup EXIT
 echo ""
 
+# A last line of defence over the exclusion list below. That list is easy to
+# add a secret to and easy to forget to exclude — which is exactly what
+# happened on the first deploy after config/deploy.conf was introduced: the
+# production FTP password was uploaded to the web server. It was unreachable
+# there (config/.htaccess denies the directory) and it was removed, but
+# "unreachable" is a weaker promise than "never sent", and it rested entirely
+# on one .htaccess being honoured.
+#
+# So the mirror is asked what it would send, and refused if a known secret is
+# in the answer. A dry run is cheap; shipping a password is not.
+assert_no_secrets_in_transfer() {
+    local listing
+    listing="$(HOME="$NETRC_DIR" lftp -c "
+        set ftp:ssl-allow no;
+        open $FTP_HOST;
+        mirror --reverse --delete --dry-run --verbose=1 $MIRROR_EXCLUDES $LOCAL_DIR $REMOTE_DIR;
+        bye;
+    " 2>&1 | redact)"
+
+    local offending
+    offending="$(printf '%s\n' "$listing" | grep -E 'config/(deploy\.conf|credentials\.php|db_config\.json)([^.]|$)' || true)"
+    if [[ -n "$offending" ]]; then
+        echo "ERROR: the transfer would include a credentials file:" >&2
+        printf '%s\n' "$offending" >&2
+        echo "Refusing to deploy. Fix the --exclude-glob list." >&2
+        exit 1
+    fi
+    echo "Checked: no credentials file in the transfer."
+}
+
 # Set DRY_RUN=1 to preview exactly what would be uploaded and deleted
 # without touching the server. Worth doing before any --delete mirror.
 DRY_RUN_FLAG=""
@@ -188,14 +218,12 @@ redact() {
            -e "s#${FTP_PASS}#***#g"
 }
 
-set +e
-HOME="$NETRC_DIR" lftp -c "
-set ftp:ssl-allow no;
-set net:timeout 30;
-set net:max-retries 3;
-set mirror:parallel-transfer-count 5;
-open $FTP_HOST;
-mirror --reverse --delete $DRY_RUN_FLAG --verbose=1 --parallel=5 \
+# ONE exclusion list, used by the real mirror AND by the guard above.
+#
+# Defined once on purpose: a guard that checked a different list from the one
+# that actually runs would be worse than no guard, because it would report
+# success about something it never examined.
+MIRROR_EXCLUDES="\
     --exclude-glob .git/ \
     --exclude-glob .git/** \
     --exclude-glob .github/ \
@@ -205,6 +233,8 @@ mirror --reverse --delete $DRY_RUN_FLAG --verbose=1 --parallel=5 \
     --exclude-glob release.sh \
     --exclude-glob config/credentials.php \
     --exclude-glob config/db_config.json \
+    --exclude-glob config/deploy.conf \
+    --exclude-glob config/*.conf \
     --exclude-glob storage/** \
     --exclude-glob uploads/** \
     --exclude-glob tests/ \
@@ -238,7 +268,22 @@ mirror --reverse --delete $DRY_RUN_FLAG --verbose=1 --parallel=5 \
     --exclude-glob DESIGN.md \
     --exclude-glob *.zip \
     --exclude-glob .DS_Store \
-    --exclude '[^/]+ [0-9]+(/|\.|$)' \
+    --exclude '[^/]+ [0-9]+(/|\.|$)'"
+
+# Ask what would be sent, and refuse if a secret is in the answer. Runs before
+# the real mirror, so a mistake in the exclusion list costs a listing rather
+# than a published password.
+assert_no_secrets_in_transfer
+
+set +e
+HOME="$NETRC_DIR" lftp -c "
+set ftp:ssl-allow no;
+set net:timeout 30;
+set net:max-retries 3;
+set mirror:parallel-transfer-count 5;
+open $FTP_HOST;
+mirror --reverse --delete $DRY_RUN_FLAG --verbose=1 --parallel=5 \
+    $MIRROR_EXCLUDES \
     $LOCAL_DIR $REMOTE_DIR;
 bye;
 " 2>&1 | redact
