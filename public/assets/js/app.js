@@ -689,6 +689,18 @@ import {
             + '</div>';
     }
 
+    /**
+     * Put the caret back in the name field without moving the screen.
+     *
+     * The play station is a fixed panel with the on-screen keyboard below the
+     * card: focus() there is allowed to scroll the field into the middle of
+     * the viewport, which pushes the keys the player is aiming at off the
+     * bottom. Everywhere else the ordinary behaviour is the right one.
+     */
+    function focusNameInput(nameInput) {
+        nameInput.focus(displayMode === 'play' ? { preventScroll: true } : undefined);
+    }
+
     function renderWelcomeCard() {
         var html = '<section class="game-welcome">';
         html += '<div id="countdownBanner"></div>';
@@ -696,6 +708,16 @@ import {
         html += '<h2>ISO 20022 Address Game</h2>';
         html += '<p>Structure <strong>' + TOTAL_ROUNDS + ' addresses</strong> into ISO 20022 format as fast as you can!</p>';
         html += '<input type="text" id="welcomeNameInput" placeholder="Enter your name to start" maxlength="50" class="name-input"';
+        // The play station composes this field by tapping, and every one of
+        // those taps ends in nameInput.focus() inside a click handler — a real
+        // user gesture, which is exactly when a touch device raises its OWN
+        // keyboard. The player then has two keyboards, the device's one over
+        // the one they were using, and the card scrolled to make room for it.
+        // inputmode="none" says the field is edited by something other than
+        // the system keyboard; it stays focusable, editable and caret-visible.
+        // Only here: a phone and an iPad have no on-screen keyboard of ours
+        // and need the system one.
+        if (displayMode === 'play') html += ' inputmode="none"';
         // `playerName !== ''` rather than a truthiness test: "0" is a name a
         // player is allowed to have, and the truthy form silently declined to
         // put it back in the field it had just been typed into.
@@ -736,7 +758,7 @@ import {
             // Empty, not falsy. `!playerName` refused "0" as though the field
             // had been left blank, so a player whose whole name was that one
             // character could not start a game at all.
-            if (playerName === '') { nameInput.style.borderColor = 'var(--game-danger)'; nameInput.focus(); return; }
+            if (playerName === '') { nameInput.style.borderColor = 'var(--game-danger)'; focusNameInput(nameInput); return; }
             // Check name for profanity
             startBtn.disabled = true;
             var check = await api('game/check-name', { name: playerName });
@@ -752,7 +774,7 @@ import {
                 nameInput.parentNode.insertBefore(warn, nameInput.nextSibling);
                 nameInput.value = '';
                 playerName = '';
-                nameInput.focus();
+                focusNameInput(nameInput);
                 // On the play station the on-screen keyboard sits below all
                 // of this and makes the card tall. The refusal has to be
                 // READ, or the player simply types the same name again — so
@@ -770,7 +792,7 @@ import {
         nameInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') document.getElementById('startGameBtn').click();
         });
-        nameInput.focus();
+        focusNameInput(nameInput);
 
         if (displayMode === 'play') bindTouchKeyboard(nameInput);
     }
@@ -898,7 +920,7 @@ import {
                     return;
                 }
 
-                nameInput.focus();
+                focusNameInput(nameInput);
             });
         });
     }
