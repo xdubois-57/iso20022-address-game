@@ -8,7 +8,9 @@ config/credentials.php
 config/db_config.json
 
 # Deploy script (contains FTP credentials)
-deploy.sh
+# deploy.sh is versioned now: it holds no secret. Its credentials live in
+# config/deploy.conf, which does not.
+config/deploy.conf
 
 # Logs
 *.log

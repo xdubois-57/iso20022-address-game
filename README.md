@@ -910,9 +910,36 @@ an install: run `composer install --no-dev`, then upload everything except
 `tests/`, `.git/` and the local config files. `storage/` and `uploads/` hold
 live data — leave the copies on the server alone.
 
-The maintainers use an FTP script (`deploy.sh`) for this, but it holds
-production credentials and is therefore gitignored — it is **not** part of a
-clone. Write your own, or deploy however suits your host.
+`deploy.sh` does it over FTP, and **is** part of a clone. It holds no secret:
+
+```bash
+cp config/deploy.conf.example config/deploy.conf
+chmod 600 config/deploy.conf     # then fill in host, user and password
+./deploy.sh
+```
+
+`config/deploy.conf` is gitignored; anything already exported in the
+environment wins over it, so CI can pass the three values as secrets and write
+no file. `DRY_RUN=1 ./deploy.sh` shows exactly what would be uploaded and
+deleted without touching the server — worth doing before any `--delete` mirror.
+
+It was gitignored until 2026-09-04, because the credentials were written into
+it. That had a cost nobody had counted: the exclusion list deciding what
+reaches a web server lived on one laptop, unreviewable, and a second machine
+deploying from a clone would have shipped the development toolchain to
+production.
+
+Two things the script does that are worth knowing if you write your own:
+
+- **The password never reaches lftp's command line**, where `ps` would show it
+  to every process on the machine. It goes into a private `.netrc` created for
+  the run and deleted on exit.
+- **The transfer log is filtered.** `--verbose=1` makes lftp echo every
+  transfer as `ftp://user:password@host/...`, so the password was printed
+  dozens of times per deploy — into a terminal, a log file, or a pasted bug
+  report. The verbosity is worth keeping, since the file list is how you see
+  what a `--delete` mirror is about to do; the credentials are stripped from
+  the stream instead.
 
 Each published release also carries a ready-to-upload zip built by
 `release.sh`, which already includes `vendor/`; GitHub's own auto-generated

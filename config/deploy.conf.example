@@ -1,0 +1,36 @@
+# ============================================================================
+# Deployment credentials — copy to config/deploy.conf and fill in.
+# ============================================================================
+#
+#   cp config/deploy.conf.example config/deploy.conf
+#   chmod 600 config/deploy.conf
+#   $EDITOR config/deploy.conf
+#
+# config/deploy.conf is gitignored. This example is not, and must never be
+# filled in: a real password committed here is a password published, and
+# deleting the commit afterwards does not unpublish it.
+#
+# Sourced by deploy.sh as shell, so ordinary quoting rules apply — quote any
+# value containing a space, a $ or a backtick.
+#
+# Anything already exported in the environment WINS over this file, so a CI job
+# can set the three variables as secrets and never write a file at all.
+# ============================================================================
+
+# The FTP host, without a scheme. Example: ftp.example.com, or a bare IP.
+FTP_HOST=""
+
+# The FTP user.
+FTP_USER=""
+
+# The FTP password.
+#
+# deploy.sh keeps this off lftp's command line — where `ps` would show it to
+# every process on the machine — by writing it to a private .netrc for the run,
+# and it filters the transfer log, which otherwise prints the password in a URL
+# on every single file.
+FTP_PASS=""
+
+# Optional. The directory on the server that the site's document root maps to.
+# Defaults to "/".
+#FTP_REMOTE_DIR="/"
