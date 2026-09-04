@@ -74,8 +74,12 @@ scales SonarCloud reports — the classic one and the Clean Code impact one. A
 classic MINOR carries a LOW impact, so trusting either alone would let through
 what the other calls a defect.
 
-It also refuses if the latest analysis is not of the commit being released — a
-pass read off an older analysis is not a pass.
+The analysis has to be of the commit being released. Releasing minutes after a
+merge is the normal case and SonarCloud is usually still working, so the gate
+**waits** — polling for up to ten minutes, tunable with `SONAR_WAIT_ATTEMPTS`
+and `SONAR_WAIT_SECONDS`. If the analysis never arrives it still refuses: "not
+analysed yet" and "analysed and clean" are different answers, and only one of
+them is a pass.
 
 If a finding is genuinely not worth fixing, mark it *won't fix* in SonarCloud.
 That is a decision with a name against it, and the gate honours it because a
