@@ -67,13 +67,31 @@ function readJson(string $path): array
 }
 
 /**
+ * Licences of the CDN libraries.
+ *
+ * The only hand-maintained values in this file, and unavoidably so: nothing
+ * downloads these packages, so there is no lock file to read one out of. The
+ * scrape below drives the list, and a package that appears in the views
+ * without an entry here is reported as unknown rather than quietly omitted —
+ * so adding a library forces this map to be updated instead of leaving the
+ * inventory silently incomplete.
+ */
+const CDN_LICENCES = [
+    '@picocss/pico'    => 'MIT',
+    'canvas-confetti'  => 'ISC',
+    'chart.js'         => 'MIT',
+    'dropzone'         => 'MIT',
+    'qrcode-generator' => 'MIT',
+];
+
+/**
  * The CDN dependencies, scraped from the views that load them.
  *
  * Scraped rather than listed here on purpose. A hand-maintained copy would be
  * wrong the first time somebody bumped a version in layout.php, and it would
  * be wrong silently — which is the failure mode an inventory exists to prevent.
  *
- * @return array<string, string> package => version
+ * @return array<string, array{version: string, licence: string}>
  */
 function cdnDependencies(string $root): array
 {
@@ -91,7 +109,11 @@ function cdnDependencies(string $root): array
         );
 
         foreach ($matches as $match) {
-            $found[$match[1]] = $match[2];
+            $found[$match[1]] = [
+                'version' => $match[2],
+                'licence' => CDN_LICENCES[$match[1]]
+                    ?? '**unknown — add it to CDN_LICENCES**',
+            ];
         }
     }
 
@@ -100,29 +122,43 @@ function cdnDependencies(string $root): array
     return $found;
 }
 
-/** One Markdown table of name/version rows. */
+/**
+ * One Markdown table of name/version/licence rows.
+ *
+ * The licence column is not decoration. This project is AGPL-3.0, which is the
+ * strongest copyleft in common use, and whether a dependency may be combined
+ * with it at all depends entirely on that column. Printing it beside the
+ * version is what lets a reader check the answer instead of trusting it.
+ *
+ * @param array<string, array{version: string, licence: string}> $rows
+ */
 function table(array $rows, string $emptyNote): string
 {
     if ($rows === []) {
         return $emptyNote . "\n";
     }
 
-    $out = "| Package | Version |\n|---|---|\n";
-    foreach ($rows as $name => $version) {
-        $out .= '| `' . $name . '` | ' . $version . " |\n";
+    $out = "| Package | Version | Licence |\n|---|---|---|\n";
+    foreach ($rows as $name => $row) {
+        $out .= '| `' . $name . '` | ' . $row['version'] . ' | ' . $row['licence'] . " |\n";
     }
 
     return $out;
 }
 
-/** @return array<string, string> */
+/** @return array<string, array{version: string, licence: string}> */
 function composerPackages(array $lock, string $key): array
 {
     $rows = [];
     foreach ($lock[$key] ?? [] as $package) {
-        if (isset($package['name'], $package['version'])) {
-            $rows[(string) $package['name']] = (string) $package['version'];
+        if (!isset($package['name'], $package['version'])) {
+            continue;
         }
+        $licence = $package['license'] ?? [];
+        $rows[(string) $package['name']] = [
+            'version' => (string) $package['version'],
+            'licence' => $licence === [] ? '**not declared**' : implode(' / ', (array) $licence),
+        ];
     }
     ksort($rows);
 
@@ -149,9 +185,15 @@ function npmPackages(array $manifest, array $lock): array
     $rows = [];
     foreach ($wanted as $name) {
         $entry = $lock['packages']['node_modules/' . $name] ?? null;
-        $rows[$name] = is_array($entry) && isset($entry['version'])
-            ? (string) $entry['version']
-            : 'not installed';
+        $licence = is_array($entry) ? ($entry['license'] ?? null) : null;
+        $rows[$name] = [
+            'version' => is_array($entry) && isset($entry['version'])
+                ? (string) $entry['version']
+                : 'not installed',
+            'licence' => $licence === null
+                ? '**not declared**'
+                : implode(' / ', (array) $licence),
+        ];
     }
     ksort($rows);
 
@@ -196,6 +238,37 @@ echo "only third-party dependencies a player's browser actually executes.\n\n";
 echo table($cdn, '_None found — check the scrape in scripts/dependency-inventory.php._');
 
 echo "\nThe address formatter is deliberately **not** on that list: it is\n";
-echo "bundled at `public/assets/js/vendor/address-formatter.js` so that a kiosk\n";
-echo "on a restricted network still grades hybrid mode against the right\n";
+echo "bundled at `public/assets/js/vendor/address-formatter.js` (MIT) so that a\n";
+echo "kiosk on a restricted network still grades hybrid mode against the right\n";
 echo "country layouts.\n";
+
+echo "\n#### Assets, which are not code\n\n";
+echo "| Asset | Licence |\n|---|---|\n";
+echo "| Liberation Sans (`public/assets/fonts/`) | SIL Open Font License 1.1 |\n";
+echo "| World map background | CC BY-SA 3.0 |\n";
+echo "| PMPG name and logo | Trademark, used with permission — **not** covered by this project's licence |\n";
+
+echo "\n#### Licence compatibility\n\n";
+echo "This project is **AGPL-3.0-or-later**. Everything above may be combined\n";
+echo "with it:\n\n";
+echo "- **MIT, ISC, BSD-2/3-Clause, MIT-0, CC0, BlueOak** — permissive, and\n";
+echo "  compatible in the direction that matters here.\n";
+echo "- **Apache-2.0** — one-way compatible: Apache-2.0 code may be included in\n";
+echo "  an AGPL-3.0 work, not the reverse. Development tooling only, so it is\n";
+echo "  not combined into anything that ships.\n";
+echo "- **MPL-2.0** — file-level copyleft, explicitly compatible with the\n";
+echo "  (A)GPL through its own section 3.3. Development tooling only.\n";
+echo "- **AGPL-3.0** — `snipe/banbuilder`, the one production dependency that\n";
+echo "  is copyleft, and the same licence as this project.\n\n";
+echo "That last one is worth a note. Until 2026-09-03 this project was GPL-3.0,\n";
+echo "and shipped an AGPL-3.0 library inside a web application. The combination\n";
+echo "was permitted — GPL-3.0 section 13 allows it — but the AGPL's network\n";
+echo "clause then attached to that portion, an obligation the project never\n";
+echo "declared anywhere. The move to the AGPL removed the mismatch rather than\n";
+echo "papering over it, and it was found by taking this inventory rather than\n";
+echo "by anybody noticing at the time.\n\n";
+echo "The two assets keep their own terms and are not relicensed by this\n";
+echo "project: the fonts stay under the OFL, and the background map stays under\n";
+echo "CC BY-SA 3.0, which means a fork that modifies the map must share the\n";
+echo "result under CC BY-SA — a separate obligation from the AGPL covering the\n";
+echo "code.\n";

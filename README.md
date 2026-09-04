@@ -804,10 +804,13 @@ existing installation has to do for backward compatibility — or an explicit
 "nothing", because silence there is an oversight rather than an answer — and
 the tests that ran with their counts.
 
-Below it, `scripts/dependency-inventory.php` appends every dependency and its
-version: PHP production and development from `composer.lock`, JavaScript from
-`package-lock.json`, and the CDN libraries scraped from the `<script>` and
-`<link>` tags in `app/Views/`. Versions come from the lock files rather than
+Below it, `scripts/dependency-inventory.php` appends every dependency, its
+version **and its licence**: PHP production and development from
+`composer.lock`, JavaScript from `package-lock.json`, and the CDN libraries
+scraped from the `<script>` and `<link>` tags in `app/Views/`. It closes with
+the compatibility reasoning against this project's own AGPL-3.0 — which is not
+decoration, since whether a dependency may be combined with the strongest
+copyleft in common use depends entirely on that column. Versions come from the lock files rather than
 the manifests, so the list says what shipped and not what a constraint allowed.
 The CDN ones are there because they are in no lock file at all and are the only
 third-party code a player's browser actually executes.
