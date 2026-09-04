@@ -203,6 +203,31 @@ jobs:
               100 * (int) $m["coveredstatements"] / max(1, (int) $m["statements"]),
               (int) $m["coveredstatements"], (int) $m["statements"]);' \
             > evidence/coverage-summary.txt
+
+          # The figure above and the one in the SonarCloud report in the same
+          # pack do not match, and a reader comparing them deserves to know why
+          # before they wonder what is being hidden. They measure different
+          # things over the same runs.
+          cat >> evidence/coverage-summary.txt <<'NOTE'
+
+          Why this differs from the SonarCloud figure in this same pack
+          ------------------------------------------------------------
+          Both are computed from the runs recorded here. They disagree because
+          they count different denominators:
+
+            * This number is Clover's, over STATEMENTS, across everything the
+              report covers.
+            * SonarCloud counts LINES TO COVER, after the exclusions declared
+              in sonar-project.properties - shell and CLI helpers, the front
+              controller, the view templates and the SPA bootstrap, none of
+              which a unit test can reach.
+
+          Neither is wrong and neither supersedes the other. The Clover figure
+          is the broader denominator, so it reads lower. Compare like with
+          like: clover.xml against clover.xml between releases, and the
+          SonarCloud measure against the SonarCloud measure.
+          NOTE
+
           cat evidence/coverage-summary.txt
 
       - name: Upload the coverage reports
