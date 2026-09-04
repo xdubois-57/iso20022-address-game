@@ -112,6 +112,138 @@ echo ""
 # here too would only give the workflow something to overwrite.
 
 # Confirm
+# ── SonarCloud: nothing at LOW or above ─────────────────────────────────────
+#
+# Runs BEFORE the tag is pushed, which is the whole point. The release workflow
+# checks the same thing again, but by then the tag exists — and a tag pointing
+# at a version that was refused is a mess somebody has to clean up by hand.
+#
+# Stricter than SonarCloud's own quality gate on purpose. That gate judges NEW
+# code, so a project can sit indefinitely on findings it inherited and still
+# show green. This asks a different question: is anything open that is more than
+# informational?
+#
+# The project is public, so the API answers without a token. Nothing here needs
+# a secret, which means it works from a clone as well as from CI.
+SONAR_PROJECT="${SONAR_PROJECT:-xdubois-57_iso20022-address-game}"
+SONAR_API="https://sonarcloud.io/api"
+
+echo ""
+echo "Checking SonarCloud for open findings..."
+
+sonar_get() {
+    curl --silent --show-error --fail-with-body --max-time 30 "$SONAR_API/$1"
+}
+
+# The analysis has to be OF the commit being released. Checking a stale one
+# would be worse than not checking: it reports on code that is not what is
+# about to ship, and it reports it as a pass.
+HEAD_SHA="$(git rev-parse HEAD)"
+ANALYSED_SHA="$(sonar_get "project_analyses/search?project=${SONAR_PROJECT}&ps=1" \
+    | php -r '$d = json_decode(stream_get_contents(STDIN), true);
+              echo $d["analyses"][0]["revision"] ?? "";' 2>/dev/null || true)"
+
+if [[ -z "$ANALYSED_SHA" ]]; then
+    echo "ERROR: could not read SonarCloud's latest analysis." >&2
+    echo "Refusing to release on an unknown quality state. Check the project at" >&2
+    echo "  https://sonarcloud.io/project/overview?id=${SONAR_PROJECT}" >&2
+    exit 1
+fi
+
+if [[ "$ANALYSED_SHA" != "$HEAD_SHA" ]]; then
+    echo "ERROR: SonarCloud's latest analysis is not of this commit." >&2
+    echo "  analysed: ${ANALYSED_SHA}" >&2
+    echo "  releasing: ${HEAD_SHA}" >&2
+    echo "" >&2
+    echo "Wait for the analysis of this commit to finish, then run this again." >&2
+    echo "A pass read off an older analysis is not a pass." >&2
+    exit 1
+fi
+
+# Every open finding of any type — bug, vulnerability or code smell — EXCEPT
+# purely informational ones. INFO is acceptable by project policy; LOW and
+# above are not.
+#
+# Filtered here rather than by the API, because SonarCloud reports two severity
+# scales at once and an issue is only acceptable if it is informational on
+# BOTH. The classic scale runs INFO/MINOR/MAJOR/CRITICAL/BLOCKER; the Clean
+# Code scale reports per-impact severities of INFO/LOW/MEDIUM/HIGH/BLOCKER. A
+# classic MINOR carries an impact of LOW, so trusting either scale alone would
+# let one through that the other calls a defect.
+#
+# Issues marked won't fix or false positive in SonarCloud are resolved and
+# therefore not returned: declining a finding is a decision somebody made, and
+# this gate honours it rather than second-guessing it.
+SONAR_ISSUES="$(sonar_get "issues/search?componentKeys=${SONAR_PROJECT}&statuses=OPEN,CONFIRMED,REOPENED&ps=500")"
+
+SONAR_BLOCKING="$(printf '%s' "$SONAR_ISSUES" | php -r '
+    $d = json_decode(stream_get_contents(STDIN), true);
+    if (!is_array($d) || !isset($d["issues"])) { echo "-1"; exit; }
+
+    $blocking = 0;
+    foreach ($d["issues"] as $i) {
+        $informational = ($i["severity"] ?? "") === "INFO";
+        foreach (($i["impacts"] ?? []) as $impact) {
+            if (($impact["severity"] ?? "") !== "INFO") {
+                $informational = false;
+            }
+        }
+        if (!$informational) {
+            $blocking++;
+        }
+    }
+    echo $blocking;
+')"
+
+if [[ "$SONAR_BLOCKING" -lt 0 ]]; then
+    echo "ERROR: could not read SonarCloud findings." >&2
+    exit 1
+fi
+
+if [[ "$SONAR_BLOCKING" -gt 0 ]]; then
+    echo "" >&2
+    echo "ERROR: SonarCloud reports ${SONAR_BLOCKING} finding(s) at LOW or above. Not releasing." >&2
+    echo "" >&2
+    printf '%s' "$SONAR_ISSUES" | php -r '
+        $d = json_decode(stream_get_contents(STDIN), true);
+        foreach (($d["issues"] ?? []) as $i) {
+            $informational = ($i["severity"] ?? "") === "INFO";
+            foreach (($i["impacts"] ?? []) as $impact) {
+                if (($impact["severity"] ?? "") !== "INFO") { $informational = false; }
+            }
+            if ($informational) { continue; }
+
+            $impacts = [];
+            foreach (($i["impacts"] ?? []) as $impact) {
+                $impacts[] = ($impact["softwareQuality"] ?? "?") . " " . ($impact["severity"] ?? "?");
+            }
+            printf("  %-9s %-22s %s:%s\n    %s\n",
+                $i["severity"] ?? "?",
+                $impacts ? implode(", ", $impacts) : ($i["type"] ?? "?"),
+                explode(":", $i["component"] ?? "?", 2)[1] ?? "?",
+                $i["line"] ?? "-", $i["message"] ?? "");
+        }' >&2
+    echo "" >&2
+    echo "INFO is acceptable; LOW and above are not. If a finding is genuinely not" >&2
+    echo "worth fixing, mark it won't fix in SonarCloud — that is a decision with a" >&2
+    echo "name against it, and this gate honours it. Silencing it here would not be." >&2
+    exit 1
+fi
+
+# Security hotspots are a separate endpoint. A pack that checks issues alone
+# looks thorough and misses the category a security reviewer opens first.
+SONAR_HOTSPOTS="$(sonar_get "hotspots/search?projectKey=${SONAR_PROJECT}&status=TO_REVIEW&ps=100" \
+    | php -r '$d = json_decode(stream_get_contents(STDIN), true);
+              echo count($d["hotspots"] ?? []);')"
+
+if [[ "$SONAR_HOTSPOTS" -gt 0 ]]; then
+    echo "ERROR: SonarCloud reports ${SONAR_HOTSPOTS} security hotspot(s) to review." >&2
+    echo "Review them in SonarCloud before releasing." >&2
+    exit 1
+fi
+
+echo "SonarCloud: nothing at LOW or above, 0 hotspots to review, analysed at ${HEAD_SHA:0:7}."
+
 read -rp "Create tag $NEW_VERSION, run every gate and publish the release? [y/N] " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
     echo "Aborted."

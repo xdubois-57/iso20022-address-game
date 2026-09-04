@@ -63,6 +63,24 @@ British English.**
 
 ## Releasing
 
+**Nothing at LOW or above.** `release.sh` refuses to tag if the project has any
+open finding above informational, or an unreviewed security hotspot. INFO is
+acceptable; LOW and above are not. This is stricter than SonarCloud's own
+quality gate, which judges only new code and so stays green while inherited
+findings accumulate.
+
+An issue counts as acceptable only if it is informational on **both** severity
+scales SonarCloud reports — the classic one and the Clean Code impact one. A
+classic MINOR carries a LOW impact, so trusting either alone would let through
+what the other calls a defect.
+
+It also refuses if the latest analysis is not of the commit being released — a
+pass read off an older analysis is not a pass.
+
+If a finding is genuinely not worth fixing, mark it *won't fix* in SonarCloud.
+That is a decision with a name against it, and the gate honours it because a
+resolved issue is no longer open. Do not work around the gate in the script.
+
 `./release.sh [patch|minor|major]` is the whole release. It tags, waits for
 `.github/workflows/release.yml` to run every gate, attaches the deployable zip
 to the draft that workflow creates, and publishes it. It deliberately does not

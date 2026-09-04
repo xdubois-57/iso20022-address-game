@@ -357,6 +357,11 @@ Two things the script does:
   what a `--delete` mirror is about to do; the credentials are stripped from
   the stream instead.
 
+`release.sh` refuses to tag while SonarCloud reports any open finding at LOW
+severity or above, or any security hotspot awaiting review — and refuses too if
+the latest analysis is not of the commit being released. Informational findings
+do not block.
+
 Each published release also carries a ready-to-upload zip built by
 `release.sh`, which already includes `vendor/`; GitHub's own auto-generated
 source zipball does not, so prefer the attached artifact if you deploy from
