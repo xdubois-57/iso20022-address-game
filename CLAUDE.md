@@ -90,7 +90,12 @@ wrote the diff.** Required sections, in this order:
    explicit **"nothing"** — silence there is an oversight, not an answer. Call
    out anything that changes shape even when it needs no action: a changed
    asset URL, a stricter validation, a new server requirement.
-4. **Tests.** Every suite with its count, and any gate that did not run.
+4. **Tests.** A table with three columns — the gate, **what it actually
+   checks in one line**, and the result. The middle column is not padding: a
+   release note is read by people auditing the project who have no reason to
+   know what Vitest or a passive DAST scan is, and a row saying "Vitest — 111"
+   tells them nothing they can assess. Name any gate that did not run, and say
+   why.
 5. **Verifying the release**, when the evidence pack matters to the reader:
    the `gh attestation verify` command, and what is inside the pack.
 
@@ -102,6 +107,19 @@ marker. Assume the reader stops after the first screen.
 one automatically, with every version read from the lock files and every
 licence beside it. Adding a CDN library means adding it to that script's
 `CDN_LICENCES` map, or the inventory will mark it unknown.
+
+The wording for each gate, so it stays consistent between releases:
+
+| Gate | One-line description |
+|---|---|
+| PHPUnit | Server-side unit and integration tests, run on both supported PHP versions |
+| Vitest | Unit tests for the browser JavaScript, run without a browser |
+| Playwright | End-to-end tests driving a real Chromium against a throwaway instance |
+| PHPStan | Static analysis of the PHP: types, dead code, impossible conditions |
+| `tsc` | The same for the browser JavaScript, as a checker only — nothing is compiled |
+| OWASP ZAP | Passive security scan of a running instance over HTTPS |
+| CodeQL | GitHub's static security analysis, looking for exploitable patterns |
+| SonarCloud | Independent hosted analysis: bugs, vulnerabilities, coverage, duplication |
 
 Claims in the note are load-bearing: they are read by people deciding whether
 to upgrade. Do not state a test count you have not seen, and do not claim a
