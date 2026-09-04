@@ -138,27 +138,63 @@ sonar_get() {
 # The analysis has to be OF the commit being released. Checking a stale one
 # would be worse than not checking: it reports on code that is not what is
 # about to ship, and it reports it as a pass.
+#
+# Waited for rather than refused outright. Releasing minutes after a merge is
+# the normal case, and SonarCloud is usually still analysing that commit — so
+# failing immediately would make the gate something a person learns to run
+# twice, which is halfway to learning to skip it.
+#
+# The wait is bounded. If the analysis never arrives the gate still refuses:
+# "not analysed yet" and "analysed and clean" are different answers, and only
+# one of them is a pass.
+SONAR_WAIT_ATTEMPTS="${SONAR_WAIT_ATTEMPTS:-20}"
+SONAR_WAIT_SECONDS="${SONAR_WAIT_SECONDS:-30}"
+
+# Rendered rather than divided inline: integer minutes print "0 minutes" for
+# any wait under sixty seconds, which is what a shortened timeout in a test
+# looks like, and it reads as a bug in the gate rather than a small number.
+sonar_wait_budget() {
+    local total=$(( SONAR_WAIT_ATTEMPTS * SONAR_WAIT_SECONDS ))
+    if [[ "$total" -lt 60 ]]; then
+        printf '%s second(s)' "$total"
+    else
+        printf '%s minute(s)' "$(( total / 60 ))"
+    fi
+}
+
 HEAD_SHA="$(git rev-parse HEAD)"
-ANALYSED_SHA="$(sonar_get "project_analyses/search?project=${SONAR_PROJECT}&ps=1" \
-    | php -r '$d = json_decode(stream_get_contents(STDIN), true);
-              echo $d["analyses"][0]["revision"] ?? "";' 2>/dev/null || true)"
+ANALYSED_SHA=""
 
-if [[ -z "$ANALYSED_SHA" ]]; then
-    echo "ERROR: could not read SonarCloud's latest analysis." >&2
-    echo "Refusing to release on an unknown quality state. Check the project at" >&2
-    echo "  https://sonarcloud.io/project/overview?id=${SONAR_PROJECT}" >&2
-    exit 1
-fi
+for attempt in $(seq 1 "$SONAR_WAIT_ATTEMPTS"); do
+    ANALYSED_SHA="$(sonar_get "project_analyses/search?project=${SONAR_PROJECT}&ps=1" \
+        | php -r '$d = json_decode(stream_get_contents(STDIN), true);
+                  echo $d["analyses"][0]["revision"] ?? "";' 2>/dev/null || true)"
 
-if [[ "$ANALYSED_SHA" != "$HEAD_SHA" ]]; then
-    echo "ERROR: SonarCloud's latest analysis is not of this commit." >&2
-    echo "  analysed: ${ANALYSED_SHA}" >&2
-    echo "  releasing: ${HEAD_SHA}" >&2
-    echo "" >&2
-    echo "Wait for the analysis of this commit to finish, then run this again." >&2
-    echo "A pass read off an older analysis is not a pass." >&2
-    exit 1
-fi
+    if [[ "$ANALYSED_SHA" == "$HEAD_SHA" ]]; then
+        break
+    fi
+
+    if [[ "$attempt" -eq "$SONAR_WAIT_ATTEMPTS" ]]; then
+        echo "" >&2
+        echo "ERROR: SonarCloud has not analysed this commit." >&2
+        echo "  releasing: ${HEAD_SHA}" >&2
+        echo "  analysed:  ${ANALYSED_SHA:-(could not read any analysis)}" >&2
+        echo "" >&2
+        printf 'Waited %s. A pass read off an older analysis is not a pass.\n' \
+            "$(sonar_wait_budget)" >&2
+        echo "Check the project, then run this again:" >&2
+        echo "  https://sonarcloud.io/project/overview?id=${SONAR_PROJECT}" >&2
+        exit 1
+    fi
+
+    # Said once, not on every attempt: a line a minute for ten minutes is how a
+    # wait stops looking like progress and starts looking like a hang.
+    if [[ "$attempt" -eq 1 ]]; then
+        echo "  waiting for SonarCloud to analyse ${HEAD_SHA:0:7}" \
+             "(up to $(sonar_wait_budget))..."
+    fi
+    sleep "$SONAR_WAIT_SECONDS"
+done
 
 # Every open finding of any type — bug, vulnerability or code smell — EXCEPT
 # purely informational ones. INFO is acceptable by project policy; LOW and

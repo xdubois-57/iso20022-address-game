@@ -358,9 +358,12 @@ Two things the script does:
   the stream instead.
 
 `release.sh` refuses to tag while SonarCloud reports any open finding at LOW
-severity or above, or any security hotspot awaiting review — and refuses too if
-the latest analysis is not of the commit being released. Informational findings
-do not block.
+severity or above, or any security hotspot awaiting review. Informational
+findings do not block.
+
+It also insists the analysis is of the commit being released, waiting up to ten
+minutes for SonarCloud to catch up after a merge rather than failing on a stale
+one.
 
 Each published release also carries a ready-to-upload zip built by
 `release.sh`, which already includes `vendor/`; GitHub's own auto-generated
