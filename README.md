@@ -802,7 +802,14 @@ The note must cover four things: what changed in the language of somebody
 using the game, the bugs fixed said as the symptom that went away, what an
 existing installation has to do for backward compatibility — or an explicit
 "nothing", because silence there is an oversight rather than an answer — and
-the tests that ran with their counts.
+the tests that ran.
+
+The test table carries **three** columns: the gate, one line on what it
+actually checks, and the result. The middle one is there because the people
+most likely to read a release note closely are auditing the project, and have
+no reason to know what Vitest or a passive DAST scan is. `Vitest — 111` tells
+them nothing they can assess; `Vitest — unit tests for the browser JavaScript,
+run without a browser — 111` does.
 
 Below it, `scripts/dependency-inventory.php` appends every dependency, its
 version **and its licence**: PHP production and development from
