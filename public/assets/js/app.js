@@ -3323,10 +3323,27 @@ import {
         return html + '</div>';
     }
 
+    /**
+     * The ranked table under the podium — the WHOLE board, from rank 1.
+     *
+     * It used to start at rank 4, on the reasoning that the top three were
+     * already standing on the podium above it. On a real screen that reads as
+     * a fault rather than as a decision: the first number in the list is "4",
+     * the three names it belongs with are in a different visual block, and a
+     * viewer looking for first place scans a list that does not contain it.
+     * Repeating them costs three rows and makes the column self-explanatory.
+     *
+     * .wall-list is the measuring frame — a flex child that takes the space
+     * left over, which is what lets measureWallCapacity() read a height that
+     * does not depend on its own contents. .wall-list-panel inside it is the
+     * translucent box the viewer actually sees, and it is sized by its rows:
+     * on the frame itself, a board of four names painted a white panel down
+     * the whole screen with one line in it.
+     */
     function wallListHtml(entries) {
         if (entries.length === 0) return '';
 
-        var html = '<div class="wall-list"><table><thead><tr>'
+        var html = '<div class="wall-list"><div class="wall-list-panel"><table><thead><tr>'
             + '<th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
         entries.forEach(function (entry) {
             var id = boardNumber(entry.id);
@@ -3336,7 +3353,7 @@ import {
                 + '<td>' + escapeHtml(entry.player_name) + '</td>'
                 + '<td>' + boardNumber(entry.game_score) + '</td></tr>';
         });
-        return html + '</tbody></table></div>';
+        return html + '</tbody></table></div></div>';
     }
 
     /**
@@ -3350,10 +3367,12 @@ import {
     function renderWall() {
         var entries = (wallData?.entries) || [];
         var podium = entries.slice(0, WALL_PODIUM_SIZE);
-        var rest = entries.slice(WALL_PODIUM_SIZE, WALL_PODIUM_SIZE + wallRowCapacity);
+        // From the top, not from rank four: the podium is a highlight of the
+        // list above it, not the first page of it.
+        var listed = entries.slice(0, wallRowCapacity);
 
         var caption = wallWindowLabel();
-        var signature = wallSignature(caption, podium, rest, wallHighlightIds, wallStale);
+        var signature = wallSignature(caption, podium, listed, wallHighlightIds, wallStale);
         if (signature === wallPainted) return;
 
         var html = '<section class="wall-screen" id="wallScreen">';
@@ -3368,7 +3387,7 @@ import {
             html += '<p class="wall-empty">The first score of the evening goes here.</p>';
         } else {
             html += wallPodiumHtml(podium);
-            html += wallListHtml(rest);
+            html += wallListHtml(listed);
         }
 
         // Always present, even while empty: the banner appearing must not
@@ -3426,7 +3445,21 @@ import {
 
         var head = list.querySelector('thead');
         var headHeight = head ? head.getBoundingClientRect().height : 0;
-        var available = list.clientHeight - headHeight;
+
+        // The panel's own padding comes off the frame's height as well. It
+        // used to be padding ON the frame, so clientHeight already excluded
+        // it; now that the panel is a separate box the rows sit inside it,
+        // and ignoring it would over-count by a row that `overflow: hidden`
+        // would then quietly cut in half.
+        var panel = list.querySelector('.wall-list-panel');
+        var padding = 0;
+        if (panel) {
+            var box = getComputedStyle(panel);
+            padding = (Number.parseFloat(box.paddingTop) || 0)
+                + (Number.parseFloat(box.paddingBottom) || 0);
+        }
+
+        var available = list.clientHeight - padding - headHeight;
 
         var capacity = rowsThatFit(available, row.getBoundingClientRect().height);
         if (capacity > 0 && capacity !== wallRowCapacity) {
@@ -3565,8 +3598,10 @@ import {
         if (body) {
             // Only the rows actually drawn count as "visible": an arrival that
             // landed below the fold gets a banner, not a highlight nobody can
-            // see.
-            var visible = WALL_PODIUM_SIZE + wallRowCapacity;
+            // see. The podium and the list overlap — both start at rank 1 —
+            // so that is the board down to whichever of the two reaches
+            // further, never the sum of them.
+            var visible = Math.max(WALL_PODIUM_SIZE, wallRowCapacity);
             var arrivals = diffArrivals(wallTracker, body, visible);
             if (!arrivals.firstLoad) {
                 applyWallArrivals(arrivals);
@@ -3649,9 +3684,31 @@ import {
        ======================================================= */
     var hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+    /**
+     * Whether this screen is one an attract loop belongs on.
+     *
+     * Three contexts, three answers, and the wall is the one that matters:
+     *
+     *  - **the wall (?mode=hof) — never.** It is already the attract screen.
+     *    Covering a live board with a countdown and a "Touch to play" prompt
+     *    on a panel nobody is standing at would hide the one thing it exists
+     *    to show, and it would do it sixty seconds after every player walked
+     *    away. The refusal is here rather than in the callers so no future
+     *    one can reintroduce it;
+     *  - **the play station (?mode=play) — yes.** A machine standing unused
+     *    between players is exactly what the screen saver was written for,
+     *    and until now it could not have one: it is enabled from the Admin
+     *    panel, which a dedicated screen has no way to reach;
+     *  - **an ordinary browser — only in kiosk mode**, as before.
+     */
+    function screenSaverAllowed() {
+        if (displayMode === 'hof') return false;
+        return kioskMode || displayMode === 'play';
+    }
+
     function resetScreenSaverTimer() {
         clearTimeout(screenSaverTimer);
-        if (kioskMode && !gameActive) {
+        if (screenSaverAllowed() && !gameActive) {
             screenSaverTimer = setTimeout(showScreenSaver, SCREENSAVER_TIMEOUT);
         }
     }
@@ -3663,7 +3720,7 @@ import {
     }
 
     function showScreenSaver() {
-        if (!kioskMode || screenSaverActive) return;
+        if (!screenSaverAllowed() || screenSaverActive) return;
         screenSaverActive = true;
 
         var overlay = document.getElementById('screenSaverOverlay');
@@ -3744,7 +3801,7 @@ import {
     // Reset screen saver timer on any user activity
     ['touchstart', 'mousedown', 'keydown'].forEach(function (evt) {
         document.addEventListener(evt, function () {
-            if (kioskMode && !screenSaverActive) {
+            if (screenSaverAllowed() && !screenSaverActive) {
                 resetScreenSaverTimer();
             }
         }, { passive: true });
@@ -3757,6 +3814,9 @@ import {
         startWall();
     } else {
         showScreen('game');
+        // The play station has no Admin panel to switch this on from, so its
+        // attract loop has to be armed here or it never starts at all.
+        resetScreenSaverTimer();
     }
 
 })();

@@ -169,6 +169,19 @@ carry.
   - Rotates fun facts every 20 seconds
   - Dismisses on any touch/click interaction
 - **Reset**: Kiosk mode is session-only and resets on page reload
+- **Where it may appear** is decided in one place, `screenSaverAllowed()`, and
+  the three answers are not the same:
+  - **`?mode=hof` — never.** The wall is already the attract screen. Covering a
+    live board with a countdown and "Touch to play" would hide the one thing it
+    exists to show, and it would do so sixty seconds after every player walked
+    away, which on an unattended panel is all evening. The refusal lives in the
+    predicate rather than in its callers so a later caller cannot reintroduce
+    it.
+  - **`?mode=play` — always.** A machine standing unused between players is
+    exactly what the screen saver is for, and it could not have one until now:
+    the only switch was in the Admin panel, which a dedicated screen has no way
+    to reach. The play station arms it on boot instead.
+  - **An ordinary browser — only in kiosk mode**, unchanged.
 
 ### Display modes — the wall and the play station
 
@@ -254,6 +267,21 @@ Two supporting choices, for the same reason:
   and the markup is written 2-1-3 to put it there; automatic placement made
   that true only while all three pods existed, so the first score of an evening
   stood off to the left of an empty podium.
+- **The list under the podium is the whole board, from rank 1**, and the podium
+  repeats its top three rather than being the page before it. Starting the
+  table at rank 4 was defensible in the abstract and wrong on a screen: the
+  first number a viewer reads is "4", the names it belongs with sit in a
+  different visual block, and somebody looking for first place scans a list
+  that does not contain it. Three repeated rows buy a column that explains
+  itself.
+- **The translucent list panel is a separate element from the box that gets
+  measured.** `.wall-list` is a flex child that takes the space left over —
+  that is what makes its height independent of its own contents and therefore
+  safe for `measureWallCapacity()` to read — while `.wall-list-panel` inside it
+  is what the viewer sees, sized by its rows. Painting the panel on the frame
+  drew a white pane down the entire screen whenever the board was short, with
+  two or three names adrift in it. The measurement subtracts the panel's
+  padding for the same reason it subtracts the header's height.
 - **Every value from `/board/data` is neutralised before it is concatenated
   into the wall's markup.** The player name goes through `escapeHtml()`; the
   four numbers — `game_score`, `time_seconds`, `rank` and the `id` that lands

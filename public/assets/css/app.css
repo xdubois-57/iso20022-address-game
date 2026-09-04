@@ -2107,8 +2107,17 @@ body[data-mode="hof"] .game-main {
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
-    /* Enough separation from the world map behind it to stay readable from
-       across a room, and nowhere near a solid bright panel. */
+}
+
+/* The box the viewer actually sees, and the reason it is a separate element
+   from the frame above: .wall-list has to take all the space left over so its
+   height can be measured, but painting the panel ON that frame drew a white
+   rectangle down the whole screen whenever the board was short — four names
+   and an empty pane under them. This hugs its rows instead.
+
+   Enough separation from the world map behind it to stay readable from across
+   a room, and nowhere near a solid bright panel — see the burn-in note above. */
+.wall-list-panel {
     background: rgb(255 255 255 / 16%);
     border-radius: 14px;
     padding: 1vh 1vw;

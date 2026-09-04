@@ -157,6 +157,13 @@ Enable **Kiosk Mode** for unattended public displays:
 - Rotates fun facts every 20 seconds
 - Dismisses on any touch/click interaction
 
+**Where the screen saver appears:** in kiosk mode as above, and on the play
+station (`?mode=play`) without anything to switch on — a machine standing
+unused between players is what it is for, and a dedicated screen cannot reach
+the Admin panel. It **never** appears on the wall (`?mode=hof`): a wall is
+already the attract screen, and covering a live board a minute after the last
+player walked away would hide the only thing it is there to show.
+
 **Note:** Kiosk mode is session-only and resets on page reload. That is fine
 for an iPad you prepare by hand, and exactly wrong for an unattended screen —
 which is why the wall and the play station use a URL instead. See
