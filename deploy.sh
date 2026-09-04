@@ -43,11 +43,51 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOCAL_DIR="$SCRIPT_DIR"
 CONFIG_FILE="${DEPLOY_CONFIG:-$SCRIPT_DIR/config/deploy.conf}"
 
-# The config file only fills in what the environment has not already set, so an
+# PARSED, never sourced.
+#
+# `source` would have been one line, and wrong. The file holds a password, and
+# sourcing it means bash expands it: a $ in the password becomes a variable
+# reference — which is how this first failed, with "V: unbound variable" — and
+# a backtick or $(...) would EXECUTE. A credentials file is data; treating it
+# as a program is a bug waiting for a password that happens to contain a
+# punctuation mark.
+#
+# So: KEY=VALUE lines, one optional layer of matching quotes removed, comments
+# and blanks skipped, nothing expanded and nothing run. Only the three keys
+# this script uses are read, so a stray line in the file cannot set anything
+# else.
+#
+# The config only fills in what the environment has not already set, so an
 # exported value wins and a CI job needs no file at all.
+read_config_value() {
+    local key="$1" file="$2" line value
+    [[ -f "$file" ]] || return 0
+
+    # Last occurrence wins, matching how an editor's "add it at the bottom"
+    # habit actually behaves.
+    line="$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" | tail -n 1)" || true
+    [[ -n "$line" ]] || return 0
+
+    value="${line#*=}"
+    # Trim surrounding whitespace.
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    # Remove ONE matching pair of quotes, if present. Anything inside is taken
+    # literally, which is the entire point.
+    if [[ "$value" == \"*\" && ${#value} -ge 2 ]]; then
+        value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && ${#value} -ge 2 ]]; then
+        value="${value:1:${#value}-2}"
+    fi
+
+    printf '%s' "$value"
+}
+
 if [[ -f "$CONFIG_FILE" ]]; then
-    # shellcheck source=/dev/null
-    source "$CONFIG_FILE"
+    FTP_HOST="${FTP_HOST:-$(read_config_value FTP_HOST "$CONFIG_FILE")}"
+    FTP_USER="${FTP_USER:-$(read_config_value FTP_USER "$CONFIG_FILE")}"
+    FTP_PASS="${FTP_PASS:-$(read_config_value FTP_PASS "$CONFIG_FILE")}"
+    FTP_REMOTE_DIR="${FTP_REMOTE_DIR:-$(read_config_value FTP_REMOTE_DIR "$CONFIG_FILE")}"
 fi
 
 # A world-readable file holding a production password is worth one line to
