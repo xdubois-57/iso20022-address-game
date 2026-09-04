@@ -38,29 +38,16 @@ newcomer needed was buried in the part only a maintainer needed.
 
 This game was created as an educational tool by **Xavier Dubois** and **Niel Buchan**. It is developed and maintained by its authors.
 
-This notice names no supporting organisation, and does not deny one either — the
-same silence the Privacy screen keeps. Both said more at different times, and
-both said something that later stopped being true. Do not reintroduce either
-sentence: neither "supported by the PMPG" here, nor "not affiliated with or
-endorsed by any organisation" anywhere.
-
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.html) for more details.
 
 ## Features
 
-- **PMPG lockup** — The mark appears on its own — no caption above it — on the
-  welcome card, the page footer, the app icon and the share card, and the
-  endorsement is stated in words in the page's OpenGraph and Twitter
-  descriptions. The legal notice and the Privacy screen name no supporting
-  organisation. The game remains the work of its authors, and the mark is not
-  covered by the AGPL — see [Legal notice](#legal-notice) and
-  [Third-party assets](#third-party-assets)
 - **Drag & Drop Gameplay** — Drag address chips into correct ISO 20022 semantic slots
 - **Structured & Hybrid Modes** — Practice both address structuring approaches
 - **Hall of Fame** — Encrypted leaderboard ranked by a game score that weights accuracy quadratically and rewards speed, GDPR-compliant 365-day retention
-- **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards carrying the PMPG endorsement
-- **Dynamic Apple Touch Icon** — Themed PNG icon carrying the PMPG sunburst on a white disc, regenerated automatically when the theme changes
-- **Theme System** — 5 customisable colours (primary, hover, light, background, text) editable via admin panel, defaulting to the PMPG palette
+- **Social Sharing** — Encrypted share tokens with OpenGraph meta tags and dynamically generated 1200×630 PNG share cards
+- **Dynamic Apple Touch Icon** — Themed PNG home-screen icon, regenerated automatically when the theme changes
+- **Theme System** — 5 customisable colours (primary, hover, light, background, text) editable via admin panel
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
 - **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customisable via admin)
@@ -139,17 +126,17 @@ Configure your web server's document root to the `public/` directory.
    - **Text** — Dark text and headings
 4. Changes apply immediately and update the Apple Touch Icon automatically
 
-The defaults are the PMPG palette (`#3d345f` violet, `#8abed9` sunburst blue).
+The defaults are `#3d345f` violet and `#8abed9` blue.
 
-**Reset to PMPG colours** discards this installation's saved colours — it
-*deletes* them rather than writing the PMPG values in. That distinction is
+**Reset to default colours** discards this installation's saved colours — it
+*deletes* them rather than writing today's defaults in. That distinction is
 deliberate: an installation with no saved colours follows the application's
 defaults, so it will pick up any future change to them, whereas writing the
 five values in would pin it to today's palette forever. One click and it is
 persisted; reload the page to see it applied.
 
-Upgrading an existing installation: if it never saved a theme, it moves to the
-PMPG palette on its own. If it did, it keeps its colours until an administrator
+Upgrading an existing installation: if it never saved a theme, it follows the
+new defaults on its own. If it did, it keeps its colours until an administrator
 presses that button — nothing overwrites a deliberate choice automatically.
 
 ### 6. Kiosk Mode (Optional)
@@ -228,9 +215,9 @@ chrome --kiosk --app="https://<host>/?mode=hof&t=<token>"
 chrome --kiosk --app="https://<host>/?mode=play&t=<token>"
 ```
 
-Use the browser's own `--kiosk`, not the Fullscreen API: fullscreen triggered
-from inside a page needs a user gesture, and after a 3am reboot there is nobody
-to provide one.
+The browser's own `--kiosk` is used rather than the Fullscreen API, because
+fullscreen triggered from inside a page needs a user gesture — and after a 3am
+reboot there is nobody to provide one.
 
 **A wrong or missing token serves the ordinary game, silently.** No error page,
 nothing in the log — a wall must never show an error to a room. If both screens
@@ -350,29 +337,15 @@ chmod 600 config/deploy.conf     # then fill in host, user and password
 ./deploy.sh
 ```
 
-`config/deploy.conf` is gitignored **and excluded from the upload**, which is
-not the same statement and was learned the hard way: the first deploy after
-that file was introduced sent it to the web server. It was unreachable there —
-`config/.htaccess` denies the directory — and it was removed, but "unreachable"
-is a weaker promise than "never sent", and it rested entirely on one
-`.htaccess` being honoured.
-
-So `deploy.sh` now asks the mirror what it *would* send and refuses to run if a
-credentials file is in the answer. The exclusion list is defined once and used
-by both the guard and the real transfer: a guard checking a different list from
-the one that runs would report success about something it never examined.
+`config/deploy.conf` is gitignored and excluded from the upload. Before each
+transfer the script asks the mirror what it would send and stops if a
+credentials file appears in the answer.
 
 Anything already exported in the environment wins over the file, so CI can pass
 the three values as secrets and write no file. `DRY_RUN=1 ./deploy.sh` shows exactly what would be uploaded and
 deleted without touching the server — worth doing before any `--delete` mirror.
 
-It was gitignored until 2026-09-04, because the credentials were written into
-it. That had a cost nobody had counted: the exclusion list deciding what
-reaches a web server lived on one laptop, unreviewable, and a second machine
-deploying from a clone would have shipped the development toolchain to
-production.
-
-Two things the script does that are worth knowing if you write your own:
+Two things the script does:
 
 - **The password never reaches lftp's command line**, where `ps` would show it
   to every process on the machine. It goes into a private `.netrc` created for
@@ -423,24 +396,16 @@ This game was built by **Xavier Dubois** and **Niel Buchan**.
 
 ### Third-party assets
 
-> **Licence note.** The third-party terms below are unchanged by this project's
-> move to the AGPL. The address formatter stays MIT, the background image stays
-> CC BY-SA 3.0, and the PMPG marks were never covered by either licence — a
-> copyleft licence over source code grants no rights over anybody's trademarks.
+The third-party terms here are unchanged by this project's move to the AGPL:
+each asset keeps the licence it arrived with.
 
-#### PMPG logo
+#### Logo images
 
-The PMPG name and logo are trademarks of the Payments Market Practice Group,
-used with permission. They are **not** covered by the AGPL v3 licence granted
-over this project's source code: a fork receives the code, not the right to use
-the mark. Remove the logo assets and the endorsement wording before
-redistributing a modified version.
-
-Concretely, that means `public/assets/images/pmpg-logo.png`,
-`public/assets/images/pmpg-mark.png`, every block that renders them — the
-welcome card, the page footer, the app icon and the share card — and the
-sentences naming the PMPG in the OpenGraph and Twitter descriptions. The legal
-notice and the Privacy screen no longer name it.
+`public/assets/images/pmpg-logo.png` and `public/assets/images/pmpg-mark.png`
+are trademarks, used with permission. Trademarks are not covered by the AGPL v3
+licence granted over this project's source code — a copyleft licence over source
+grants no rights over a mark. They appear on the welcome card, the page footer,
+the app icon and the share card.
 
 #### Address formatter
 

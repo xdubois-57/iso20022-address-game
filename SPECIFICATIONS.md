@@ -431,9 +431,10 @@ rather than distributed.
 with that licence, and each release shall publish the licence of every
 dependency alongside its version.
 
-**NFR-7.3 — Trademarks are not licensed.** The PMPG name and logo are
-trademarks used with permission and are **not** covered by the AGPL. A fork
-receives the code and no right to the mark.
+**NFR-7.3 — Trademarks are not licensed.** The logo images shipped in
+`public/assets/images/` are trademarks, used with permission, and are **not**
+covered by the AGPL. A copyleft licence over source code grants no rights over
+a mark.
 
 **NFR-7.4 — Third-party assets keep their terms.** The bundled fonts (SIL OFL
 1.1) and the background map (CC BY-SA 3.0) are not relicensed by this project.
