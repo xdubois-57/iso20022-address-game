@@ -2116,9 +2116,22 @@ body[data-mode="hof"] .game-main {
    and an empty pane under them. This hugs its rows instead.
 
    Enough separation from the world map behind it to stay readable from across
-   a room, and nowhere near a solid bright panel — see the burn-in note above. */
+   a room. */
 .wall-list-panel {
-    background: rgb(255 255 255 / 16%);
+    /* Opaque, and the theme's own pale tint rather than white. Translucent, the
+       world map's coastlines ran under the names — legible on a monitor at
+       arm's length, not legible on a 42-inch panel read from across a room.
+
+       This is the one solid block on the wall, which the drift animation above
+       exists to move: the panel is small, it sits over the busiest part of the
+       map, and it shifts with everything else, so it is not a static bright
+       rectangle. The podium cards stay translucent white for that reason.
+
+       --game-light-peppermint is color_primary_light, set in the admin theme
+       panel and injected by layout.php, so an operator who rebrands the game
+       rebrands this panel with it. Against the default #3d345f text it clears
+       WCAG AA at every size used here. */
+    background: var(--game-light-peppermint);
     border-radius: 14px;
     padding: 1vh 1vw;
 }
@@ -2127,6 +2140,19 @@ body[data-mode="hof"] .game-main {
     width: 100%;
     border-collapse: collapse;
     font-size: clamp(0.9rem, 2vh, 1.7rem);
+}
+
+/* PicoCSS paints every th and td with a solid white background of its own,
+   which covered .wall-list-panel completely: the board read as a hard white
+   block with the map showing only around its edges. The one column that looked
+   different — the rank — was not styled differently at all, it just carries
+   opacity: 0.65 below, which diluted that white enough to let the map through.
+
+   Cleared here so the panel's own colour is what the viewer sees, the same on
+   every column. */
+.wall-list th,
+.wall-list td {
+    background: transparent;
 }
 
 .wall-list th {
@@ -2144,7 +2170,12 @@ body[data-mode="hof"] .game-main {
 
 .wall-list td {
     padding: 0.9vh 0.6vw;
-    border-bottom: 1px solid rgb(255 255 255 / 25%);
+    /* Darker than the white it used to be: a white hairline was invisible once
+       the panel stopped being translucent. Stated twice so it follows a
+       rebranded text colour where color-mix() is available, and still draws a
+       line where it is not. */
+    border-bottom: 1px solid rgb(61 52 95 / 12%);
+    border-bottom-color: color-mix(in srgb, var(--game-dark-green) 12%, transparent);
 }
 
 .wall-list td:first-child {

@@ -409,8 +409,8 @@ test.describe.serial('the wall (?mode=hof)', () => {
         await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
 
         // .wall-list takes all the space left over — that is what makes its
-        // height safe to measure — but the translucent panel is drawn inside
-        // it and stops at the last row. Painted on the frame itself, a board
+        // height safe to measure — but the panel is drawn inside it and stops
+        // at the last row. Painted on the frame itself, a board
         // of four names put a white pane down the whole screen with a couple
         // of lines in it, which is what the report called a strange white box.
         const frame = await page.locator('.wall-list').boundingBox();
@@ -420,6 +420,36 @@ test.describe.serial('the wall (?mode=hof)', () => {
         // The rows still have to be inside the frame, never clipped by it.
         const lastRow = await page.locator('.wall-list tbody tr').last().boundingBox();
         expect(lastRow.y + lastRow.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+    });
+
+    test('draws the list as one panel, with no cell painting over it', async ({ page }) => {
+        await gotoMode(page, 'hof');
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+
+        // PicoCSS gives every th and td a solid white background of its own,
+        // which covered the panel completely: the board read as a hard white
+        // block with the map showing only around its edges, and the rank
+        // column looked different only because it carries opacity: 0.65 and
+        // so diluted that same white. Both are cleared, so the one colour a
+        // viewer sees is the panel's.
+        const cellBackgrounds = await page.locator('.wall-list th, .wall-list td')
+            .evaluateAll((cells) => cells.map(
+                (c) => getComputedStyle(c).backgroundColor
+            ));
+
+        expect(cellBackgrounds.length).toBeGreaterThan(4);
+        for (const background of cellBackgrounds) {
+            // Any of the ways a browser spells "nothing painted here".
+            expect(background).toMatch(/^(transparent|rgba\(0, 0, 0, 0\))$/);
+        }
+
+        // And the panel itself is opaque. Translucent, the world map's
+        // coastlines ran under the names: fine on a monitor at arm's length,
+        // not fine on a 42-inch panel read from across a room.
+        const panelBackground = await page.locator('.wall-list-panel').evaluate(
+            (el) => getComputedStyle(el).backgroundColor
+        );
+        expect(panelBackground).not.toMatch(/rgba/);
     });
 
     test('an accidental touch anywhere on the board does nothing', async ({ page }) => {

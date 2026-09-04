@@ -161,6 +161,36 @@ test.describe('the on-screen keyboard', () => {
         await expect(page.locator('#welcomeNameInput')).toHaveValue('x'.repeat(50));
     });
 
+    test('never asks the device for a keyboard of its own', async ({ page }) => {
+        await gotoMode(page, 'play');
+
+        // Every key ends by putting the caret back in the field, inside a
+        // click handler — a real user gesture, which is exactly when a touch
+        // device raises its own keyboard. On a tablet play station that put
+        // the system keyboard over the one the player was using and scrolled
+        // the card away to make room for it. inputmode="none" is the only
+        // thing that stops it, and Playwright cannot see an OS keyboard, so
+        // the attribute is what this test can honestly assert.
+        await expect(page.locator('#welcomeNameInput')).toHaveAttribute('inputmode', 'none');
+
+        // It is still a real, focusable field: the caret has to be visible,
+        // and it has to come back after a tap.
+        await tap(page, 'A');
+        const focused = await page.evaluate(
+            () => document.activeElement?.id
+        );
+        expect(focused).toBe('welcomeNameInput');
+    });
+
+    test('leaves the system keyboard alone everywhere else', async ({ page }) => {
+        // The three contexts that already work do so BECAUSE the device
+        // raises its own keyboard; suppressing it there would leave a phone
+        // with no way to enter a name at all.
+        await page.goto('/');
+        await expect(page.locator('#welcomeNameInput')).toBeVisible();
+        await expect(page.locator('#welcomeNameInput')).not.toHaveAttribute('inputmode', 'none');
+    });
+
     test('keys are big enough to hit standing at a 42-inch panel', async ({ page }) => {
         await gotoMode(page, 'play');
 
