@@ -3066,7 +3066,7 @@ import {
     function renderPrivacyScreen() {
         var html = '<section class="privacy-screen"><article>';
         html += '<h2>Privacy Notice &amp; GDPR Compliance</h2>';
-        html += '<p><em>Last updated: May 2026</em></p>';
+        html += '<p><em>Last updated: September 2026</em></p>';
         // This screen says who made the game and stops there. It names no
         // supporting organisation, and — just as deliberately — it does not
         // DENY one either.
