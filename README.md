@@ -157,6 +157,13 @@ Enable **Kiosk Mode** for unattended public displays:
 - Rotates fun facts every 20 seconds
 - Dismisses on any touch/click interaction
 
+**Where the screen saver appears:** in kiosk mode as above, and on the play
+station (`?mode=play`) without anything to switch on — a machine standing
+unused between players is what it is for, and a dedicated screen cannot reach
+the Admin panel. It **never** appears on the wall (`?mode=hof`): a wall is
+already the attract screen, and covering a live board a minute after the last
+player walked away would hide the only thing it is there to show.
+
 **Note:** Kiosk mode is session-only and resets on page reload. That is fine
 for an iPad you prepare by hand, and exactly wrong for an unattended screen —
 which is why the wall and the play station use a URL instead. See
@@ -232,6 +239,16 @@ parameters at all. There is no back door in either mode, by design.
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
 | `board_window_hours` | Admin → Display modes | `24` | How far back the wall looks. `0` = all time. Validated 0–8760. Applies to the wall only. |
+
+`board_window_hours` is a rolling window, not a calendar day: at six in the
+evening, the default 24 still shows a run set at eight the previous evening.
+That is the intended behaviour — an event running over two days keeps its board
+alive overnight — and it is why the wall prints its own window ("Last 24
+hours", "All time") under the title. The Hall of Fame on a phone is all-time
+and unaffected, so the same run can be first on the wall and twenty-second
+there; the caption is what makes that legible rather than contradictory. Set it
+to a smaller number for a single-evening stand.
+
 | `sharing_enabled` | Admin → Sharing | on | Whether the end-of-game screen offers sharing. |
 | `display_mode_token` | Admin → Display modes | generated on first use | The `&t=` both screen URLs carry. |
 

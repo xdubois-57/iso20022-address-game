@@ -33,6 +33,7 @@ import {
     boardNumber,
     resolveDisplayData,
     rowsThatFit,
+    wallSignature,
 } from './lib/board.js';
 
 (function () {
@@ -3322,10 +3323,27 @@ import {
         return html + '</div>';
     }
 
+    /**
+     * The ranked table under the podium — the WHOLE board, from rank 1.
+     *
+     * It used to start at rank 4, on the reasoning that the top three were
+     * already standing on the podium above it. On a real screen that reads as
+     * a fault rather than as a decision: the first number in the list is "4",
+     * the three names it belongs with are in a different visual block, and a
+     * viewer looking for first place scans a list that does not contain it.
+     * Repeating them costs three rows and makes the column self-explanatory.
+     *
+     * .wall-list is the measuring frame — a flex child that takes the space
+     * left over, which is what lets measureWallCapacity() read a height that
+     * does not depend on its own contents. .wall-list-panel inside it is the
+     * translucent box the viewer actually sees, and it is sized by its rows:
+     * on the frame itself, a board of four names painted a white panel down
+     * the whole screen with one line in it.
+     */
     function wallListHtml(entries) {
         if (entries.length === 0) return '';
 
-        var html = '<div class="wall-list"><table><thead><tr>'
+        var html = '<div class="wall-list"><div class="wall-list-panel"><table><thead><tr>'
             + '<th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
         entries.forEach(function (entry) {
             var id = boardNumber(entry.id);
@@ -3335,22 +3353,41 @@ import {
                 + '<td>' + escapeHtml(entry.player_name) + '</td>'
                 + '<td>' + boardNumber(entry.game_score) + '</td></tr>';
         });
-        return html + '</tbody></table></div>';
+        return html + '</tbody></table></div></div>';
     }
+
+    /**
+     * The signature of what is on screen right now, or null before the first
+     * paint. Compared against the signature of what a render would produce,
+     * so an unchanged board leaves the DOM entirely alone — see
+     * wallSignature() in lib/board.js for what that rebuild used to cost.
+     */
+    var wallPainted = null;
 
     function renderWall() {
         var entries = (wallData?.entries) || [];
         var podium = entries.slice(0, WALL_PODIUM_SIZE);
-        var rest = entries.slice(WALL_PODIUM_SIZE, WALL_PODIUM_SIZE + wallRowCapacity);
+        // From the top, not from rank four: the podium is a highlight of the
+        // list above it, not the first page of it.
+        var listed = entries.slice(0, wallRowCapacity);
+
+        var caption = wallWindowLabel();
+        var signature = wallSignature(caption, podium, listed, wallHighlightIds, wallStale);
+        if (signature === wallPainted) return;
 
         var html = '<section class="wall-screen" id="wallScreen">';
         html += '<h2 class="wall-title">Hall of Fame</h2>';
+        // Named, because this screen is not the board the same player sees on
+        // their phone and the difference is otherwise invisible: somebody
+        // placed 22nd all time is #1 here, with a gold medal and no
+        // explanation. The wall says which board it is showing.
+        html += '<p class="wall-window">' + escapeHtml(caption) + '</p>';
 
         if (entries.length === 0) {
             html += '<p class="wall-empty">The first score of the evening goes here.</p>';
         } else {
             html += wallPodiumHtml(podium);
-            html += wallListHtml(rest);
+            html += wallListHtml(listed);
         }
 
         // Always present, even while empty: the banner appearing must not
@@ -3361,7 +3398,28 @@ import {
         html += '</section>';
 
         appContainer.innerHTML = html;
+        wallPainted = signature;
+        // The rebuild just replaced the banner zone with an empty one. A
+        // banner part-way through its four seconds is still owed the rest of
+        // them, so it goes straight back.
+        paintWallBanner(wallQueue?.showing);
         measureWallCapacity();
+    }
+
+    /**
+     * "Last 24 hours", "Last 7 days", or "All time" — the window the server
+     * says it applied, in the words an organiser would use.
+     *
+     * Read from the response rather than from a constant here: the window is
+     * an admin setting, and a wall captioned with a number nobody configured
+     * would be worse than no caption at all.
+     */
+    function wallWindowLabel() {
+        var hours = boardNumber(wallData?.window_hours);
+        if (hours <= 0) return 'All time';
+        if (hours === 24) return 'Last 24 hours';
+        if (hours % 24 === 0) return 'Last ' + (hours / 24) + ' days';
+        return 'Last ' + hours + (hours === 1 ? ' hour' : ' hours');
     }
 
     /**
@@ -3387,7 +3445,21 @@ import {
 
         var head = list.querySelector('thead');
         var headHeight = head ? head.getBoundingClientRect().height : 0;
-        var available = list.clientHeight - headHeight;
+
+        // The panel's own padding comes off the frame's height as well. It
+        // used to be padding ON the frame, so clientHeight already excluded
+        // it; now that the panel is a separate box the rows sit inside it,
+        // and ignoring it would over-count by a row that `overflow: hidden`
+        // would then quietly cut in half.
+        var panel = list.querySelector('.wall-list-panel');
+        var padding = 0;
+        if (panel) {
+            var box = getComputedStyle(panel);
+            padding = (Number.parseFloat(box.paddingTop) || 0)
+                + (Number.parseFloat(box.paddingBottom) || 0);
+        }
+
+        var available = list.clientHeight - padding - headHeight;
 
         var capacity = rowsThatFit(available, row.getBoundingClientRect().height);
         if (capacity > 0 && capacity !== wallRowCapacity) {
@@ -3399,6 +3471,29 @@ import {
                 wallMeasuring = false;
             }
         }
+    }
+
+    /**
+     * Draw one banner into the zone, or empty it.
+     *
+     * Separate from pumpWallBanners() because renderWall() needs it too: a
+     * rebuild replaces the zone with an empty one, and the banner it
+     * interrupted has seconds left to run. Painting is all that happens here
+     * — the four-second timer belongs to whoever started the banner and keeps
+     * running across a rebuild.
+     */
+    function paintWallBanner(banner) {
+        var zone = document.getElementById('wallBannerZone');
+        if (!zone) return;
+
+        if (!banner) {
+            zone.replaceChildren();
+            return;
+        }
+
+        zone.innerHTML = '<div class="wall-banner"><strong>'
+            + escapeHtml(banner.name) + '</strong> just made the board — rank '
+            + boardNumber(banner.rank) + '</div>';
     }
 
     /**
@@ -3414,18 +3509,13 @@ import {
         var banner = nextBanner(wallQueue);
         if (!banner) return;
 
-        var zone = document.getElementById('wallBannerZone');
-        if (!zone) { releaseBanner(wallQueue); return; }
-
-        zone.innerHTML = '<div class="wall-banner"><strong>'
-            + escapeHtml(banner.name) + '</strong> just made the board — rank '
-            + banner.rank + '</div>';
+        if (!document.getElementById('wallBannerZone')) { releaseBanner(wallQueue); return; }
+        paintWallBanner(banner);
 
         wallBannerTimer = setTimeout(function () {
             wallBannerTimer = null;
             releaseBanner(wallQueue);
-            var z = document.getElementById('wallBannerZone');
-            if (z) z.replaceChildren();
+            paintWallBanner(null);
             pumpWallBanners();
         }, WALL_BANNER_MS);
     }
@@ -3443,7 +3533,13 @@ import {
 
     function applyWallArrivals(arrivals) {
         if (arrivals.highlightIds.length > 0) {
-            wallHighlightIds = arrivals.highlightIds.slice();
+            // Merged rather than replaced. Assigning the new list dropped the
+            // highlight of anybody still inside their six seconds, so on a
+            // stand with a queue the second player to finish took the first
+            // player's moment away.
+            var lit = new Set(wallHighlightIds);
+            arrivals.highlightIds.forEach(function (id) { lit.add(id); });
+            wallHighlightIds = Array.from(lit);
             clearTimeout(wallHighlightTimer);
             wallHighlightTimer = setTimeout(function () {
                 wallHighlightIds = [];
@@ -3502,8 +3598,10 @@ import {
         if (body) {
             // Only the rows actually drawn count as "visible": an arrival that
             // landed below the fold gets a banner, not a highlight nobody can
-            // see.
-            var visible = WALL_PODIUM_SIZE + wallRowCapacity;
+            // see. The podium and the list overlap — both start at rank 1 —
+            // so that is the board down to whichever of the two reaches
+            // further, never the sum of them.
+            var visible = Math.max(WALL_PODIUM_SIZE, wallRowCapacity);
             var arrivals = diffArrivals(wallTracker, body, visible);
             if (!arrivals.firstLoad) {
                 applyWallArrivals(arrivals);
@@ -3527,6 +3625,7 @@ import {
     function startWall() {
         wallTracker = createArrivalTracker();
         wallQueue = createBannerQueue();
+        wallPainted = null;
         renderWall();
         wallPoll();
 
@@ -3585,9 +3684,31 @@ import {
        ======================================================= */
     var hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+    /**
+     * Whether this screen is one an attract loop belongs on.
+     *
+     * Three contexts, three answers, and the wall is the one that matters:
+     *
+     *  - **the wall (?mode=hof) — never.** It is already the attract screen.
+     *    Covering a live board with a countdown and a "Touch to play" prompt
+     *    on a panel nobody is standing at would hide the one thing it exists
+     *    to show, and it would do it sixty seconds after every player walked
+     *    away. The refusal is here rather than in the callers so no future
+     *    one can reintroduce it;
+     *  - **the play station (?mode=play) — yes.** A machine standing unused
+     *    between players is exactly what the screen saver was written for,
+     *    and until now it could not have one: it is enabled from the Admin
+     *    panel, which a dedicated screen has no way to reach;
+     *  - **an ordinary browser — only in kiosk mode**, as before.
+     */
+    function screenSaverAllowed() {
+        if (displayMode === 'hof') return false;
+        return kioskMode || displayMode === 'play';
+    }
+
     function resetScreenSaverTimer() {
         clearTimeout(screenSaverTimer);
-        if (kioskMode && !gameActive) {
+        if (screenSaverAllowed() && !gameActive) {
             screenSaverTimer = setTimeout(showScreenSaver, SCREENSAVER_TIMEOUT);
         }
     }
@@ -3599,7 +3720,7 @@ import {
     }
 
     function showScreenSaver() {
-        if (!kioskMode || screenSaverActive) return;
+        if (!screenSaverAllowed() || screenSaverActive) return;
         screenSaverActive = true;
 
         var overlay = document.getElementById('screenSaverOverlay');
@@ -3680,7 +3801,7 @@ import {
     // Reset screen saver timer on any user activity
     ['touchstart', 'mousedown', 'keydown'].forEach(function (evt) {
         document.addEventListener(evt, function () {
-            if (kioskMode && !screenSaverActive) {
+            if (screenSaverAllowed() && !screenSaverActive) {
                 resetScreenSaverTimer();
             }
         }, { passive: true });
@@ -3693,6 +3814,9 @@ import {
         startWall();
     } else {
         showScreen('game');
+        // The play station has no Admin panel to switch this on from, so its
+        // attract loop has to be armed here or it never starts at all.
+        resetScreenSaverTimer();
     }
 
 })();

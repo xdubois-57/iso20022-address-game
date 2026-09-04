@@ -33,6 +33,7 @@ import {
     releaseBanner,
     resolveDisplayData,
     rowsThatFit,
+    wallSignature,
 } from '../../public/assets/js/lib/board.js';
 
 /** A /board/data-shaped row. */
@@ -380,5 +381,58 @@ describe('diffArrivals with a malformed row', () => {
         diffArrivals(tracker, { entries: [null], recent: [] }, 5);
         expect(tracker.known.has(0)).toBe(false);
         expect(tracker.known.size).toBe(0);
+    });
+});
+
+describe('wallSignature', () => {
+    const row = (over) => ({
+        id: 1, rank: 1, player_name: 'Ada', game_score: 900, time_seconds: 61, ...over,
+    });
+    const sig = (podium, rest, ids = [], stale = false, caption = 'Last 24 hours') =>
+        wallSignature(caption, podium, rest, ids, stale);
+
+    it('is unchanged when a fresh response carries identical rows', () => {
+        // The wall polls every five seconds and each success is a NEW object,
+        // so identity said "changed" every time and the screen rebuilt itself
+        // twelve times a minute. That rebuild wiped the arrivals banner and
+        // restarted the anti-burn-in drift; this is what stops it.
+        expect(sig([row()], [row({ id: 2, rank: 4 })]))
+            .toBe(sig([row()], [row({ id: 2, rank: 4 })]));
+    });
+
+    it('changes when any rendered field of a row changes', () => {
+        const base = sig([row()], []);
+        expect(sig([row({ game_score: 901 })], [])).not.toBe(base);
+        expect(sig([row({ player_name: 'Grace' })], [])).not.toBe(base);
+        expect(sig([row({ time_seconds: 62 })], [])).not.toBe(base);
+        expect(sig([row({ rank: 2 })], [])).not.toBe(base);
+        expect(sig([row({ id: 7 })], [])).not.toBe(base);
+    });
+
+    it('separates the podium from the rows below it', () => {
+        // Same row, different half of the screen: the markup differs, so the
+        // signature must too.
+        expect(sig([row()], [])).not.toBe(sig([], [row()]));
+    });
+
+    it('changes when the highlight set or the stale dot changes', () => {
+        const base = sig([], [row()]);
+        expect(sig([], [row()], [1])).not.toBe(base);
+        expect(sig([], [row()], [], true)).not.toBe(base);
+    });
+
+    it('ignores the order the highlight ids arrive in', () => {
+        expect(sig([], [row()], [3, 1, 2])).toBe(sig([], [row()], [1, 2, 3]));
+    });
+
+    it('changes when the window caption changes', () => {
+        // The admin can widen the wall mid-evening; the caption above the
+        // board has to follow without waiting for a score to move.
+        expect(sig([], [row()], [], false, 'All time'))
+            .not.toBe(sig([], [row()], [], false, 'Last 24 hours'));
+    });
+
+    it('treats a missing name as an empty one rather than throwing', () => {
+        expect(() => sig([{ id: 1 }], [])).not.toThrow();
     });
 });

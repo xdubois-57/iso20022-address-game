@@ -281,6 +281,36 @@ test.describe('display modes — the dedicated screens', () => {
         await expect(page.locator('#footerGithubLink')).toHaveCount(1);
         await expect(page.locator('.footer-endorsement')).toHaveCount(1);
     });
+
+    // The attract loop, and where it may and may not appear. Both tests sit
+    // out the full 60-second idle timeout rather than reaching in and
+    // shortening it, because what is under test is precisely what an
+    // unattended screen does when nobody touches it for a minute.
+    test('the play station attracts the next player when it is left alone', async ({ page }) => {
+        test.slow();
+        await gotoMode(page, 'play');
+        await expect(page.locator('#welcomeNameInput')).toBeVisible();
+
+        // Until now the screen saver could only be switched on from the Admin
+        // panel, which a dedicated screen has no way to reach — so the one
+        // machine that stands unused between players was the one that never
+        // got it.
+        await expect(page.locator('#screenSaverOverlay')).toBeVisible({ timeout: 90_000 });
+    });
+
+    test('the wall never covers the board with a screen saver', async ({ page }) => {
+        test.slow();
+        await gotoMode(page, 'hof');
+        await expect(page.locator('.wall-title')).toBeVisible();
+
+        // A wall is already the attract screen. Sixty seconds after the last
+        // player walks away — which on an unattended panel is always — a
+        // countdown and a "Touch to play" prompt would hide the one thing it
+        // exists to show.
+        await page.waitForTimeout(70_000);
+        await expect(page.locator('#screenSaverOverlay')).toHaveCount(0);
+        await expect(page.locator('.wall-title')).toBeVisible();
+    });
 });
 
 // Serial, and seeded exactly once with as few entries as the assertions need.
@@ -351,6 +381,45 @@ test.describe.serial('the wall (?mode=hof)', () => {
         // screen and is not what "nothing to click" is about.
         await expect(page.locator('#appContainer button')).toHaveCount(0);
         await expect(page.locator('#appContainer a')).toHaveCount(0);
+    });
+
+    test('numbers the list from 1 and repeats the podium in it', async ({ page }) => {
+        await gotoMode(page, 'hof');
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+
+        // The list used to begin at rank 4, because the top three were already
+        // standing on the podium. On a screen that reads as a fault: the first
+        // number is "4", and somebody looking for first place scans a list
+        // that does not contain it. The podium is a highlight OF the list now,
+        // not the page before it.
+        const ranks = await page.locator('.wall-list tbody tr td:first-child')
+            .evaluateAll((cells) => cells.map((c) => Number(c.textContent)));
+
+        expect(ranks.length).toBeGreaterThanOrEqual(3);
+        expect(ranks).toEqual(ranks.map((_, i) => i + 1));
+
+        // …and the name on the top step is the name on row one.
+        const winner = await page.locator('.wall-pod-1 .wall-pod-name').textContent();
+        await expect(page.locator('.wall-list tbody tr').first().locator('td').nth(1))
+            .toHaveText(winner);
+    });
+
+    test('sizes the list panel to its rows, not to the screen', async ({ page }) => {
+        await gotoMode(page, 'hof');
+        await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+
+        // .wall-list takes all the space left over — that is what makes its
+        // height safe to measure — but the translucent panel is drawn inside
+        // it and stops at the last row. Painted on the frame itself, a board
+        // of four names put a white pane down the whole screen with a couple
+        // of lines in it, which is what the report called a strange white box.
+        const frame = await page.locator('.wall-list').boundingBox();
+        const panel = await page.locator('.wall-list-panel').boundingBox();
+
+        expect(panel.height).toBeLessThan(frame.height);
+        // The rows still have to be inside the frame, never clipped by it.
+        const lastRow = await page.locator('.wall-list tbody tr').last().boundingBox();
+        expect(lastRow.y + lastRow.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
     });
 
     test('an accidental touch anywhere on the board does nothing', async ({ page }) => {

@@ -169,6 +169,19 @@ carry.
   - Rotates fun facts every 20 seconds
   - Dismisses on any touch/click interaction
 - **Reset**: Kiosk mode is session-only and resets on page reload
+- **Where it may appear** is decided in one place, `screenSaverAllowed()`, and
+  the three answers are not the same:
+  - **`?mode=hof` — never.** The wall is already the attract screen. Covering a
+    live board with a countdown and "Touch to play" would hide the one thing it
+    exists to show, and it would do so sixty seconds after every player walked
+    away, which on an unattended panel is all evening. The refusal lives in the
+    predicate rather than in its callers so a later caller cannot reintroduce
+    it.
+  - **`?mode=play` — always.** A machine standing unused between players is
+    exactly what the screen saver is for, and it could not have one until now:
+    the only switch was in the Admin panel, which a dedicated screen has no way
+    to reach. The play station arms it on boot instead.
+  - **An ordinary browser — only in kiosk mode**, unchanged.
 
 ### Display modes — the wall and the play station
 
@@ -228,6 +241,47 @@ Two supporting choices, for the same reason:
   ago is worth far more than a blank screen or an error page in front of fifty
   people, and the cap is what brings it back within seconds of the network
   returning.
+- **The wall redraws only when what it shows has changed.** A successful poll
+  always yields a new response object, so comparing by identity said "changed"
+  twelve times a minute and the screen rebuilt its whole DOM each time.
+  `wallSignature()` in `lib/board.js` reduces exactly what is rendered — the
+  caption, the podium, the rows below it, the highlighted ids, the stale dot —
+  to one comparable value, and an unchanged board leaves the DOM alone. This is
+  not a performance nicety. Two things on that screen live in the DOM between
+  polls and were being destroyed by the rebuild: the arrivals banner, wiped
+  about a second into the four it is given, so from the second banner onwards
+  every player below the fold lost the only acknowledgement they get; and the
+  six-minute anti-burn-in drift, restarted from zero every five seconds, which
+  pinned the panel to within two hundredths of a pixel of one position all
+  evening. **A rebuild that must happen repaints the banner it interrupted**
+  (`paintWallBanner()`), and **the drift animation lives on `.game-main`**, a
+  box the wall never replaces — put it back on `.wall-screen` and it stops
+  drifting again, invisibly.
+- **The wall says which board it is showing.** It is windowed and the Hall of
+  Fame on a player's phone is not, so the same run is #1 here with a gold medal
+  and 22nd there. Without a caption the two screens simply contradict each
+  other in front of the person concerned. The label is derived from the
+  `window_hours` the *server* reported — never from a constant here — so a wall
+  captioned "Last 24 hours" is one an administrator actually configured.
+- **The podium names its own grid columns.** The winner belongs in the middle,
+  and the markup is written 2-1-3 to put it there; automatic placement made
+  that true only while all three pods existed, so the first score of an evening
+  stood off to the left of an empty podium.
+- **The list under the podium is the whole board, from rank 1**, and the podium
+  repeats its top three rather than being the page before it. Starting the
+  table at rank 4 was defensible in the abstract and wrong on a screen: the
+  first number a viewer reads is "4", the names it belongs with sit in a
+  different visual block, and somebody looking for first place scans a list
+  that does not contain it. Three repeated rows buy a column that explains
+  itself.
+- **The translucent list panel is a separate element from the box that gets
+  measured.** `.wall-list` is a flex child that takes the space left over —
+  that is what makes its height independent of its own contents and therefore
+  safe for `measureWallCapacity()` to read — while `.wall-list-panel` inside it
+  is what the viewer sees, sized by its rows. Painting the panel on the frame
+  drew a white pane down the entire screen whenever the board was short, with
+  two or three names adrift in it. The measurement subtracts the panel's
+  padding for the same reason it subtracts the header's height.
 - **Every value from `/board/data` is neutralised before it is concatenated
   into the wall's markup.** The player name goes through `escapeHtml()`; the
   four numbers — `game_score`, `time_seconds`, `rank` and the `id` that lands
