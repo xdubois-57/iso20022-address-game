@@ -33,6 +33,7 @@ import {
     boardNumber,
     resolveDisplayData,
     rowsThatFit,
+    wallSignature,
 } from './lib/board.js';
 
 (function () {
@@ -3338,13 +3339,30 @@ import {
         return html + '</tbody></table></div>';
     }
 
+    /**
+     * The signature of what is on screen right now, or null before the first
+     * paint. Compared against the signature of what a render would produce,
+     * so an unchanged board leaves the DOM entirely alone — see
+     * wallSignature() in lib/board.js for what that rebuild used to cost.
+     */
+    var wallPainted = null;
+
     function renderWall() {
         var entries = (wallData?.entries) || [];
         var podium = entries.slice(0, WALL_PODIUM_SIZE);
         var rest = entries.slice(WALL_PODIUM_SIZE, WALL_PODIUM_SIZE + wallRowCapacity);
 
+        var caption = wallWindowLabel();
+        var signature = wallSignature(caption, podium, rest, wallHighlightIds, wallStale);
+        if (signature === wallPainted) return;
+
         var html = '<section class="wall-screen" id="wallScreen">';
         html += '<h2 class="wall-title">Hall of Fame</h2>';
+        // Named, because this screen is not the board the same player sees on
+        // their phone and the difference is otherwise invisible: somebody
+        // placed 22nd all time is #1 here, with a gold medal and no
+        // explanation. The wall says which board it is showing.
+        html += '<p class="wall-window">' + escapeHtml(caption) + '</p>';
 
         if (entries.length === 0) {
             html += '<p class="wall-empty">The first score of the evening goes here.</p>';
@@ -3361,7 +3379,28 @@ import {
         html += '</section>';
 
         appContainer.innerHTML = html;
+        wallPainted = signature;
+        // The rebuild just replaced the banner zone with an empty one. A
+        // banner part-way through its four seconds is still owed the rest of
+        // them, so it goes straight back.
+        paintWallBanner(wallQueue?.showing);
         measureWallCapacity();
+    }
+
+    /**
+     * "Last 24 hours", "Last 7 days", or "All time" — the window the server
+     * says it applied, in the words an organiser would use.
+     *
+     * Read from the response rather than from a constant here: the window is
+     * an admin setting, and a wall captioned with a number nobody configured
+     * would be worse than no caption at all.
+     */
+    function wallWindowLabel() {
+        var hours = boardNumber(wallData?.window_hours);
+        if (hours <= 0) return 'All time';
+        if (hours === 24) return 'Last 24 hours';
+        if (hours % 24 === 0) return 'Last ' + (hours / 24) + ' days';
+        return 'Last ' + hours + (hours === 1 ? ' hour' : ' hours');
     }
 
     /**
@@ -3402,6 +3441,29 @@ import {
     }
 
     /**
+     * Draw one banner into the zone, or empty it.
+     *
+     * Separate from pumpWallBanners() because renderWall() needs it too: a
+     * rebuild replaces the zone with an empty one, and the banner it
+     * interrupted has seconds left to run. Painting is all that happens here
+     * — the four-second timer belongs to whoever started the banner and keeps
+     * running across a rebuild.
+     */
+    function paintWallBanner(banner) {
+        var zone = document.getElementById('wallBannerZone');
+        if (!zone) return;
+
+        if (!banner) {
+            zone.replaceChildren();
+            return;
+        }
+
+        zone.innerHTML = '<div class="wall-banner"><strong>'
+            + escapeHtml(banner.name) + '</strong> just made the board — rank '
+            + boardNumber(banner.rank) + '</div>';
+    }
+
+    /**
      * Show the queued banners one after another, about four seconds each.
      *
      * Serialised rather than overlapped: several players can finish between
@@ -3414,18 +3476,13 @@ import {
         var banner = nextBanner(wallQueue);
         if (!banner) return;
 
-        var zone = document.getElementById('wallBannerZone');
-        if (!zone) { releaseBanner(wallQueue); return; }
-
-        zone.innerHTML = '<div class="wall-banner"><strong>'
-            + escapeHtml(banner.name) + '</strong> just made the board — rank '
-            + banner.rank + '</div>';
+        if (!document.getElementById('wallBannerZone')) { releaseBanner(wallQueue); return; }
+        paintWallBanner(banner);
 
         wallBannerTimer = setTimeout(function () {
             wallBannerTimer = null;
             releaseBanner(wallQueue);
-            var z = document.getElementById('wallBannerZone');
-            if (z) z.replaceChildren();
+            paintWallBanner(null);
             pumpWallBanners();
         }, WALL_BANNER_MS);
     }
@@ -3443,7 +3500,13 @@ import {
 
     function applyWallArrivals(arrivals) {
         if (arrivals.highlightIds.length > 0) {
-            wallHighlightIds = arrivals.highlightIds.slice();
+            // Merged rather than replaced. Assigning the new list dropped the
+            // highlight of anybody still inside their six seconds, so on a
+            // stand with a queue the second player to finish took the first
+            // player's moment away.
+            var lit = new Set(wallHighlightIds);
+            arrivals.highlightIds.forEach(function (id) { lit.add(id); });
+            wallHighlightIds = Array.from(lit);
             clearTimeout(wallHighlightTimer);
             wallHighlightTimer = setTimeout(function () {
                 wallHighlightIds = [];
@@ -3527,6 +3590,7 @@ import {
     function startWall() {
         wallTracker = createArrivalTracker();
         wallQueue = createBannerQueue();
+        wallPainted = null;
         renderWall();
         wallPoll();
 

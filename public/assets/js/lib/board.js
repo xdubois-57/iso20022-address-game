@@ -255,6 +255,59 @@ export function rowsThatFit(availableHeight, rowHeight) {
 }
 
 /**
+ * Everything the wall actually draws, as one comparable value.
+ *
+ * The wall polls every five seconds, and a successful poll always yields a
+ * NEW response object — so "has the data changed?" answered by identity was
+ * always yes, and the screen rebuilt itself twelve times a minute whether or
+ * not a single number on it had moved. That rebuild is not free and it is
+ * not invisible:
+ *
+ *  - it threw away the arrivals banner mid-display. Banners are serialised
+ *    four seconds each, so from the second one onwards every player who
+ *    placed below the fold got about one second of the acknowledgement the
+ *    banner exists to give them;
+ *  - it restarted the six-minute anti-burn-in drift from zero every five
+ *    seconds, which pinned a 42-inch panel to within two hundredths of a
+ *    pixel of one position all evening — precisely the thing that animation
+ *    was written to prevent.
+ *
+ * So the page compares this instead and leaves the DOM alone when it
+ * matches. Only what is rendered goes in: the caption naming the window, the
+ * podium and the rows below it (id, rank, name, score and time — every field
+ * the markup reads), which of them are highlighted, and whether the stale dot
+ * is showing. A change further down a fifty-row response that nobody can see
+ * is correctly not a change.
+ *
+ * @param {string} caption  the window label above the board
+ * @param {Array<Record<string, any>>} podium  the entries on the podium
+ * @param {Array<Record<string, any>>} rest    the rows drawn below it
+ * @param {number[]} highlightIds  ids currently marked as new arrivals
+ * @param {boolean} stale          whether the staleness dot is showing
+ * @returns {string}
+ */
+export function wallSignature(caption, podium, rest, highlightIds, stale) {
+    return JSON.stringify([
+        String(caption),
+        podium.map(signatureRow),
+        rest.map(signatureRow),
+        [...highlightIds].map(Number).sort((a, b) => a - b),
+        !!stale,
+    ]);
+}
+
+/** @param {Record<string, any>} entry */
+function signatureRow(entry) {
+    return [
+        Number(entry?.id),
+        Number(entry?.rank),
+        String(entry?.player_name ?? ''),
+        Number(entry?.game_score),
+        Number(entry?.time_seconds),
+    ];
+}
+
+/**
  * A number from a /board/data row, safe to concatenate into markup.
  *
  * The wall builds its HTML by string concatenation and escapes the one field

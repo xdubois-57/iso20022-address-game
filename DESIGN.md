@@ -228,6 +228,32 @@ Two supporting choices, for the same reason:
   ago is worth far more than a blank screen or an error page in front of fifty
   people, and the cap is what brings it back within seconds of the network
   returning.
+- **The wall redraws only when what it shows has changed.** A successful poll
+  always yields a new response object, so comparing by identity said "changed"
+  twelve times a minute and the screen rebuilt its whole DOM each time.
+  `wallSignature()` in `lib/board.js` reduces exactly what is rendered — the
+  caption, the podium, the rows below it, the highlighted ids, the stale dot —
+  to one comparable value, and an unchanged board leaves the DOM alone. This is
+  not a performance nicety. Two things on that screen live in the DOM between
+  polls and were being destroyed by the rebuild: the arrivals banner, wiped
+  about a second into the four it is given, so from the second banner onwards
+  every player below the fold lost the only acknowledgement they get; and the
+  six-minute anti-burn-in drift, restarted from zero every five seconds, which
+  pinned the panel to within two hundredths of a pixel of one position all
+  evening. **A rebuild that must happen repaints the banner it interrupted**
+  (`paintWallBanner()`), and **the drift animation lives on `.game-main`**, a
+  box the wall never replaces — put it back on `.wall-screen` and it stops
+  drifting again, invisibly.
+- **The wall says which board it is showing.** It is windowed and the Hall of
+  Fame on a player's phone is not, so the same run is #1 here with a gold medal
+  and 22nd there. Without a caption the two screens simply contradict each
+  other in front of the person concerned. The label is derived from the
+  `window_hours` the *server* reported — never from a constant here — so a wall
+  captioned "Last 24 hours" is one an administrator actually configured.
+- **The podium names its own grid columns.** The winner belongs in the middle,
+  and the markup is written 2-1-3 to put it there; automatic placement made
+  that true only while all three pods existed, so the first score of an evening
+  stood off to the left of an empty podium.
 - **Every value from `/board/data` is neutralised before it is concatenated
   into the wall's markup.** The player name goes through `escapeHtml()`; the
   four numbers — `game_score`, `time_seconds`, `rank` and the `id` that lands

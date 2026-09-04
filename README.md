@@ -232,6 +232,16 @@ parameters at all. There is no back door in either mode, by design.
 | Setting | Where | Default | Meaning |
 |---|---|---|---|
 | `board_window_hours` | Admin → Display modes | `24` | How far back the wall looks. `0` = all time. Validated 0–8760. Applies to the wall only. |
+
+`board_window_hours` is a rolling window, not a calendar day: at six in the
+evening, the default 24 still shows a run set at eight the previous evening.
+That is the intended behaviour — an event running over two days keeps its board
+alive overnight — and it is why the wall prints its own window ("Last 24
+hours", "All time") under the title. The Hall of Fame on a phone is all-time
+and unaffected, so the same run can be first on the wall and twenty-second
+there; the caption is what makes that legible rather than contradictory. Set it
+to a smaller number for a single-evening stand.
+
 | `sharing_enabled` | Admin → Sharing | on | Whether the end-of-game screen offers sharing. |
 | `display_mode_token` | Admin → Display modes | generated on first use | The `&t=` both screen URLs carry. |
 
