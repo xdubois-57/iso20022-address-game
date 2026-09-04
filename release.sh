@@ -24,7 +24,12 @@
 #     4. The tests that ran, with their counts, and any gate that did not run.
 #
 #   The dependency inventory is appended automatically by
-#   scripts/dependency-inventory.php, so do not write one by hand.
+#   scripts/dependency-inventory.php — every version read from the lock files,
+#   every licence beside it, and the compatibility reasoning — so do not write
+#   one by hand.
+#
+#   CLAUDE.md carries the full contract, including what belongs at the top of
+#   a note and why. Read it before writing one.
 #
 #   Without the variable the script warns and keeps the notes the release
 #   workflow generated. That is fine for a human cutting a quick patch and is
