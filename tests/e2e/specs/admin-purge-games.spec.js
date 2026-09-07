@@ -149,10 +149,23 @@ test('cancelling the confirmation deletes nothing', async ({ page }) => {
  * in progress. So the session is real, the token is wrong, and the counts on
  * both sides of the request have to be identical.
  */
-test('the real endpoint refuses a logged-in admin without a valid CSRF token', async ({ page }) => {
+test('the real endpoint refuses a logged-in admin without a valid CSRF token', async ({ browser, page }) => {
     await openDashboard(page);
     const csrf = await page.evaluate(() => document.querySelector('meta[name="csrf-token"]')?.content || '');
     expect(csrf).toMatch(/^[0-9a-f]{64}$/);
+
+    // A token minted for somebody else's session: real, current, well-formed,
+    // and worthless here. This is the case the check exists for — the server
+    // compares against THIS session's token, not against any token the
+    // installation ever issued.
+    const otherContext = await browser.newContext();
+    const otherPage = await otherContext.newPage();
+    await otherPage.goto('/');
+    const otherCsrf = await otherPage.evaluate(
+        () => document.querySelector('meta[name="csrf-token"]')?.content || ''
+    );
+    expect(otherCsrf).toMatch(/^[0-9a-f]{64}$/);
+    expect(otherCsrf).not.toBe(csrf);
 
     const post = (action, token) => page.request.post('/index.php', {
         headers: {
@@ -171,10 +184,16 @@ test('the real endpoint refuses a logged-in admin without a valid CSRF token', a
 
     const before = await countsNow();
 
-    // No token at all, then a well-formed one that is simply not this
-    // session's — the shape a forged request actually takes.
-    expect((await post('admin/purge-games', null)).status()).toBe(403);
-    expect((await post('admin/purge-games', 'f'.repeat(64))).status()).toBe(403);
+    try {
+        // No token at all; a well-formed value that was never issued; and a
+        // token that genuinely is one — just another session's. All three are
+        // what a forged request has available to it, and none of them may pass.
+        expect((await post('admin/purge-games', null)).status()).toBe(403);
+        expect((await post('admin/purge-games', 'f'.repeat(64))).status()).toBe(403);
+        expect((await post('admin/purge-games', otherCsrf)).status()).toBe(403);
 
-    expect(await countsNow()).toEqual(before);
+        expect(await countsNow()).toEqual(before);
+    } finally {
+        await otherContext.close();
+    }
 });
