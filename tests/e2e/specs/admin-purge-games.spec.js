@@ -51,25 +51,44 @@ async function openDashboard(page) {
     await expect(page.locator('#adminLeaderboard table, #adminLeaderboard .empty-state')).toHaveCount(1);
 }
 
+function json(route, body) {
+    return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+    });
+}
+
 /**
  * Count the calls to each admin action, answering admin/purge-games from here
  * instead of letting it reach the database.
+ *
+ * Once the purge has been answered, the counter and the listing answer as the
+ * emptied installation would — before it, the real instance answers, so the
+ * panel genuinely changes rather than having read zero all along.
  */
 async function interceptPurge(page, calls) {
+    let purged = false;
+
     await page.route('**/index.php', async (route) => {
         const action = route.request().headers()['x-action'];
         if (action) {
             calls.push(action);
         }
-        if (action !== 'admin/purge-games') {
-            await route.fallback();
+        if (action === 'admin/purge-games') {
+            purged = true;
+            await json(route, { success: true, total_games: 0 });
             return;
         }
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ success: true, total_games: 0 }),
-        });
+        if (purged && action === 'admin/game-stats') {
+            await json(route, { total_games: 0, weekly_stats: [] });
+            return;
+        }
+        if (purged && action === 'admin/leaderboard-entries') {
+            await json(route, { entries: [], page: 1, total_pages: 1, total_count: 0, per_page: 50 });
+            return;
+        }
+        await route.fallback();
     });
 }
 
@@ -93,11 +112,13 @@ test('deleting all games asks first, then empties the counter and the Hall of Fa
     await page.click('#modalOkBtn');
 
     expect(calls.filter((a) => a === 'admin/purge-games')).toHaveLength(1);
-    // Both panels are reread: the counter's own figures and the listing the
-    // purge just emptied. Leaving either on screen would show an installation
-    // that no longer exists.
+    // Both panels are reread, and they show the emptied installation. Asking
+    // only whether the calls were made would pass on a dashboard that fired
+    // them and then painted the figures it already had.
     expect(calls).toContain('admin/game-stats');
     expect(calls).toContain('admin/leaderboard-entries');
+    await expect(page.locator('#totalGamesCount')).toHaveText('0');
+    await expect(page.locator('#adminLeaderboard .empty-state')).toBeVisible();
 });
 
 test('cancelling the confirmation deletes nothing', async ({ page }) => {
@@ -115,4 +136,45 @@ test('cancelling the confirmation deletes nothing', async ({ page }) => {
     // dismissed confirmation, and the panel still on screen.
     await expect(page.locator('.overlay-message')).toHaveCount(0);
     await expect(page.locator('#purgeGamesBtn')).toBeVisible();
+});
+
+/**
+ * The one test here that reaches the real endpoint, because it is the one that
+ * must NOT delete anything.
+ *
+ * An admin session is not on its own permission to run this: the front
+ * controller checks the CSRF token before it dispatches, and this is the most
+ * destructive route behind that check — a page on another site that could make
+ * an organiser's logged-in browser POST here would empty the board of an event
+ * in progress. So the session is real, the token is wrong, and the counts on
+ * both sides of the request have to be identical.
+ */
+test('the real endpoint refuses a logged-in admin without a valid CSRF token', async ({ page }) => {
+    await openDashboard(page);
+    const csrf = await page.evaluate(() => document.querySelector('meta[name="csrf-token"]')?.content || '');
+    expect(csrf).toMatch(/^[0-9a-f]{64}$/);
+
+    const post = (action, token) => page.request.post('/index.php', {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Action': action,
+            ...(token === null ? {} : { 'X-CSRF-Token': token }),
+        },
+        data: '{}',
+    });
+
+    const countsNow = async () => {
+        const stats = await (await post('admin/game-stats', csrf)).json();
+        const board = await (await post('admin/leaderboard-entries', csrf)).json();
+        return { games: stats.total_games, entries: board.total_count };
+    };
+
+    const before = await countsNow();
+
+    // No token at all, then a well-formed one that is simply not this
+    // session's — the shape a forged request actually takes.
+    expect((await post('admin/purge-games', null)).status()).toBe(403);
+    expect((await post('admin/purge-games', 'f'.repeat(64))).status()).toBe(403);
+
+    expect(await countsNow()).toEqual(before);
 });
