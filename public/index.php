@@ -303,6 +303,7 @@ if ($method === 'POST') {
         'admin/delete-fact' => (new AdminController())->deleteFact(),
         'admin/game-stats' => (new AdminController())->getGameStats(),
         'admin/reset-game-counter' => (new AdminController())->resetGameCounter(),
+        'admin/purge-games' => (new AdminController())->purgeGames(),
         'admin/get-theme' => (new AdminController())->getTheme(),
         'admin/save-theme' => (new AdminController())->saveTheme(),
         'admin/reset-theme' => (new AdminController())->resetTheme(),

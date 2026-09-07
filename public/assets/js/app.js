@@ -2155,7 +2155,13 @@ import {
         html += '<div class="game-counter-info">';
         html += '<p>Total games played: <strong id="totalGamesCount">...</strong></p>';
         html += '<button class="btn-secondary" id="resetGameCounterBtn">Reset from Hall of Fame</button>';
+        // Its dangerous neighbour: the one above recounts, this one forgets.
+        // btn-danger rather than btn-secondary because the two sit side by side
+        // and only one of them can be undone by pressing the other.
+        html += '<button class="btn-danger" id="purgeGamesBtn">Delete All Games</button>';
         html += '</div>';
+        html += '<p class="game-counter-note">Deleting all games empties the counter '
+            + '<em>and</em> the Hall of Fame. There is no way back.</p>';
         html += '<div class="game-chart-wrap"><canvas id="gamesWeeklyChart" height="200"></canvas></div>';
         html += '</div>';
 
@@ -2996,6 +3002,25 @@ import {
             if (data?.success) {
                 await showModal('Game counter reset. Total: ' + data.total_games);
                 loadGameStats();
+            }
+        });
+
+        // Deletes the games themselves, not just the named scores: the counter
+        // and the Hall of Fame go back to zero together. The confirmation says
+        // so, because "reset" next door means something far milder.
+        document.getElementById('purgeGamesBtn').addEventListener('click', async function () {
+            var confirmed = await showConfirm(
+                'Delete every game ever played? The counter and the Hall of Fame both go back to zero. '
+                + 'This cannot be undone.'
+            );
+            if (!confirmed) return;
+            var data = await api('admin/purge-games');
+            if (data?.success) {
+                await showModal('All games deleted. Total: ' + data.total_games);
+                loadGameStats();
+                loadAdminLeaderboard();
+            } else {
+                await showModal(data?.error ? data.error : 'Could not delete the games.');
             }
         });
 

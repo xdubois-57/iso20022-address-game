@@ -981,6 +981,55 @@ class AdminController
     }
 
     /**
+     * POST /api/admin/purge-games — Delete every game ever played.
+     *
+     * The counter and the Hall of Fame together, because they are two views of
+     * the same history: `game_counter` holds one row per completed game and
+     * `leaderboard` holds the ones that were good enough to be named. Clearing
+     * only one of them leaves an installation whose screens disagree — and
+     * "Reset from Hall of Fame" next door would simply rebuild the counter from
+     * the rows the purge had left behind.
+     *
+     * Both deletes run in one transaction, so an organiser wiping the evening's
+     * data between two conferences never ends up half-wiped: either the
+     * installation is back to zero games, or it is exactly as it was.
+     *
+     * Deliberately destructive and deliberately not undoable — it is the
+     * "forget everything about the people who played" button, which is why the
+     * browser puts a confirmation in front of it and why an anonymous caller is
+     * refused here.
+     */
+    public function purgeGames(): void
+    {
+        if (!$this->isAdmin()) {
+            $this->jsonResponse(['error' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $pdo = Database::getInstance()->getPdo();
+        $counter = new GameCounterModel($pdo);
+
+        $pdo->beginTransaction();
+        try {
+            $this->leaderboardModel->purgeAll();
+            $counter->purgeAll();
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('ADMIN: purge of all games failed, rolled back — ' . $e->getMessage());
+            $this->jsonResponse(['error' => 'Could not delete the games; nothing was removed.'], 500);
+            return;
+        }
+
+        $this->jsonResponse([
+            'success' => true,
+            'total_games' => $counter->getTotalCount(),
+        ]);
+    }
+
+    /**
      * POST /api/admin/get-theme — Return current theme colors.
      */
     public function getTheme(): void

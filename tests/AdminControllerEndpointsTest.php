@@ -122,7 +122,7 @@ class AdminControllerEndpointsTest extends TestCase
         return array_map(fn ($m) => [$m], [
             'changePin', 'getLeaderboardEntries', 'deleteLeaderboardEntry', 'purgeLeaderboard',
             'setDeadline', 'getDeadline', 'getFacts', 'addFact', 'updateFact', 'deleteFact',
-            'getGameStats', 'resetGameCounter',
+            'getGameStats', 'resetGameCounter', 'purgeGames',
             'getTheme', 'saveTheme',
         ]);
     }
@@ -435,6 +435,49 @@ class AdminControllerEndpointsTest extends TestCase
 
         [$stats] = $this->call('getGameStats');
         $this->assertSame(5, (int) $stats['total_games'], 'one game per leaderboard row');
+    }
+
+    /**
+     * The destructive neighbour of "Reset from Hall of Fame": it empties the
+     * counter and the Hall of Fame together, and the pair is the point. A purge
+     * that cleared only the counter would be undone by the next press of the
+     * reset button, which rebuilds the count from the leaderboard rows.
+     */
+    public function testPurgingGamesEmptiesTheCounterAndTheHallOfFame(): void
+    {
+        $this->seedLeaderboard(4);
+        $counter = new \App\Models\GameCounterModel($this->memoryPdo());
+        $counter->increment();
+        $counter->increment();
+        $counter->increment();
+        $this->asAdmin();
+
+        [$purged, $status] = $this->call('purgeGames');
+        $this->assertSame(200, $status);
+        $this->assertTrue($purged['success']);
+        $this->assertSame(0, (int) $purged['total_games']);
+
+        [$stats] = $this->call('getGameStats');
+        $this->assertSame(0, (int) $stats['total_games'], 'no game survives the purge');
+        $this->assertSame([], $stats['weekly_stats']);
+
+        [$entries] = $this->call('getLeaderboardEntries');
+        $this->assertSame([], $entries['entries'], 'the Hall of Fame goes with it');
+
+        // And it stays at zero: the reset button has nothing left to count.
+        [$reset] = $this->call('resetGameCounter');
+        $this->assertSame(0, (int) $reset['total_games']);
+    }
+
+    /** Nothing to delete is a success, not an error. */
+    public function testPurgingGamesOnAnEmptyInstallationSucceeds(): void
+    {
+        $this->asAdmin();
+
+        [$purged, $status] = $this->call('purgeGames');
+        $this->assertSame(200, $status);
+        $this->assertTrue($purged['success']);
+        $this->assertSame(0, (int) $purged['total_games']);
     }
 
     // -----------------------------------------------------------------
