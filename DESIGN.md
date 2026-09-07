@@ -420,6 +420,18 @@ discarding the session cookie does not reset them.
   clears the deadline — non-strings are rejected outright rather than coerced,
   so a malformed request can never become a destructive one.
   `tests/MalformedJsonInputTest.php` pins all of it
+- **Erasure on demand**: three admin actions delete player data, at three
+  scales, and they are deliberately separate. `admin/delete-entry` removes one
+  Hall of Fame entry — the answer to "please take my name off that board".
+  `admin/purge-leaderboard` clears the board and leaves the count of games
+  played, which is a statistic about the installation and not about anybody.
+  `admin/purge-games` (`AdminController::purgeGames()`) deletes both, in one
+  transaction: `leaderboard` and `game_counter` are two views of the same
+  history, so clearing one alone leaves screens disagreeing — and *Reset from
+  Hall of Fame*, the button beside it, would rebuild the counter from whichever
+  rows the half-purge had left. It is the "this instance has never hosted a
+  game" button an organiser needs between two conferences, and it is not
+  undoable
 - **Retention**: `App\Models\RetentionCleanup` deletes leaderboard entries after
   365 days and rate-limit rows once they lock nobody out and have been idle for
   24 hours, so hashed addresses are not kept beyond their purpose. Run by

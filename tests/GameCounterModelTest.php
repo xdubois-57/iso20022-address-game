@@ -100,6 +100,34 @@ class GameCounterModelTest extends TestCase
         $this->assertEquals(0, $newCount);
     }
 
+    public function testPurgeAllRemovesEveryRecordedGame(): void
+    {
+        $this->counter->increment();
+        $this->counter->increment();
+
+        $this->counter->purgeAll();
+
+        $this->assertEquals(0, $this->counter->getTotalCount());
+    }
+
+    /**
+     * purgeAll() leaves the leaderboard alone — deleting both is the
+     * controller's job, and doing it here as well would hide a purge that
+     * forgot one of them.
+     */
+    public function testPurgeAllTouchesTheCounterOnly(): void
+    {
+        $encryption = new Encryption('test_key_for_game_counter_tests!');
+        $leaderboard = new LeaderboardModel($this->pdo, $encryption);
+        $leaderboard->addEntry('Alice', 90, 60);
+        $this->counter->increment();
+
+        $this->counter->purgeAll();
+
+        $this->assertEquals(0, $this->counter->getTotalCount());
+        $this->assertEquals(1, $leaderboard->getTotalCount());
+    }
+
     public function testCounterNeverAutoResets(): void
     {
         // Simulate many games

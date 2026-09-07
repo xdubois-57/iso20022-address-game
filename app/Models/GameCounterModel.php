@@ -45,6 +45,20 @@ class GameCounterModel
     }
 
     /**
+     * Delete every recorded game (admin action).
+     *
+     * The counterpart of LeaderboardModel::purgeAll(), and never called on its
+     * own: a counter emptied while the Hall of Fame still holds rows is a
+     * disagreement between two screens, and the next press of "Reset from Hall
+     * of Fame" would put the count straight back. AdminController::purgeGames()
+     * calls both, in one transaction.
+     */
+    public function purgeAll(): void
+    {
+        $this->pdo->exec('DELETE FROM game_counter');
+    }
+
+    /**
      * Reset the counter by deleting all records, then seeding one row per
      * existing leaderboard entry (preserving historical count based on Hall of Fame).
      */

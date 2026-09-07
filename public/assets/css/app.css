@@ -1014,6 +1014,15 @@ html, body {
     font-size: 1.1rem;
 }
 
+/* The warning under the two counter buttons. Outside .game-counter-info on
+   purpose: that row is a flex line, and the note belongs beneath it rather
+   than beside the buttons it is warning about. */
+.game-counter-note {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
 .game-chart-wrap {
     margin-top: 1rem;
     height: 220px;

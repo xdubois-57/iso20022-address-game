@@ -396,6 +396,33 @@ next request. If yours ran it, `storage/backups/` may still hold zips of
 previous versions of the site; nothing reads them any more and they can be
 deleted.
 
+## Starting a fresh event
+
+Admin → *Game Counter* holds the two buttons that change what the installation
+remembers about the games it has hosted. They sound alike and they are not:
+
+- **Reset from Hall of Fame** recounts. It throws the counter away and rebuilds
+  it with one game per Hall of Fame entry, which is how an installation whose
+  counter drifted — or was never incremented at all before the counter existed
+  — gets an honest figure back. Nothing is lost that the Hall of Fame does not
+  still hold.
+- **Delete All Games** forgets. It empties the counter **and** the Hall of
+  Fame, so the installation reads zero games played and an empty board. This is
+  the button for carrying the same instance from one conference to the next
+  without the previous room's scores on the wall.
+
+The deletion is not reversible, and nothing is exported on the way out — the
+confirmation dialog is the only step in front of it. Both tables are emptied in
+one transaction, so a failure part of the way through leaves the installation
+exactly as it was rather than with a counter and a board that disagree. The
+scenarios, the facts, the theme and the settings are untouched: this deletes
+what was played, not how the installation is set up.
+
+Player names are encrypted at rest, so an organiser satisfying an erasure
+request has a narrower tool as well: Admin → *Hall of Fame Management* deletes a
+single entry, and *Purge All Entries* beside it clears the board without
+touching the count of games played.
+
 ## GDPR Cleanup (Cron Job)
 
 Schedule the cleanup script to run daily:
