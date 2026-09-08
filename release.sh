@@ -509,6 +509,33 @@ trap 'echo "Restoring dev dependencies (composer install)..."; composer install 
 
 ARTIFACT="release-${NEW_VERSION}.zip"
 rm -f "$ARTIFACT"
+
+# ── Keep local secrets out of the artifact ──────────────────────────────────
+#
+# The exclusion list below named config/credentials.php and config/db_config.json
+# and stopped there, so config/deploy.conf — the production FTP host, user and
+# password — went into the zip attached to every published Release from v0.3.1
+# to v0.3.3. The file is gitignored, so it never reached the repository; `zip -r .`
+# copies the working tree, and the working tree that cuts releases is the one
+# machine that has it.
+#
+# A blocklist was the wrong shape. It has to be extended every time a new local
+# file appears, by somebody who happens to remember, and nothing fails when they
+# do not — the zip builds perfectly happily and the secret ships.
+#
+# So the rule is inverted: config/ ships exactly what git tracks. Anything else
+# in there is by construction local — a credentials file, a deploy password, a
+# database DSN — and is excluded because it is untracked, not because it was
+# listed. A new secret is covered on the day it is created.
+CONFIG_EXCLUDES=()
+while IFS= read -r stray; do
+    [[ -n "$stray" ]] && CONFIG_EXCLUDES+=("$stray")
+done < <(git ls-files --others -- config/)
+
+if (( ${#CONFIG_EXCLUDES[@]} > 0 )); then
+    echo "Excluding ${#CONFIG_EXCLUDES[@]} untracked file(s) under config/:"
+    printf '  %s\n' "${CONFIG_EXCLUDES[@]}"
+fi
 # The `* <digit>` patterns drop macOS conflict copies — "phpunit 2",
 # "README 3.md", "deep-copy 4/". iCloud Drive creates them when a synced
 # folder is rewritten mid-sync, which is exactly what the `composer install`
@@ -536,7 +563,8 @@ zip -rq "$ARTIFACT" . \
        "package.json" "package-lock.json" "sonar-project.properties" \
        "DESIGN.md" "docs/*" "release.sh" \
        "* [0-9]" "* [0-9].*" "* [0-9]/" "* [0-9]/*" \
-       "* [0-9][0-9]" "* [0-9][0-9].*" "* [0-9][0-9]/" "* [0-9][0-9]/*"
+       "* [0-9][0-9]" "* [0-9][0-9].*" "* [0-9][0-9]/" "* [0-9][0-9]/*" \
+       ${CONFIG_EXCLUDES[@]+"${CONFIG_EXCLUDES[@]}"}
 
 echo "Artifact built: $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 
@@ -562,6 +590,40 @@ if [[ "$AUTOLOAD" -eq 0 ]]; then
     echo "Release NOT published. Tag $NEW_VERSION is already pushed." >&2
     exit 1
 fi
+
+# ── The guard that actually matters ─────────────────────────────────────────
+#
+# The exclusion above is a promise; this is the check that it held. Both exist
+# because the promise is what failed: a missing entry shipped the production FTP
+# password in three published Releases, and every gate stayed green throughout —
+# PHPUnit, PHPStan, Playwright, ZAP and CodeQL all look at the source, and none
+# of them has ever looked inside the artifact.
+#
+# deploy.sh has carried the equivalent guard for a while, and the comment above
+# it records this same class of mistake happening once before. It was never
+# copied here. That asymmetry is the whole bug: the path that uploads to one
+# server was defended, and the path that publishes to the internet was not.
+#
+# Tracked-by-git is the test, so this cannot drift from the exclusion — they are
+# derived from the same fact rather than maintained in parallel.
+echo "Checking the artifact for local secrets..."
+TRACKED_CONFIG=$(git ls-files -- config/ | sort)
+SHIPPED_CONFIG=$(unzip -Z1 "$ARTIFACT" | grep '^config/' | grep -v '/$' | sort || true)
+LEAKED=$(comm -13 <(printf '%s\n' "$TRACKED_CONFIG") <(printf '%s\n' "$SHIPPED_CONFIG"))
+
+if [[ -n "$LEAKED" ]]; then
+    echo "" >&2
+    echo "ERROR: $ARTIFACT contains file(s) under config/ that git does not track:" >&2
+    printf '  %s\n' $LEAKED >&2
+    echo "" >&2
+    echo "Those are local files — credentials, deploy passwords, database settings." >&2
+    echo "Publishing this zip would put them on a public Releases page." >&2
+    echo "" >&2
+    echo "Release NOT published. Tag $NEW_VERSION is already pushed; fix the" >&2
+    echo "exclusion list, delete the zip, and re-run this script." >&2
+    exit 1
+fi
+echo "Checked: config/ in the artifact is exactly what git tracks."
 
 # ── Wait for the gates ──────────────────────────────────────────────────────
 # Pushing the tag started .github/workflows/release.yml. It runs every gate in
