@@ -254,6 +254,7 @@ MIRROR_EXCLUDES="\
     --exclude-glob scripts/merge-coverage.php \
     --exclude-glob scripts/dast* \
     --exclude-glob scripts/js-typecheck.mjs \
+    --exclude-glob scripts/release-lib.sh \
     --exclude-glob phpstan.neon \
     --exclude-glob phpstan-baseline.neon \
     --exclude-glob js-typecheck-baseline.json \
@@ -266,6 +267,9 @@ MIRROR_EXCLUDES="\
     --exclude-glob package-lock.json \
     --exclude-glob sonar-project.properties \
     --exclude-glob DESIGN.md \
+    --exclude-glob CLAUDE.md \
+    --exclude-glob .claude/ \
+    --exclude-glob .claude/** \
     --exclude-glob *.zip \
     --exclude-glob .DS_Store \
     --exclude '[^/]+ [0-9]+(/|\.|$)'"
