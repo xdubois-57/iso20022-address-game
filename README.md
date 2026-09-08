@@ -234,6 +234,13 @@ the admin panel now prints.
 **To reach the admin screen from one of these machines**, load the URL with no
 parameters at all. There is no back door in either mode, by design.
 
+**The play station starts every game with an empty name field.** When it hands
+itself back — the Play again button, or the timer at the end of a game — the
+previous player's name is cleared, so nobody in the queue has to delete a
+stranger's name before they can start. Every other way of playing still puts
+the last name typed back in the field: those machines have one owner, who is
+usually the same person going again.
+
 ### Settings
 
 | Setting | Where | Default | Meaning |
