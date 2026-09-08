@@ -513,6 +513,44 @@ test.describe.serial('the wall (?mode=hof)', () => {
         expect(tall).toBeGreaterThan(short);
     });
 
+    test('fills the screen it is on and never scrolls off it', async ({ page }) => {
+        // The wall is inert by design: pointer-events: none, no handler bound
+        // anywhere on it. Nothing below the fold can be brought into view by
+        // anybody, so nothing may be below the fold — and the composition has
+        // to reach the bottom of the screen too, or a 42-inch panel shows a
+        // board floating in the top two thirds of itself.
+        //
+        // The height used to be `calc(100vh - 132px)`, a header and a footer
+        // somebody measured once. Every screen where they came to more than
+        // 132px scrolled the wall, and every screen where they came to less
+        // left a band of dead space under it.
+        for (const [width, height] of [[1080, 1920], [1920, 1080], [1280, 1024], [1366, 768]]) {
+            await page.setViewportSize({ width, height });
+            await gotoMode(page, 'hof');
+            await expect(page.locator('.wall-list tbody tr').first()).toBeVisible();
+
+            const wall = await page.evaluate(() => {
+                const screen = document.querySelector('.wall-screen').getBoundingClientRect();
+                const rows = [...document.querySelectorAll('.wall-list tbody tr')];
+                return {
+                    pageScroll: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+                    screenBottom: screen.bottom,
+                    lastRowBottom: rows[rows.length - 1].getBoundingClientRect().bottom,
+                    viewport: window.innerHeight,
+                };
+            });
+
+            expect(wall.pageScroll, `the wall scrolls at ${width}x${height}`).toBe(0);
+            expect(wall.lastRowBottom, `the last row is off screen at ${width}x${height}`)
+                .toBeLessThanOrEqual(wall.viewport);
+            // Within the footer's own height of the bottom: the composition
+            // takes what the header and the footer leave, whatever that is on
+            // this screen, rather than what a constant said it would be.
+            expect(wall.screenBottom, `the wall stops short at ${width}x${height}`)
+                .toBeGreaterThan(wall.viewport * 0.8);
+        }
+    });
+
     test('a failed poll leaves the last good board on screen', async ({ page }) => {
         // This test asks for more time than the suite's default budget allows
         // it, and used to get away with it only because the waits below

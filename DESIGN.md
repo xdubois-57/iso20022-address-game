@@ -190,7 +190,7 @@ Two deployment contexts sit alongside the three above: a Hall of Fame wall
 (`?mode=play`, a 42" landscape touch panel played standing), each driven by its
 own PC.
 
-Five decisions here are not obvious. They are written down because without the
+Six decisions here are not obvious. They are written down because without the
 reasons the next person will undo the work believing they are simplifying.
 
 **The mode lives in the URL, and is resolved server-side.** Not in a session
@@ -204,6 +204,47 @@ it afterwards would flash the menus on every load; and it would still be in the
 DOM, reachable by keyboard. **This is a guard rail, not a security boundary** —
 the API routes stay open and the leaderboard data is public regardless. Do not
 build authentication for it.
+
+**Both dedicated screens fit the screen they are on, and neither is allowed to
+scroll.** They are the only two contexts in the game with nobody able to scroll
+them: the wall is deliberately inert (`pointer-events: none`), and the play
+station is a panel a stranger walks up to, taps four letters on and walks away
+from. Anything below the fold on either is not merely awkward to reach — it is
+not there, and nobody standing in front of it has any reason to suspect
+otherwise.
+
+That was arithmetic, and arithmetic is what got it wrong. `.game-main` reserved
+`100vh - 120px` for itself and the wall took `100vh - 132px`, two counts of a
+header and a footer somebody had measured once. Every screen where they came to
+more than that scrolled, and every screen where they came to less left a band
+of dead space. The play station had it worse: six rows of 72px keys, the card
+above them, the countdown above that and the fact card below did not fit the
+1080-pixel panel they were designed for either, so the card scrolled and the
+Start key sat below the fold — and the way out an operator finds is to zoom the
+browser out, which shrinks the header, the map and the text along with the keys
+and is the wrong instrument for the job.
+
+So nothing counts pixels any more. The page is a flex column of header, main
+and footer, the two screens take what is left, and what is inside them is sized
+from the viewport rather than from a constant — which is also what makes zoom a
+non-event, since zooming out multiplies the CSS pixels in a `vh` by exactly what
+it divides their physical size by.
+
+**The keyboard is the one thing on the play station that gives ground.** The
+title, the name field, Start and the PMPG lockup hold their size; the keyboard
+grows into whatever height is left and shrinks out of it, its rows sharing that
+height equally. **72px is therefore the size the keys reach, not one they
+insist on** — on the 1920×1080 landscape panel they land around 50px, roughly
+25mm, with everything visible, which is worth more than 35mm keys under a
+Start key nobody can reach. Two bounds are stated rather than inferred, because
+the layout gets both wrong on its own: the keyboard's floor (every row at
+`--touch-key-floor`) is what stops the card shrinking into its own contents and
+painting the keys over the PMPG lockup, and its ceiling is what stops a very
+tall screen stretching the keys instead of leaving the space it has. Below the
+floor the card scrolls, which is the honest failure — a scroll bar is visible
+and recoverable in a way that a vanished logo is not. `bindTouchKeyboard()`
+tells the stylesheet how many rows there are, read off the DOM, so a row added
+to `touchKeyboardHtml()` needs no matching edit in the CSS.
 
 **The on-screen keyboard exists because Windows will not show its own.** Windows
 only offers its touch keyboard when it detects *no* physical keyboard. The play

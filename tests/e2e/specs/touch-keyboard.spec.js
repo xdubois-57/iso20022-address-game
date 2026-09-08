@@ -192,6 +192,11 @@ test.describe('the on-screen keyboard', () => {
     });
 
     test('keys are big enough to hit standing at a 42-inch panel', async ({ page }) => {
+        // The panel, at the resolution it runs at. The default viewport this
+        // suite uses is a 720-pixel-tall desktop window, which is not the
+        // screen this rule is about and has no room for the keyboard this
+        // rule asks for — see the test below for what happens there.
+        await page.setViewportSize({ width: 1920, height: 1080 });
         await gotoMode(page, 'play');
 
         const boxes = await page.locator('.touch-key').evaluateAll(
@@ -203,10 +208,78 @@ test.describe('the on-screen keyboard', () => {
 
         expect(boxes.length).toBeGreaterThan(30);
         for (const box of boxes) {
-            // 72px, roughly 35mm at this size and resolution.
-            expect(box.h).toBeGreaterThanOrEqual(72);
+            // 72px wide, roughly 35mm at this size and resolution, and at
+            // least 48 tall — a quarter of an inch, and what is left once the
+            // card, the countdown and the fact card have taken theirs. The
+            // keys reach 72 square on a screen with the room for it, which
+            // 1080 pixels of landscape panel does not have; a fixed 72 here
+            // bought a scroll bar and a Start key below the fold instead.
             expect(box.w).toBeGreaterThanOrEqual(72);
+            expect(box.h).toBeGreaterThanOrEqual(48);
         }
+    });
+
+    test('the whole card fits the panel, at every height a screen might be', async ({ page }) => {
+        // The play station cannot be scrolled by the person using it: they
+        // walk up, tap four letters and walk away. Anything below the fold is
+        // simply not there — so nothing may be below the fold.
+        //
+        // The heights are the panel itself, then a portrait panel, then the
+        // laptop sizes an organiser sets the station up from. The last of
+        // those is where this used to fail, and where the way out an operator
+        // finds is to zoom the browser out until it fits.
+        for (const [width, height] of [[1920, 1080], [1080, 1920], [1440, 900], [1280, 720]]) {
+            await page.setViewportSize({ width, height });
+            await gotoMode(page, 'play');
+            await expect(page.locator('#touchKeyboard')).toBeVisible();
+
+            const fit = await page.evaluate(() => {
+                const welcome = document.querySelector('.game-welcome');
+                const start = document.querySelector('.touch-key-go').getBoundingClientRect();
+                const logo = document.querySelector('.card-endorsement').getBoundingClientRect();
+                return {
+                    pageScroll: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+                    cardScroll: welcome.scrollHeight - welcome.clientHeight,
+                    startBottom: start.bottom,
+                    logoBottom: logo.bottom,
+                    viewport: window.innerHeight,
+                };
+            });
+
+            expect(fit.pageScroll, `page scrolls at ${width}x${height}`).toBe(0);
+            expect(fit.cardScroll, `the card scrolls at ${width}x${height}`).toBe(0);
+            // Not merely "no scroll bar": the two things at the bottom of the
+            // card have to be on the screen, which is what a scroll bar
+            // hiding them would have meant.
+            expect(fit.startBottom, `Start is off screen at ${width}x${height}`)
+                .toBeLessThanOrEqual(fit.viewport);
+            expect(fit.logoBottom, `the PMPG lockup is off screen at ${width}x${height}`)
+                .toBeLessThanOrEqual(fit.viewport);
+        }
+    });
+
+    test('the keys grow with the screen rather than being a fixed size', async ({ page }) => {
+        // The mechanism, rather than one of its outcomes: the same page on a
+        // taller screen gives the keyboard more of the height it gained. A
+        // rule that pinned the keys to a number would pass every "does it
+        // fit" test above by being small everywhere, and this is what says it
+        // may not.
+        const keyHeight = async (width, height) => {
+            await page.setViewportSize({ width, height });
+            await gotoMode(page, 'play');
+            await expect(page.locator('#touchKeyboard')).toBeVisible();
+            return page.locator('.touch-key').first().evaluate(
+                (n) => n.getBoundingClientRect().height
+            );
+        };
+
+        const onALaptop = await keyHeight(1280, 720);
+        const onThePanel = await keyHeight(1920, 1080);
+
+        expect(onThePanel).toBeGreaterThan(onALaptop);
+        // And it stops growing: 72px is the size this screen is designed
+        // around, not a floor a very tall screen may pass.
+        expect(await keyHeight(1080, 1920)).toBeLessThanOrEqual(72);
     });
 
     test('a refused name shows why, and the message stays readable', async ({ page }) => {

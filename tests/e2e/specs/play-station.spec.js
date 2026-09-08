@@ -216,6 +216,10 @@ test.describe.serial('the end of a game', () => {
     });
 
     test('?mode=play offers Play again at a size you can hit standing up', async ({ page }) => {
+        // The panel, at the resolution it runs at — the screen the 72px below
+        // is a measurement of. On a shorter window the button comes down with
+        // everything else rather than pushing the score off the top.
+        await page.setViewportSize({ width: 1920, height: 1080 });
         await stubSubmission(page);
         await playAGame(page, await modeUrl(page, 'play'), 'Again Please');
 
