@@ -41,6 +41,16 @@
 # from a checkout. See the artifact-building block below for what is excluded
 # and why.
 #
+# The version stamp reaches main through a PULL REQUEST, not a direct push.
+# main is protected by a ruleset requiring one, so `git push origin main` is
+# rejected and this script cannot finish without it. It cuts release/vX.Y.Z,
+# opens the pull request, sets auto-merge, and waits — GitHub merges when the
+# required gates go green and never merges if one does not.
+#
+# The tag is therefore the LAST irreversible step, not the first. A red gate
+# leaves no tag, no draft and nothing to clean up; re-running the script is the
+# whole recovery.
+#
 # This script does NOT create the GitHub Release. Pushing the tag starts
 # .github/workflows/release.yml, which runs every gate in checks.yml and then
 # creates the Release as a DRAFT carrying the evidence pack. Creating one here
@@ -280,16 +290,72 @@ fi
 
 echo "SonarCloud: nothing at LOW or above, 0 hotspots to review, analysed at ${HEAD_SHA:0:7}."
 
-read -rp "Create tag $NEW_VERSION, run every gate and publish the release? [y/N] " CONFIRM
+read -rp "Open the release PR for $NEW_VERSION, tag on merge and publish? [y/N] " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
     echo "Aborted."
     exit 0
 fi
 
-# Write version file (commit will be the release commit itself)
+# ── The release commit goes through a pull request ──────────────────────────
+#
+# `main` is protected by a repository ruleset: "Changes must be made through a
+# pull request". This script used to run `git push origin main` here, and from
+# the day that rule was turned on it could not finish a release at all — the
+# push is rejected outright, the script dies under `set -e`, and a human is
+# left to work out how much of a release had already happened.
+#
+# So the version stamp arrives the way every other change does: on a branch,
+# through a pull request, merged by GitHub once the gates it requires are
+# green. That is slower by exactly the length of a CI run, and it buys two
+# things worth more than the minutes.
+#
+# The first is that the rule stops being something to work around. There is no
+# "except for releases" exemption to grant, no admin bypass to hold, and the
+# release commit is reviewable like anything else.
+#
+# The second is the failure mode. The tag is now the LAST thing to happen
+# rather than the second: if a gate is red the pull request simply never
+# merges, and nothing has been tagged, nothing has been drafted, nothing has
+# been published. The old ordering pushed the tag first, so a red gate left a
+# tag pointing at an unpublished commit and a message telling the operator to
+# delete it by hand. Cutting the release again after a failure now costs
+# nothing but re-running this script.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COMMIT_SHORT=$(git rev-parse --short HEAD)
-cat > "$SCRIPT_DIR/config/version.php" <<EOF
+RELEASE_BRANCH="release/$NEW_VERSION"
+
+# The recovery path, and the reason this check comes first. If release.yml went
+# red the operator deletes the tag and runs this script again — but the version
+# stamp merged the first time round and is still sitting on main. Opening a
+# second pull request for a change that is already there would stall on an
+# empty commit, so a main that already carries the right stamp skips straight
+# to tagging.
+STAMPED_TAG=$(php -r '$v = @include $argv[1]; echo is_array($v) ? ($v["tag"] ?? "") : "";' "$SCRIPT_DIR/config/version.php")
+
+# Everything from cutting the branch to landing the stamp on main. A function
+# rather than a flat block only so the skip above reads as one decision; it is
+# not a unit of recovery, and the failures inside it `exit` rather than
+# `return` on purpose. Every one of them means the stamp is not on main, and
+# there is nothing sensible to tag after that.
+open_and_merge_release_pr() {
+    if git show-ref --verify --quiet "refs/heads/$RELEASE_BRANCH"; then
+        echo "ERROR: branch $RELEASE_BRANCH already exists locally." >&2
+        echo "A previous run of this script left it behind. Inspect it, then:" >&2
+        echo "  git branch -D $RELEASE_BRANCH" >&2
+        exit 1
+    fi
+
+    # Written before the branch is cut so the file is identical either way, and
+    # `commit` is read while HEAD is still the tip of main.
+    #
+    # That value is the last FUNCTIONAL commit — the code the release is built
+    # from — and not the commit the tag ends up on. Those differ now: main squashes
+    # pull requests, so merging this one creates a new commit whose SHA cannot be
+    # known before it exists, which makes recording it here impossible without a
+    # second commit to main that the ruleset would reject in turn. The commit named
+    # here is the more useful of the two anyway. It is the one whose tree was
+    # tested, analysed and scanned; the squash commit adds only the version stamp.
+    COMMIT_SHORT=$(git rev-parse --short HEAD)
+    cat > "$SCRIPT_DIR/config/version.php" <<EOF
 <?php
 // Auto-generated by release.sh — do not edit manually
 return [
@@ -298,11 +364,118 @@ return [
 ];
 EOF
 
-git add config/version.php
-git commit -m "release: $NEW_VERSION"
-git push origin main
+    git checkout -b "$RELEASE_BRANCH"
+    git add config/version.php
+    git commit -m "release: $NEW_VERSION"
+    git push -u origin "$RELEASE_BRANCH"
 
-# Create annotated tag on the release commit
+    # The body says what the commit is and what it is not, because a reviewer
+    # seeing "release: vX.Y.Z" needs to know in one screen that the only file
+    # touched is a generated stamp.
+    gh pr create \
+        --base main \
+        --head "$RELEASE_BRANCH" \
+        --title "release: $NEW_VERSION" \
+        --body "Stamps \`config/version.php\` with the version being released, so the
+footer and the admin panel report \`$NEW_VERSION\` rather than the version
+before it.
+
+Generated by \`release.sh\`. The only file touched is that generated stamp:
+no behaviour changes, and \`commit\` records \`$COMMIT_SHORT\`, the last
+functional commit, which is the tree every gate ran against.
+
+Merging this cuts the tag. \`release.sh\` is waiting on it right now and will
+tag \`main\`, wait for \`release.yml\` to run every gate again, attach the
+deployable zip to the draft it creates, and publish the Release."
+
+    PR_NUMBER=$(gh pr view "$RELEASE_BRANCH" --json number -q .number)
+    echo ""
+    echo "Opened PR #$PR_NUMBER for $RELEASE_BRANCH."
+
+    # --auto rather than a bare merge: the required checks have not even been
+    # queued yet at this point, so an immediate merge would be refused. Auto-merge
+    # hands the decision to GitHub, which merges the moment the last required check
+    # goes green and never merges at all if one does not.
+    #
+    # --squash to match how every other pull request lands on main, so the history
+    # stays one commit per change rather than gaining a merge bubble per release.
+    #
+    # If enabling it fails the script stops here, before any tag: that is usually
+    # auto-merge being switched off for the repository, and the fix is to merge the
+    # pull request by hand and re-run.
+    if ! gh pr merge "$PR_NUMBER" --squash --auto --delete-branch; then
+        echo "" >&2
+        echo "ERROR: could not enable auto-merge on PR #$PR_NUMBER." >&2
+        echo "Nothing is tagged and nothing is published. Merge it yourself, then" >&2
+        echo "re-run this script — it will pick the version up from the merged main." >&2
+        exit 1
+    fi
+
+    # ── Wait for the merge ──────────────────────────────────────────────────────
+    # Same shape as the SonarCloud wait above, and tunable the same way: a full CI
+    # pass is minutes, not seconds, and "not merged yet" and "will never merge" are
+    # different answers that a fixed sleep cannot tell apart.
+    MERGE_WAIT_ATTEMPTS="${MERGE_WAIT_ATTEMPTS:-80}"
+    MERGE_WAIT_SECONDS="${MERGE_WAIT_SECONDS:-30}"
+
+    echo ""
+    echo "Waiting for PR #$PR_NUMBER to merge (every required gate must go green)..."
+
+    PR_STATE=""
+    for _ in $(seq 1 "$MERGE_WAIT_ATTEMPTS"); do
+        PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state 2>/dev/null || echo "")
+        [[ "$PR_STATE" == "MERGED" || "$PR_STATE" == "CLOSED" ]] && break
+        sleep "$MERGE_WAIT_SECONDS"
+    done
+
+    if [[ "$PR_STATE" != "MERGED" ]]; then
+        echo "" >&2
+        if [[ "$PR_STATE" == "CLOSED" ]]; then
+            echo "ERROR: PR #$PR_NUMBER was closed without merging." >&2
+        else
+            echo "ERROR: PR #$PR_NUMBER has not merged after roughly $(( MERGE_WAIT_ATTEMPTS * MERGE_WAIT_SECONDS / 60 )) minutes." >&2
+            echo "A required gate is red or still running:" >&2
+            gh pr checks "$PR_NUMBER" 2>&1 | grep -vE '\bpass\b' >&2 || true
+        fi
+        echo "" >&2
+        echo "NOTHING was tagged and NOTHING was published — the tag is cut only" >&2
+        echo "after the merge, so there is no half-finished release to clean up." >&2
+        echo "Fix the cause and run this script again." >&2
+        exit 1
+    fi
+
+    echo "PR #$PR_NUMBER merged."
+
+    # ── Tag the merged commit ───────────────────────────────────────────────────
+    # Back on main, and hard about it: the tag has to land on the commit that is
+    # actually on the branch, not on the local branch this script cut. --ff-only
+    # because anything else here means main moved underneath the release and the
+    # operator needs to know rather than get a merge commit made for them.
+    git checkout main
+    git branch -D "$RELEASE_BRANCH"
+    git pull --ff-only
+
+    # The stamp is what the whole pull request existed to deliver, so it is
+    # verified rather than assumed. A squash that dropped it, or a merge of the
+    # wrong branch, would otherwise produce a tag whose site reports the previous
+    # version — visible to nobody until somebody reads the footer in production.
+    MERGED_TAG=$(php -r '$v = @include $argv[1]; echo is_array($v) ? ($v["tag"] ?? "") : "";' "$SCRIPT_DIR/config/version.php")
+    if [[ "$MERGED_TAG" != "$NEW_VERSION" ]]; then
+        echo "ERROR: config/version.php on main says '$MERGED_TAG', expected '$NEW_VERSION'." >&2
+        echo "The pull request merged but the version stamp did not arrive. Nothing" >&2
+        echo "was tagged. Check what merged before running this script again." >&2
+        exit 1
+    fi
+}
+
+if [[ "$STAMPED_TAG" == "$NEW_VERSION" ]]; then
+    echo ""
+    echo "main already carries the $NEW_VERSION stamp — skipping the pull request."
+else
+    open_and_merge_release_pr
+fi
+
+# Create annotated tag on the merged release commit
 git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
 git push origin "$NEW_VERSION"
 
