@@ -198,6 +198,41 @@ jobs:
           path: evidence/
           retention-days: 7
 
+  release-script:
+    name: Release script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        # The suite asks git what it tracks, and shallow clones answer that
+        # correctly, but it also builds throwaway repositories of its own — so
+        # a real git and a real working tree are the fixture, not a mock.
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+        # Only to check that the generated config/version.php is valid PHP that
+        # returns the array the running site expects.
+
+      - name: Run the suite
+        if: ${{ !inputs.evidence }}
+        run: ./tests/release/run.sh
+
+      - name: Run the suite, keeping its output
+        if: ${{ inputs.evidence }}
+        run: |
+          mkdir -p evidence
+          ./tests/release/run.sh | tee evidence/release-script.txt
+
+      - name: Upload the suite's output
+        if: ${{ inputs.evidence }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-release-script
+          path: evidence/
+          retention-days: 7
+
   e2e:
     name: End-to-end (Chromium)
     runs-on: ubuntu-latest

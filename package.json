@@ -8,6 +8,7 @@
     "scripts": {
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
+        "test:release": "./tests/release/run.sh",
         "e2e": "./scripts/e2e.sh",
         "e2e:install": "playwright install --with-deps chromium",
         "dast": "./scripts/dast.sh",

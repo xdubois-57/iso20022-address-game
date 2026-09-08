@@ -544,6 +544,8 @@ is why README § *Third-party assets* names those two files separately.
 ├── vitest.config.js
 ├── sonar-project.properties # SonarCloud analysis + coverage scope
 ├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
+├── scripts/release-lib.sh # The release decisions a test can call; sourced by release.sh
+├── tests/release/run.sh   # Its suite: opens the built artifact and looks inside
 ├── release.sh          # Opens the release PR for config/version.php, tags once it merges,
 │                       # waits for release.yml's gates, then attaches the deployable
 │                       # artifact to its draft and publishes it
@@ -918,6 +920,40 @@ path that publishes to the internet was not.
 Immutable releases are the reason this is worth getting right the first time:
 a published asset **cannot be deleted**, so the only real remedy is rotating
 the credential.
+
+#### Testing a release script
+
+The guard above would have been unreachable by any test, because there was
+nothing to call: the release was one linear script that tagged, pushed and
+published as it went, so "check the exclusion list is right" meant "cut a
+release and look".
+
+So the decisions worth testing moved to `scripts/release-lib.sh`, which
+`release.sh` sources — the version arithmetic, the version stamp, the derived
+exclusions, the artifact build, and the three assertions made about the built
+zip. `tests/release/run.sh` covers them.
+
+**There is exactly one copy of each rule.** A test that reimplemented the
+exclusion list would pass while the real list stayed wrong — a more comfortable
+version of the failure the suite exists to prevent — so the tests call the same
+functions the release runs.
+
+The fixtures are real git repositories, built in a temporary directory and
+thrown away. "What does git track here" is the behaviour under test, and a
+mocked `git ls-files` would only test the mock. It is plain bash rather than
+bats-core: that would add a dependency and a licence to audit in order to run
+about thirty assertions, and the runner is forty lines.
+
+It is checked against the bug it exists for. Reverting the fix — making the
+exclusions empty again, as the blocklist effectively was — turns six cases red,
+including the one named for the releases that leaked. Passing tests that would
+also pass on the broken code are not evidence.
+
+**What stays untested is everything irreversible**: the tag, the push, the pull
+request, the publish, the SonarCloud gate. None of it can be exercised without
+doing it, and none of it is where the bug was. The first real run of a change
+to that half is still a real release, which is the argument for the tag being
+the last step rather than the second.
 
 #### The version stamp goes through a pull request
 
