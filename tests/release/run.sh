@@ -54,35 +54,69 @@ CURRENT=""
 WORK_ROOT="$(mktemp -d)"
 trap 'rm -rf "$WORK_ROOT"' EXIT
 
+# Every helper names its parameters and returns explicitly. That is not
+# ceremony: `$1` read three lines into a function is the kind of thing that
+# still works after somebody adds an argument in front of it, and an assertion
+# helper whose exit status is accidental is one that can fail a suite by
+# falling off the end of an `if`.
 it() {
-    CURRENT="$1"
+    local description="$1"
+    CURRENT="$description"
+    return 0
 }
 
 pass() {
     PASSED=$((PASSED + 1))
     printf '  \033[32m✓\033[0m %s\n' "$CURRENT"
+    return 0
 }
 
 fail() {
+    local reason="$1"
     FAILED=$((FAILED + 1))
     printf '  \033[31m✗\033[0m %s\n' "$CURRENT"
-    printf '      %s\n' "$1"
+    printf '      %s\n' "$reason"
+    return 0
 }
 
 assert_eq() {
-    if [[ "$1" == "$2" ]]; then pass; else fail "expected '$2', got '$1'"; fi
+    local actual="$1" expected="$2"
+    if [[ "$actual" == "$expected" ]]; then
+        pass
+    else
+        fail "expected '$expected', got '$actual'"
+    fi
+    return 0
 }
 
 assert_contains() {
-    if [[ "$1" == *"$2"* ]]; then pass; else fail "expected to find '$2' in: $1"; fi
+    local haystack="$1" needle="$2"
+    if [[ "$haystack" == *"$needle"* ]]; then
+        pass
+    else
+        fail "expected to find '$needle' in: $haystack"
+    fi
+    return 0
 }
 
 assert_ok() {
-    if [[ "$1" -eq 0 ]]; then pass; else fail "expected success, got exit $1"; fi
+    local status="$1"
+    if [[ "$status" -eq 0 ]]; then
+        pass
+    else
+        fail "expected success, got exit $status"
+    fi
+    return 0
 }
 
 assert_fails() {
-    if [[ "$1" -ne 0 ]]; then pass; else fail "expected a failure, but it succeeded"; fi
+    local status="$1"
+    if [[ "$status" -ne 0 ]]; then
+        pass
+    else
+        fail "expected a failure, but it succeeded"
+    fi
+    return 0
 }
 
 # A repository shaped like this one: the four tracked files under config/, and
@@ -116,13 +150,16 @@ make_repo() {
     git commit --quiet -m "fixture"
 
     printf '%s\n' "$dir"
+    return 0
 }
 
 use_repo() {
+    local name="$1"
     local dir
-    dir="$(make_repo "$1")" || return 1
+    dir="$(make_repo "$name")" || return 1
     cd "$dir" || return 1
     printf '%s\n' "$dir"
+    return 0
 }
 
 echo ""
