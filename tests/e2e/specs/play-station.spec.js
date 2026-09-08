@@ -239,6 +239,24 @@ test.describe.serial('the end of a game', () => {
         await expect(page.locator('.chip').first()).toBeVisible();
     });
 
+    test('?mode=play hands back an empty name field, by button and by timer', async ({ page }) => {
+        await stubSubmission(page);
+        await playAGame(page, await modeUrl(page, 'play'), 'Previous Player');
+
+        // Tapping Play again is one player deciding to have another go, but
+        // the station cannot tell that from the next person in the queue
+        // stepping up — and deleting a stranger's name should not be the
+        // first thing anybody does here.
+        await page.click('#playAgainBtn');
+        await expect(page.locator('#welcomeNameInput')).toHaveValue('');
+
+        // And the same on the path nobody touches: the hand-back timer.
+        await playAGame(page, await modeUrl(page, 'play'), 'Walked Away');
+        await expect(page.locator('.play-wall-cue')).toBeVisible();
+        await expect(page.locator('#welcomeNameInput')).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#welcomeNameInput')).toHaveValue('');
+    });
+
     test('the bare URL still ends on the Hall of Fame, with the player highlighted', async ({ page }) => {
         // The regression that matters. Mobile, desktop and the iPad kiosk keep
         // the ending they have always had.
@@ -272,5 +290,11 @@ test.describe.serial('the end of a game', () => {
         await expect(page.locator('#linkedinShareBtn')).toHaveAttribute(
             'href', /linkedin\.com\/sharing\/share-offsite/
         );
+
+        // The name is still put back here. A phone or a laptop belongs to one
+        // person, who is usually the same person going again, and clearing it
+        // for them would be the regression the play station's reset is not.
+        await page.click('#playAgainFinalBtn');
+        await expect(page.locator('#welcomeNameInput')).toHaveValue('Still Sharing');
     });
 });

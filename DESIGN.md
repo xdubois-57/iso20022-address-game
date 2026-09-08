@@ -190,7 +190,7 @@ Two deployment contexts sit alongside the three above: a Hall of Fame wall
 (`?mode=play`, a 42" landscape touch panel played standing), each driven by its
 own PC.
 
-Four decisions here are not obvious. They are written down because without the
+Five decisions here are not obvious. They are written down because without the
 reasons the next person will undo the work believing they are simplifying.
 
 **The mode lives in the URL, and is resolved server-side.** Not in a session
@@ -212,6 +212,17 @@ user can type and shows nothing. Without `?mode=play`'s keyboard the name field
 cannot be filled at all, and no game can be started. It is not a nicety, and it
 is scoped to `play` alone: a phone and an iPad both raise a perfectly good
 system keyboard, and overriding theirs would be a regression.
+
+**The play station forgets the name; every other screen remembers it.** The
+welcome card puts the last name typed back into the field, which is right for a
+phone or a laptop: one owner, usually going again, and asking them to re-type
+their own name each round would be the annoyance. The play station is the
+opposite — a shared panel with a queue behind it — and there the same
+convenience meant the first thing every player did was delete a stranger's
+name. So `renderGameScreen()` clears the name in `play` mode only, on both ways
+back to the welcome card: the Play again button, and the hand-back timer
+running out with nobody there. Not in `showPlayStationResult()`, which still
+needs the name for the greeting and for the score it files.
 
 **Native sharing is disabled in `play` mode, path and all.** `hasNativeShare()`
 returns true as soon as `'ontouchstart' in window`, which is the case on a

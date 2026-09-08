@@ -664,6 +664,17 @@ import {
         stopDeadlineCountdown();
         stopFactRotation();
 
+        // The play station is shared, and a queue forms behind it. Whatever
+        // brought it back to the welcome card — Play again, or the hand-back
+        // timer running out — the player who typed that name has finished, so
+        // the field starts empty for whoever steps up next. Leaving it filled
+        // made deleting a stranger's name the first thing every player did.
+        //
+        // Only here. Everywhere else the machine belongs to one person, who
+        // is usually the same person playing again, and re-typing their own
+        // name each round would be the regression.
+        if (displayMode === 'play') playerName = '';
+
         renderWelcomeCard();
     }
 
