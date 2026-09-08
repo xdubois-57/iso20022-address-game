@@ -544,8 +544,9 @@ is why README § *Third-party assets* names those two files separately.
 ├── vitest.config.js
 ├── sonar-project.properties # SonarCloud analysis + coverage scope
 ├── .github/workflows/ci.yml # PHP matrix, JS, e2e and SonarCloud
-├── release.sh          # Tags, writes config/version.php, waits for release.yml's gates,
-│                       # then attaches the deployable artifact to its draft and publishes it
+├── release.sh          # Opens the release PR for config/version.php, tags once it merges,
+│                       # waits for release.yml's gates, then attaches the deployable
+│                       # artifact to its draft and publishes it
 ├── README.md           # Install, run, deploy
 ├── SPECIFICATIONS.md   # Functional and non-functional requirements
 ├── DESIGN.md           # Why it is built this way, and how it is assured
@@ -881,6 +882,72 @@ only thing that should: it tags, waits for this workflow, attaches the
 deployable zip to the draft, and publishes it. So a release is one command, and
 a version cannot ship past a red gate — the script reads the run's conclusion
 and stops on anything but success.
+
+#### What the artifact must not contain
+
+The deployable zip is built from the working tree with `zip -r .`, and the
+working tree that cuts releases is the one machine holding the project's local
+secrets. Between v0.3.1 and v0.3.3 that shipped `config/deploy.conf` — the
+production FTP host, user and password — as a public asset on three published
+Releases. The file is gitignored, so it never reached the repository; being
+absent from git is no protection at all against a recursive zip of the
+directory it lives in.
+
+The exclusion list that should have caught it named `config/credentials.php`
+and `config/db_config.json` and stopped there. That is the wrong shape: a
+blocklist has to be extended whenever a new local file appears, by somebody who
+remembers to, and nothing fails when they do not.
+
+So the rule is inverted. **`config/` ships exactly what git tracks** — the
+`.htaccess`, the `.example` templates and the generated `version.php` — and
+everything else there is excluded for being untracked rather than for being
+listed. A secret added tomorrow is covered the day it is created.
+
+The exclusion is still only a promise, so the zip is opened afterwards and
+checked against the same fact. Both halves derive from `git ls-files`, so they
+cannot drift apart the way two hand-maintained lists would.
+
+That check exists because **no gate looks inside the artifact**. PHPUnit,
+PHPStan, Playwright, ZAP and CodeQL all read the source; every one of them was
+green for all three leaking releases. `deploy.sh` had carried the equivalent
+guard for a while — see the comment above `assert_no_secrets_in_transfer`,
+which records this same class of mistake happening once before — and it was
+never copied here. The path that uploads to one server was defended and the
+path that publishes to the internet was not.
+
+Immutable releases are the reason this is worth getting right the first time:
+a published asset **cannot be deleted**, so the only real remedy is rotating
+the credential.
+
+#### The version stamp goes through a pull request
+
+`main` carries a ruleset requiring every change to arrive by pull request, so
+the script cannot push `config/version.php` to it directly — and for a while it
+could not finish a release at all, because it tried to.
+
+The stamp now goes onto `release/vX.Y.Z`, through a pull request with
+auto-merge set, and GitHub merges it when the required gates go green. The
+alternative was an exemption for the release path, which is the one commit
+nobody would be watching: it lands unreviewed, at the moment a version is cut,
+on the branch every installation is built from.
+
+The reordering it forces is the real gain. The tag used to be the second thing
+to happen and is now the last, so a red gate leaves an unmerged pull request
+rather than a tag pointing at nothing published. There is no half-finished
+release to unpick and no tag to delete by hand — running the script again is
+the entire recovery.
+
+What it costs is that a release now waits for a full CI pass before the tag
+exists, and a second one after it, because `release.yml` re-runs the gates
+against the tagged commit. The gates are the same; the duplication is the price
+of the tag meaning "this exact tree passed" rather than "its parent did".
+
+`config/version.php` records the last *functional* commit rather than the
+commit the tag sits on. Pull requests are squashed here, so the merge commit's
+SHA cannot be known before it exists, and recording it would need a second
+commit to `main` that the ruleset would reject in turn. The commit named is the
+more useful of the two: it is the tree that was tested, analysed and scanned,
+where the squash adds only the stamp itself.
 
 The script deliberately does **not** create a Release of its own. Both would
 target the same tag, the workflow lands last, and it would quietly turn a

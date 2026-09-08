@@ -85,11 +85,22 @@ If a finding is genuinely not worth fixing, mark it *won't fix* in SonarCloud.
 That is a decision with a name against it, and the gate honours it because a
 resolved issue is no longer open. Do not work around the gate in the script.
 
-`./release.sh [patch|minor|major]` is the whole release. It tags, waits for
-`.github/workflows/release.yml` to run every gate, attaches the deployable zip
-to the draft that workflow creates, and publishes it. It deliberately does not
+`./release.sh [patch|minor|major]` is the whole release, and it obeys the
+branch-and-pull-request rule above like everything else. It writes the version
+stamp onto `release/vX.Y.Z`, opens a pull request, sets auto-merge and waits;
+GitHub merges when the required gates go green. Only then does it tag, wait for
+`.github/workflows/release.yml` to run every gate again, attach the deployable
+zip to the draft that workflow creates, and publish it. It deliberately does not
 create a Release of its own — both would target the same tag and the workflow,
 landing last, would turn a published Release back into a draft.
+
+**Do not push the version stamp straight to `main`**, and do not reach for an
+admin bypass when the ruleset refuses one. The tag is deliberately the last
+irreversible step: a red gate leaves the pull request unmerged and there is no
+tag, no draft and nothing to clean up, so re-running the script is the whole
+recovery. If the release workflow itself goes red after the tag, delete the tag
+and re-run — the script sees the stamp already on `main` and skips the pull
+request rather than opening a second one.
 
 ### The release note is not optional
 
