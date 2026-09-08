@@ -47,6 +47,7 @@ British English.**
   composer test        # PHPUnit
   npm test             # Vitest
   npm run e2e          # Playwright / Chromium
+  npm run test:release # the release script's own suite
   composer run analyse # PHPStan
   npm run typecheck    # tsc
   ```
@@ -93,6 +94,14 @@ GitHub merges when the required gates go green. Only then does it tag, wait for
 zip to the draft that workflow creates, and publish it. It deliberately does not
 create a Release of its own — both would target the same tag and the workflow,
 landing last, would turn a published Release back into a draft.
+
+**The logic worth testing lives in `scripts/release-lib.sh`**, and
+`tests/release/run.sh` covers it — plain bash, no new dependency, run by
+`npm run test:release` and by CI. Put new release logic there rather than
+inline in `release.sh`, which keeps only what is irreversible: the tag, the
+push, the pull request, the publish. A test that reimplements a rule instead of
+calling it passes while the real rule stays wrong, which is the exact failure
+that shipped a password three times.
 
 **Do not push the version stamp straight to `main`**, and do not reach for an
 admin bypass when the ruleset refuses one. The tag is deliberately the last
@@ -148,6 +157,7 @@ The wording for each gate, so it stays consistent between releases:
 | PHPUnit | Server-side unit and integration tests, run on both supported PHP versions |
 | Vitest | Unit tests for the browser JavaScript, run without a browser |
 | Playwright | End-to-end tests driving a real Chromium against a throwaway instance |
+| Release script | Opens the built artifact and checks what is inside it, and the version arithmetic |
 | PHPStan | Static analysis of the PHP: types, dead code, impossible conditions |
 | `tsc` | The same for the browser JavaScript, as a checker only — nothing is compiled |
 | OWASP ZAP | Passive security scan of a running instance over HTTPS |
