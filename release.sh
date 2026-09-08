@@ -437,6 +437,25 @@ deployable zip to the draft it creates, and publish the Release."
     # operator needs to know rather than get a merge commit made for them.
     git checkout main
     git branch -D "$RELEASE_BRANCH"
+
+    # `gh pr merge --auto --delete-branch` deletes the branch only when gh
+    # performs the merge itself. Under auto-merge GitHub performs it, and the
+    # flag does not survive that hand-off: v0.3.5 merged cleanly and left
+    # release/v0.3.5 sitting on the remote.
+    #
+    # Left alone they accumulate one per release. Worse, the guard at the top
+    # of this function only looks at LOCAL branches, so a stale remote branch
+    # is invisible right up until a re-cut of the same version pushes into it —
+    # and a re-cut is exactly what happens after a release fails.
+    #
+    # Warned rather than fatal. The pull request has merged by this point and a
+    # branch outliving it is untidy, not broken; ending a release over tidiness
+    # would be the worse failure of the two.
+    if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+        git push origin --delete "$RELEASE_BRANCH" \
+            || echo "WARNING: could not delete origin/$RELEASE_BRANCH — delete it by hand." >&2
+    fi
+
     git pull --ff-only
 
     # The stamp is what the whole pull request existed to deliver, so it is
@@ -548,8 +567,10 @@ fi
 # later to finish a release by hand, which is how a version ships with a red
 # gate nobody looked at.
 #
-# The run is found by tag rather than by commit: a tag push sets head_branch to
-# the tag name, and the release commit may also have a CI run against main.
+# Runs are LISTED by tag — a tag push sets head_branch to the tag name, which
+# is what separates them from the ordinary CI run the release commit also has
+# against main — and then SELECTED by commit and push time, for the reason
+# spelled out below.
 echo ""
 echo "Waiting for the Release workflow (every gate, then the evidence pack)..."
 
