@@ -77,6 +77,7 @@ release_next_version() {
     esac
 
     printf 'v%s.%s.%s\n' "$major" "$minor" "$patch"
+    return 0
 }
 
 # ── The version stamp ───────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ return [
     'commit' => '$commit',
 ];
 EOF
+    return $?
 }
 
 # ── What must not reach the artifact ────────────────────────────────────────
@@ -110,6 +112,7 @@ EOF
 # is covered the day it is created.
 release_config_excludes() {
     git ls-files --others -- config/
+    return $?
 }
 
 # ── Building the artifact ───────────────────────────────────────────────────
@@ -164,6 +167,7 @@ release_build_artifact() {
            "* [0-9]" "* [0-9].*" "* [0-9]/" "* [0-9]/*" \
            "* [0-9][0-9]" "* [0-9][0-9].*" "* [0-9][0-9]/" "* [0-9][0-9]/*" \
            ${config_excludes[@]+"${config_excludes[@]}"}
+    return $?
 }
 
 # ── The three things asserted about a built artifact ────────────────────────
