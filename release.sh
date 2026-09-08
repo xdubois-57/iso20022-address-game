@@ -461,7 +461,18 @@ fi
 
 # Create annotated tag on the merged release commit
 git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+
+# A floor for "which workflow run belongs to this push", read before the push
+# so no run of ours can predate it. Two minutes of slack absorbs clock skew
+# between this machine and GitHub — the timestamps being compared are theirs,
+# not ours. BSD date first, GNU second, because this is cut on macOS and run in
+# CI on Linux.
+WORKFLOW_SINCE="$(date -u -v-2M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+    || date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
+
 git push origin "$NEW_VERSION"
+
+TAG_COMMIT="$(git rev-list -n 1 "$NEW_VERSION")"
 
 echo ""
 echo "Tag $NEW_VERSION pushed."
@@ -542,10 +553,27 @@ fi
 echo ""
 echo "Waiting for the Release workflow (every gate, then the evidence pack)..."
 
+# Matched on BOTH the tagged commit and the push time, because a tag name is
+# not unique over time and this script is the thing that re-uses one.
+#
+# It used to take the newest run for the tag and break on the first it found.
+# Cutting v0.3.4 a second time — the tag deleted after a red gate, the fix
+# merged, the tag pushed again — meant an older completed run from the FIRST
+# push was already sitting there. The loop found it on its first poll, read
+# "completed / success" from a run of different code, skipped the wait entirely
+# and went to attach the zip to a draft that had been deleted with the tag.
+# It failed with "release not found", which is a confusing way to be told that
+# the gates for this release had not started yet.
+#
+# The commit alone would have caught that case and is not enough on its own: a
+# tag re-cut on the SAME commit gives two runs with identical headSha, and only
+# the timestamp separates them.
 RUN_ID=""
 for _ in $(seq 1 30); do
     RUN_ID=$(gh run list --workflow=release.yml --branch "$NEW_VERSION" \
-        --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+        --limit 20 --json databaseId,createdAt,headSha \
+        -q "[.[] | select(.headSha == \"$TAG_COMMIT\" and .createdAt >= \"$WORKFLOW_SINCE\")]
+            | sort_by(.createdAt) | last | .databaseId // empty" 2>/dev/null || true)
     [[ -n "$RUN_ID" && "$RUN_ID" != "null" ]] && break
     sleep 10
 done
