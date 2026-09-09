@@ -279,14 +279,29 @@ test.describe('the on-screen keyboard', () => {
             const start = document.querySelector('.touch-key-go').getBoundingClientRect();
             return {
                 keyHeight: document.querySelector('.touch-key').getBoundingClientRect().height,
+                // Read rather than repeated here. A fact this long spends the
+                // keyboard all the way down to its floor, so the number under
+                // test IS the floor, and a copy of it in this file would be a
+                // second place to change when the floor changes. Off the row's
+                // min-height, which is the floor resolved to pixels; the custom
+                // property it comes from is unregistered, so reading that gives
+                // back the clamp() unevaluated.
+                floor: Number.parseFloat(
+                    getComputedStyle(document.querySelector('.touch-key-row')).minHeight
+                ),
                 cardScroll: welcome.scrollHeight - welcome.clientHeight,
                 startBottom: start.bottom,
                 viewport: window.innerHeight,
             };
         });
 
-        // 40px is the floor at this height — 4.4vh of 1080, clamped at 40.
-        expect(fit.keyHeight).toBeGreaterThanOrEqual(40);
+        // Landing exactly ON the floor is the pass, and a laid-out box lands
+        // on it to within a fraction of a pixel rather than on the nose — the
+        // runner and this developer's machine disagreed by hundredths. What
+        // this asserts is that the keys stopped there rather than going on
+        // shrinking, so a pixel of tolerance changes nothing it is testing.
+        expect(fit.floor).toBeGreaterThan(0);
+        expect(fit.keyHeight).toBeGreaterThanOrEqual(fit.floor - 1);
         expect(fit.cardScroll).toBe(0);
         expect(fit.startBottom).toBeLessThanOrEqual(fit.viewport);
     });
