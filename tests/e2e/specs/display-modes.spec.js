@@ -296,6 +296,13 @@ test.describe('display modes — the dedicated screens', () => {
         // machine that stands unused between players was the one that never
         // got it.
         await expect(page.locator('#screenSaverOverlay')).toBeVisible({ timeout: 90_000 });
+
+        // The prompt no longer asks whether this device reports a touch
+        // screen. A Windows panel with a keyboard plugged in is the case that
+        // already defeats feature detection elsewhere, and a panel that says
+        // "Click" is a panel nobody touches.
+        await expect(page.locator('.ss-cta')).toContainText('Touch the screen to play');
+        await expect(page.locator('.ss-cta')).not.toContainText('Click');
     });
 
     test('the wall never covers the board with a screen saver', async ({ page }) => {
@@ -305,7 +312,7 @@ test.describe('display modes — the dedicated screens', () => {
 
         // A wall is already the attract screen. Sixty seconds after the last
         // player walks away — which on an unattended panel is always — a
-        // countdown and a "Touch to play" prompt would hide the one thing it
+        // countdown and a "Touch the screen" prompt would hide the one thing it
         // exists to show.
         await page.waitForTimeout(70_000);
         await expect(page.locator('#screenSaverOverlay')).toHaveCount(0);

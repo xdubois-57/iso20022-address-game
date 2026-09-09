@@ -2768,11 +2768,6 @@ body[data-mode="play"] .card-endorsement img {
 
 /* Visibly a second register rather than more letters, so the eye skips it
    unless it is looking for one. */
-.touch-key-row-accents .touch-key {
-    background: var(--game-light-peppermint);
-    font-size: clamp(0.75rem, 2.1vh, 1.35rem);
-}
-
 /* The bottom row's wide keys, as multiples of a key rather than as the 240px
    and 160px they were: those are the same three-and-a-bit and two-and-a-bit
    keys wide as before on the panel, and stay that shape on a window where the

@@ -254,6 +254,29 @@ cannot be filled at all, and no game can be started. It is not a nicety, and it
 is scoped to `play` alone: a phone and an iPad both raise a perfectly good
 system keyboard, and overriding theirs would be a regression.
 
+**The on-screen keyboard carries letters, apostrophe and hyphen — and no
+accented keys.** Two rows of them shipped first, on a good argument: a payments
+standards forum fills a room with Scandinavian, Irish, German and Hispanic
+names, and without those keys they go up on the wall misspelt in front of the
+people whose names they are. They were removed anyway. Eighteen extra keys is
+most of a second keyboard to read before finding a letter, on a panel somebody
+is standing at with a queue behind them, and a name typed without its accent is
+still that person's name and still legible; a name they gave up entering is not.
+
+The argument for adding them is written down in `docs/ROADMAP-DISPLAY-MODES.md`
+and is persuasive on its own terms, which is exactly the hazard — it reads like
+a requirement nobody has got to yet rather than one that was met and then
+reversed. That file now says so, and a test asserts the keys are absent, so
+putting them back is a decision rather than an accident.
+
+**The screen saver says "Touch the screen", and does not ask the device.** It
+used to choose between "Touch" and "Click" from `'ontouchstart' in window`. The
+saver only ever appears on the play station or in kiosk mode, and the station is
+a touch panel — but detection is the unreliable half of that sentence: a Windows
+panel with a keyboard plugged in is the same case that stops Windows offering
+its own touch keyboard, which is why this project has an on-screen keyboard at
+all. A panel that tells the room to click is a panel nobody touches.
+
 **The play station forgets the name; every other screen remembers it.** The
 welcome card puts the last name typed back into the field, which is right for a
 phone or a laptop: one owner, usually going again, and asking them to re-type
