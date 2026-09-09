@@ -69,6 +69,24 @@ html, body {
     line-height: 1.5;
 }
 
+/* The page is a column of three: header, main, footer.
+
+   Stated as a flex column rather than left to normal flow because the
+   dedicated screens need to know how much room is left after the header and
+   the footer have taken theirs, and the only honest answer is the one the
+   layout works out for itself. It used to be guessed — `100vh - 120px` here
+   and `100vh - 132px` on the wall — and a guess is wrong the moment anything
+   above or below it changes size: a footer that wraps to two lines, a
+   translated title, a browser at 80% zoom, a panel of a different height. Too
+   small and the screen scrolls; too large and it leaves a band of empty space
+   nobody asked for. See § Display modes for what depends on it. */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
 /* =========================================================
    Header
    ========================================================= */
@@ -216,9 +234,19 @@ html, body {
    ========================================================= */
 .game-main {
     max-width: 1200px;
+    /* Keeps the footer at the bottom of a short page, which `min-height:
+       calc(100vh - 120px)` used to do by subtracting a header and a footer
+       whose real heights nobody had measured. `min-height: 0` lets a child
+       that must fit the screen — the wall — shrink below its content instead
+       of forcing the page to scroll. */
+    flex: 1 1 auto;
+    min-height: 0;
     margin: 0 auto;
     padding: 1rem 1.5rem;
-    min-height: calc(100vh - 120px);
+    /* A flex item with a max-width still stretches to the full line box
+       unless it is told otherwise, and `margin: 0 auto` is what centres it. */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* =========================================================
@@ -1892,6 +1920,72 @@ body[data-mode="play"] .header-content {
     justify-content: center;
 }
 
+/* ---------------------------------------------------------
+   Both dedicated screens fit the screen they are on. Exactly.
+
+   These two are the only contexts in the game with nobody able to scroll
+   them: the wall is deliberately inert (pointer-events: none), and the play
+   station is a panel a stranger walks up to, taps four letters on and walks
+   away from. A scroll bar there is not a minor blemish — it hides the Start
+   key, or the bottom of the board, from someone who has no reason to suspect
+   there is anything below the fold.
+
+   So the body is exactly the viewport tall, not at least, and the overflow is
+   clipped rather than left to a scroll bar that would prove the layout wrong
+   in front of a room. Everything inside is sized in vh below so that it fits
+   in the first place; this is the guarantee, not the mechanism.
+
+   Both units are given: dvh is what a browser with a retracting toolbar
+   should use, vh is what one without dvh support falls back to. Chromium has
+   had dvh since 108, and the play station and the wall both run Chrome. */
+body[data-mode="hof"],
+body[data-mode="play"] {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+/* And the chrome around them shrinks with the screen too. A 1rem header
+   padding is right on a 42-inch panel and is a sixth of the height of a
+   laptop that somebody is previewing the screen on; below the ceilings these
+   are the sizes they have always had. */
+body[data-mode="hof"] .game-header,
+body[data-mode="play"] .game-header {
+    padding: clamp(0.3rem, 1.1vh, 1rem) 1.5rem;
+}
+
+body[data-mode="hof"] .logo,
+body[data-mode="play"] .logo {
+    font-size: clamp(1rem, 2.3vh, 1.6rem);
+}
+
+body[data-mode="hof"] .game-footer,
+body[data-mode="play"] .game-footer {
+    padding: clamp(0.2rem, 0.7vh, 0.75rem);
+}
+
+/* The footer is three stacked lines and a logo — some ninety pixels of it,
+   which on a laptop preview of the play station was a seventh of the window
+   and the difference between the Start key being on screen and not. */
+body[data-mode="hof"] .footer-text,
+body[data-mode="play"] .footer-text,
+body[data-mode="hof"] .footer-link,
+body[data-mode="play"] .footer-link,
+body[data-mode="hof"] .footer-separator,
+body[data-mode="play"] .footer-separator {
+    font-size: clamp(0.65rem, 1.3vh, 0.85rem);
+}
+
+body[data-mode="hof"] .footer-endorsement,
+body[data-mode="play"] .footer-endorsement {
+    margin: clamp(0.1rem, 0.4vh, 0.4rem) 0 clamp(0.1rem, 0.35vh, 0.35rem);
+}
+
+body[data-mode="hof"] .footer-endorsement img,
+body[data-mode="play"] .footer-endorsement img {
+    height: clamp(13px, 2.2vh, 24px);
+}
+
 /* Wall window field, inside the Admin screen's "Display modes" section. */
 .board-window-form {
     display: flex;
@@ -1981,10 +2075,22 @@ body[data-mode="play"] .header-content {
 body[data-mode="hof"] .game-main {
     max-width: none;
     padding: 0.5rem 2vw 0;
-    /* The header and footer take the rest; this is what the composition gets
-       to fill, and the flex chain below depends on it being a known height. */
-    height: calc(100vh - 132px);
+    /* The header and footer take theirs; this is what the composition gets to
+       fill, and the flex chain below depends on it being a known height.
+
+       It is known because the body is a flex column and this is the item that
+       flexes, NOT because anybody counted the pixels of the header and the
+       footer: `calc(100vh - 132px)` was that count, it was 132px on the one
+       screen it was measured on, and every screen where the total came to
+       more than that scrolled the wall — which is exactly what a wall must
+       never do, since nobody is standing at it to scroll it back. */
+    flex: 1 1 auto;
     min-height: 0;
+    /* A flex container in its own right, so .wall-screen inside it takes the
+       leftover height by flexing too rather than by resolving a percentage
+       against a parent whose height is itself computed. */
+    display: flex;
+    flex-direction: column;
     /* The drift lives HERE, on a box the page never rebuilds, and not on
        .wall-screen inside it. renderWall() replaces that element, and every
        replacement restarted this 360-second animation from zero — measured
@@ -1998,7 +2104,10 @@ body[data-mode="hof"] .game-main {
 .wall-screen {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* Takes the leftover height of .game-main, which takes the leftover
+       height of the page. Not `height: 100%`: that needed the parent to carry
+       a definite height, which is what the pixel count above was for. */
+    flex: 1 1 auto;
     min-height: 0;
     /* Structural, not decorative: an accidental touch must reach nothing. */
     pointer-events: none;
@@ -2276,7 +2385,13 @@ body[data-mode="hof"] .game-main {
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Centred in the height .game-main has left, and `safe` for the same
+       reason as the welcome screen: when there is not enough of it, give up
+       the centring rather than push the score off the top. */
+    justify-content: safe center;
     text-align: center;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .play-hook {
@@ -2357,11 +2472,14 @@ body[data-mode="hof"] .game-main {
     position: relative;
     overflow: hidden;
     display: block;
-    /* 72px floor: played standing, at arm's length, sometimes by two people
-       at once. */
-    min-height: 72px;
-    min-width: 280px;
-    font-size: clamp(1.1rem, 2.6vh, 1.6rem);
+    /* 72px on the panel: played standing, at arm's length, sometimes by two
+       people at once. Clamped like the keys for the same reason — a fixed
+       72px on a screen that has no room for it costs a scroll bar, and a
+       button below the fold is worth less than a slightly smaller one in
+       plain sight. */
+    min-height: clamp(48px, 6.7vh, 72px);
+    min-width: min(280px, 80vw);
+    font-size: clamp(1rem, 2.4vh, 1.6rem);
     padding: 0 2.5rem;
 }
 
@@ -2395,42 +2513,243 @@ body[data-mode="hof"] .game-main {
    72px keys, roughly 35mm on a 42-inch 1080p panel. The game is played
    standing, at arm's length, sometimes by two people leaning in at once; the
    44px that suits a phone held in the hand is too small to hit reliably here.
+
+   **72px is the size the keys reach, not a size they are held at.** Six rows
+   of them, the card above them and the countdown and the fact card around it
+   come to rather more than a thousand pixels, so a fixed 72px did not fit the
+   1080-pixel panel it was measured for either: the card scrolled, the Start
+   key sat below the fold on a screen nobody thinks to scroll, and the way out
+   an operator finds is to zoom the browser out — which shrinks the header,
+   the map and the text along with the keys, and is the wrong instrument.
+
+   So the keyboard is the one part of this screen that gives ground. The card
+   is a flex column whose other children hold the size they were given; the
+   keyboard takes whatever height is left, its rows sharing that equally, and
+   72px is the size they reach rather than one they insist on — around 50px on
+   the panel, which is 25mm and hittable, with everything visible. Nothing
+   here is arithmetic against a number somebody measured once: the layout is
+   told what may flex and works the rest out on every screen, at every zoom
+   level, and again when the fact card underneath grows a line.
+
+   Below --touch-key-floor it stops shrinking and the card scrolls instead. A
+   key smaller than that is not a key anybody can hit standing up, and at that
+   point a scroll bar is the more honest failure.
    --------------------------------------------------------- */
+
+body[data-mode="play"] {
+    /* The height the rows start from, and the gap between them. */
+    --touch-key-size: 72px;
+    --touch-key-gap: clamp(3px, 0.75vh, 8px);
+    /* How small a key may get before the card gives up and scrolls instead.
+       Roughly 20mm on the panel, against the 35mm this screen is designed
+       around — a target you can still hit without aiming.
+
+       It is itself a clamp, and that is what closes the last gap: a window
+       around 700 pixels tall — a laptop somebody is previewing the station on
+       — misses fitting by a few pixels a key, and holding out for the full
+       floor there buys a scroll bar rather than a usable keyboard. A screen
+       that short is not a touch panel; it is a mouse. */
+    --touch-key-floor: clamp(26px, 4.4vh, 40px);
+}
+
+/* A flex container, so whichever screen is inside it — the welcome card, the
+   end-of-game result — is handed the height that is left rather than having
+   to work it out from a viewport unit and a guess about the chrome. */
+body[data-mode="play"] .game-main {
+    display: flex;
+    flex-direction: column;
+    padding: clamp(0.35rem, 1vh, 1rem) 1.5rem;
+    /* The last resort, and the reason the body above may clip. Unlike the
+       wall, this screen has screens the sizing rules below cannot reach — a
+       round in progress, with a scenario as long as whoever wrote the
+       spreadsheet made it — and a player who cannot see the bottom of an
+       address has nothing to do about it. Clipping that would be worse than a
+       scroll bar, so the clipping stops here. */
+    overflow-y: auto;
+}
+
+/* A flex column that takes the height this screen has left, so the keyboard
+   inside it can be the one child that grows and gives ground.
+
+   No `min-height: 0`. A flex item's automatic minimum is its content's
+   minimum, which here is everything above the keyboard plus the keyboard's
+   own floor, and that is the right place for the card to stop: told to shrink
+   past it, the card went on getting shorter while its contents did not, and
+   the PMPG lockup ended up underneath the fact card, painted over and gone.
+   At that size the screen has run out and .game-welcome scrolls, which is
+   visible and recoverable in a way that a vanished logo is not. */
 body[data-mode="play"] .welcome-card {
     max-width: min(1000px, 92vw);
+    padding: clamp(0.5rem, 1.7vh, 2.5rem) clamp(1rem, 3vw, 3rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1 1 auto;
+}
+
+/* The title, the line under it, the name field, Start and the PMPG lockup all
+   keep the size they were given. Named as everything-but so that anything
+   added to this card later — a warning, a hint — holds its size too, which is
+   the safe default: it is the keyboard that knows how to be smaller. */
+body[data-mode="play"] .welcome-card > *:not(.touch-keyboard) {
+    flex: 0 0 auto;
+}
+
+/* The countdown above the card holds its size: it is four numbers on one
+   line, and it is the reason the game exists. */
+body[data-mode="play"] #countdownBanner {
+    flex: 0 0 auto;
+}
+
+/* The fact card below it is the one thing on this screen that may lose part
+   of itself. It is attract copy an administrator typed, of a length nobody
+   here controls, sitting under a keyboard a player needs — so it gives way
+   first, and by a wide margin (a shrink factor of 20 against the card's 1),
+   rather than costing the keys height they have already spent down to their
+   floor. Four lines of fact on the panel overflowed the screen by five
+   pixels; now the fourth line goes and nothing scrolls. */
+body[data-mode="play"] .fact-display-card {
+    flex: 0 20 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+body[data-mode="play"] .welcome-card h2 {
+    font-size: clamp(1rem, 2.7vh, 2rem);
+    margin-bottom: clamp(0.15rem, 0.5vh, 0.5rem);
+}
+
+body[data-mode="play"] .welcome-card p {
+    font-size: clamp(0.8rem, 1.6vh, 1.2rem);
+    margin-bottom: clamp(0.3rem, 1.1vh, 1.5rem);
 }
 
 /* The name field is the only one in the whole player journey, and on this
    panel it is read from a couple of paces back. */
 body[data-mode="play"] .name-input {
-    font-size: clamp(1.2rem, 3vh, 2rem);
-    padding: 1rem;
+    font-size: clamp(1rem, 2.3vh, 2rem);
+    padding: clamp(0.3rem, 0.9vh, 1rem);
+    margin-bottom: clamp(0.3rem, 0.9vh, 1.25rem);
     text-align: center;
 }
 
-body[data-mode="play"] .profanity-warning {
-    font-size: clamp(1rem, 2.2vh, 1.4rem);
+body[data-mode="play"] .btn-start {
+    padding: clamp(0.35rem, 1vh, 1rem);
+    font-size: clamp(0.9rem, 1.9vh, 1.2rem);
 }
 
+body[data-mode="play"] .profanity-warning {
+    font-size: clamp(0.85rem, 1.9vh, 1.4rem);
+    margin: clamp(0.15rem, 0.5vh, 0.5rem) 0;
+}
+
+/* The two blocks that share the welcome screen with the card. Neither is
+   inside it, both are fixed-height by default — ninety pixels of countdown
+   above and a hundred and thirteen of fact below — and together they were
+   two hundred pixels of the reason the card would not fit. */
+body[data-mode="play"] .countdown-banner {
+    padding: clamp(0.3rem, 0.9vh, 1rem) 3rem;
+    margin-bottom: clamp(0.3rem, 0.9vh, 1rem);
+}
+
+body[data-mode="play"] .countdown-banner .countdown-label {
+    font-size: clamp(0.7rem, 1.4vh, 1rem);
+    margin-bottom: clamp(0.1rem, 0.35vh, 0.4rem);
+}
+
+body[data-mode="play"] .countdown-banner .countdown-timer {
+    font-size: clamp(0.95rem, 2vh, 1.4rem);
+}
+
+body[data-mode="play"] .fact-display-card {
+    padding: clamp(0.45rem, 1.4vh, 2.5rem) clamp(1rem, 3vw, 3rem);
+    margin-top: clamp(0.3rem, 0.9vh, 1rem);
+    min-height: 0;
+}
+
+body[data-mode="play"] .fact-display-card h2 {
+    font-size: clamp(0.85rem, 1.9vh, 1.5rem);
+    margin-bottom: clamp(0.1rem, 0.35vh, 0.5rem);
+}
+
+body[data-mode="play"] .fact-display-card p {
+    font-size: clamp(0.75rem, 1.5vh, 1.1rem);
+    line-height: 1.45;
+}
+
+/* The PMPG lockup keeps its proportions and its prominence relative to the
+   card; it is the card that got shorter. Sized in vh rather than in px for
+   the same reason as everything else here. */
+body[data-mode="play"] .card-endorsement {
+    margin-top: clamp(0.4rem, 1.3vh, 1.75rem);
+    padding-top: clamp(0.3rem, 0.9vh, 1.1rem);
+}
+
+body[data-mode="play"] .card-endorsement img {
+    width: clamp(88px, 13vh, 172px);
+}
+
+/* The one child of the card that flexes, and the whole of the mechanism.
+
+   It grows into the height the card has left and is bounded at both ends,
+   both bounds stated rather than left to the layout to infer. The floor is
+   every row at --touch-key-floor and is what stops the card from shrinking
+   into its contents; the ceiling is every row at --touch-key-size, without
+   which a very tall screen would stretch the keys instead of leaving the
+   space it has.
+
+   --touch-key-rows is set on this element by bindTouchKeyboard() from the
+   number of rows it actually rendered, so adding a row of keys to app.js
+   needs no matching edit here. The 6 is only what applies before that runs. */
 .touch-keyboard {
-    margin-top: 1.2rem;
+    margin-top: clamp(0.35rem, 1vh, 1.2rem);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--touch-key-gap, 8px);
+    flex: 1 1 auto;
+    min-height: calc(
+        var(--touch-key-rows, 6) * var(--touch-key-floor, 40px)
+        + (var(--touch-key-rows, 6) - 1) * var(--touch-key-gap, 8px)
+    );
+    max-height: calc(
+        var(--touch-key-rows, 6) * var(--touch-key-size, 72px)
+        + (var(--touch-key-rows, 6) - 1) * var(--touch-key-gap, 8px)
+    );
 }
 
+/* The rows share the keyboard's height equally — `flex: 1 1 0` rather than
+   `1 1 auto`, so what they share is the whole of it and not the leftover
+   after their own contents — between the same floor and ceiling each.
+
+   nowrap, not wrap: a row given a height that its keys have wrapped out of is
+   a row with keys hanging below it. The keys narrow instead (see below), and
+   a narrow window gets a narrow keyboard rather than a taller one. */
 .touch-key-row {
     display: flex;
     justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: var(--touch-key-gap, 8px);
+    flex-wrap: nowrap;
+    flex: 1 1 0;
+    min-height: var(--touch-key-floor, 40px);
+    max-height: var(--touch-key-size, 72px);
 }
 
 .touch-key {
-    min-width: 72px;
-    min-height: 72px;
+    /* Height is the row's, stated rather than left to the stretch a flex item
+       gets by default: with the row down on its floor the runner's Chromium
+       left the keys at their own content height, 32px inside a 40px row, and
+       the key that a player aims at is not the row. Width is the nominal key
+       size but may shrink on a narrow window, so the row stays one row. */
+    height: 100%;
+    width: var(--touch-key-size, 72px);
+    min-width: 0;
+    min-height: 0;
+    flex: 0 1 auto;
     padding: 0 0.6rem;
-    font-size: 1.5rem;
+    /* Sized from the screen rather than from the key, which no longer has a
+       height CSS can read. It tracks closely enough: both are the leftover
+       height divided by the same six rows. */
+    font-size: clamp(0.8rem, 2.3vh, 1.5rem);
     font-weight: 600;
     background: var(--game-white);
     color: var(--game-dark-green);
@@ -2451,26 +2770,39 @@ body[data-mode="play"] .profanity-warning {
    unless it is looking for one. */
 .touch-key-row-accents .touch-key {
     background: var(--game-light-peppermint);
-    font-size: 1.35rem;
+    font-size: clamp(0.75rem, 2.1vh, 1.35rem);
 }
 
+/* The bottom row's wide keys, as multiples of a key rather than as the 240px
+   and 160px they were: those are the same three-and-a-bit and two-and-a-bit
+   keys wide as before on the panel, and stay that shape on a window where the
+   keys have had to narrow. */
 .touch-key-wide {
-    min-width: 240px;
+    width: calc(var(--touch-key-size, 72px) * 3.33);
 }
 
 .touch-key-go {
     background: var(--game-emerald);
     color: var(--game-white);
     border-color: var(--game-emerald);
-    min-width: 160px;
+    width: calc(var(--touch-key-size, 72px) * 2.22);
 }
 
-/* A tall card plus a keyboard can exceed even a large panel once the refusal
-   message appears. Scrolling is the honest fallback — the alternative is a
-   Start key the player cannot reach. */
+/* The card is sized to fit above, so this should never engage. It stays as
+   the fallback for the one case the sizing cannot anticipate: the refusal
+   message appearing under the name field on an already short screen. A scroll
+   bar is the honest answer there — the alternative is a Start key the player
+   cannot reach. */
 body[data-mode="play"] .game-welcome {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    max-height: calc(100vh - 120px);
+    /* `safe`, because this box centres its children and may in the last
+       resort scroll them. A centred overflow spills equally at both ends, and
+       the end a scroll bar cannot reach is the top — where the title and the
+       name field are. `safe` gives up the centring at exactly the point it
+       would start hiding something. */
+    justify-content: safe center;
 }
 
 /* ---------------------------------------------------------

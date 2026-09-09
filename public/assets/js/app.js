@@ -900,6 +900,16 @@ import {
         var keyboard = document.getElementById('touchKeyboard');
         if (!keyboard || !nameInput) return;
 
+        // How many rows there are, told to the stylesheet, which needs the
+        // number to work out the height at which every row has reached its
+        // floor and the keyboard must stop shrinking (see .touch-keyboard in
+        // app.css). Read off the DOM rather than written down a second time:
+        // a row added to touchKeyboardHtml() above is then a row the layout
+        // already knows about. Set through the CSSOM, which the Content
+        // Security Policy allows; a style="…" attribute in the markup it
+        // would not — see App\Support\Csp.
+        keyboard.style.setProperty('--touch-key-rows', String(keyboard.children.length));
+
         function insert(text) {
             var max = Number.parseInt(nameInput.getAttribute('maxlength'), 10) || 50;
             var next = nameInput.value + text;
