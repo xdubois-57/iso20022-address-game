@@ -135,26 +135,40 @@ test.describe('the on-screen keyboard', () => {
         // Not a single keyboard event and not one fill(): every character
         // below arrives through a tap, which is the only input this station
         // will ever receive.
-        await tap(page, 'S', 'Ø', 'R', 'E', 'N', 'space', 'K');
+        await tap(page, 'S', 'O', 'R', 'E', 'N', 'space', 'K');
 
         // Capitalised where a name is capitalised, lower case in the middle of
         // a word — tapping alone has to produce something that looks like a
-        // name, not SØREN K.
-        await expect(page.locator('#welcomeNameInput')).toHaveValue('Søren K');
+        // name, not SOREN K.
+        await expect(page.locator('#welcomeNameInput')).toHaveValue('Soren K');
 
         await tap(page, 'Start');
         await expect(page.locator('.chip').first()).toBeVisible();
     });
 
-    test('carries the accented characters the room will actually need', async ({ page }) => {
+    test('carries letters, apostrophe and hyphen — and no accented keys', async ({ page }) => {
         await gotoMode(page, 'play');
 
-        // The roadmap's minimum, one key at a time. A standards forum fills a
-        // room with Scandinavian, Irish, German and Hispanic names, and
-        // without these they all go up on the wall misspelt.
-        for (const accent of ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ü', 'Ç', 'Ø', 'Å']) {
-            await expect(key(page, accent), accent).toBeVisible();
+        // Two rows of accented characters were removed deliberately. Asserted
+        // rather than simply deleted, because the argument for adding them is
+        // written down in the roadmap and is a persuasive thing to rediscover:
+        // put them back on purpose, not by reading that note and assuming it
+        // still holds.
+        for (const accent of ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ü', 'Ç', 'Ø', 'Å', 'Æ']) {
+            await expect(key(page, accent), accent).toHaveCount(0);
         }
+
+        // What a name still needs: O'Brien and Marie-Claire.
+        for (const label of ['A', 'Z', "'", '-']) {
+            await expect(key(page, label), label).toBeVisible();
+        }
+    });
+
+    test("still composes a name that needs the apostrophe and the hyphen", async ({ page }) => {
+        await gotoMode(page, 'play');
+
+        await tap(page, 'O', "'", 'B', 'R', 'I', 'E', 'N');
+        await expect(page.locator('#welcomeNameInput')).toHaveValue("O'Brien");
     });
 
     test('backspace and clear behave as a keyboard should', async ({ page }) => {

@@ -348,6 +348,12 @@ minimum `á é í ó ú ñ ü ç ø å`. Un forum standards réunit des noms sca
 irlandais, allemands et hispanophones ; sans cette rangée, ils ressortiront tous
 écorchés sur le mur.
 
+> **Revenu dessus depuis.** Les deux rangées d'accents ont été livrées puis
+> retirées volontairement du clavier tactile. Le raisonnement ci-dessus reste
+> lisible et reste persuasif : c'est précisément pourquoi cette note existe. Ne
+> les remettez pas en lisant ce paragraphe — voyez DESIGN.md § *Les modes
+> d'affichage*, et un test tient leur absence.
+
 Touches nécessaires : lettres, apostrophe, trait d'union, espace, retour arrière,
 effacer tout, et une touche de validation qui lance la partie.
 

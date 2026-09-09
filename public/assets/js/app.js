@@ -826,24 +826,17 @@ import {
      * QWERTY, because the event is in Miami, the audience international and
      * the game in English. For the handful of letters in a first name,
      * recognising the layout at a glance beats every other consideration.
+     *
+     * Letters, apostrophe and hyphen only. Two rows of accented characters
+     * used to sit under these; they were removed deliberately, so do not put
+     * them back as an oversight. A player whose name carries an accent types
+     * it unaccented here — the name is still theirs and still legible on the
+     * wall, which is the trade that was accepted.
      */
     const TOUCH_KEY_ROWS = [
         ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
         ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', "'"],
         ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '-'],
-    ];
-
-    /**
-     * The accented characters, which are not a nicety either.
-     *
-     * A payments standards forum fills a room with Scandinavian, Irish,
-     * German, French, Portuguese and Spanish names. Without these keys every
-     * one of them goes up on the wall misspelt, in front of the person whose
-     * name it is.
-     */
-    const TOUCH_ACCENT_ROWS = [
-        ['Á', 'À', 'Â', 'É', 'È', 'Ê', 'Í', 'Ó', 'Ô', 'Ú'],
-        ['Ü', 'Ö', 'Ä', 'Ñ', 'Ç', 'Ø', 'Å', 'Æ'],
     ];
 
     function touchKeyHtml(label, action, value, extraClass) {
@@ -856,8 +849,8 @@ import {
     function touchKeyboardHtml() {
         var html = '<div class="touch-keyboard" id="touchKeyboard">';
 
-        TOUCH_KEY_ROWS.concat(TOUCH_ACCENT_ROWS).forEach(function (row, i) {
-            html += '<div class="touch-key-row' + (i >= TOUCH_KEY_ROWS.length ? ' touch-key-row-accents' : '') + '">';
+        TOUCH_KEY_ROWS.forEach(function (row) {
+            html += '<div class="touch-key-row">';
             row.forEach(function (label) {
                 html += touchKeyHtml(label, 'char', label, null);
             });
@@ -3750,15 +3743,13 @@ import {
     /* =======================================================
        Screen Saver (Kiosk mode only)
        ======================================================= */
-    var hasTouchScreen = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
     /**
      * Whether this screen is one an attract loop belongs on.
      *
      * Three contexts, three answers, and the wall is the one that matters:
      *
      *  - **the wall (?mode=hof) — never.** It is already the attract screen.
-     *    Covering a live board with a countdown and a "Touch to play" prompt
+     *    Covering a live board with a countdown and a "Touch the screen" prompt
      *    on a panel nobody is standing at would hide the one thing it exists
      *    to show, and it would do it sixty seconds after every player walked
      *    away. The refusal is here rather than in the callers so no future
@@ -3802,11 +3793,16 @@ import {
         // Mirror the exact same background as the main page (includes ?v= cache-bust hash)
         overlay.style.backgroundImage = getComputedStyle(document.body).backgroundImage;
 
-        var actionWord = hasTouchScreen ? 'Touch' : 'Click';
-
         overlay.innerHTML = '<div class="screen-saver-inner">'
             + '<div id="ssCountdown" class="ss-countdown"></div>'
-            + '<div class="ss-cta">' + actionWord + ' to play the<br>ISO 20022 Address Game</div>'
+            // "Touch the screen" unconditionally, rather than switching on
+            // whether a touch screen was detected. The saver only ever appears
+            // on the play station or in kiosk mode, and the station is a touch
+            // panel — but the detection is the unreliable half: a Windows panel
+            // with a keyboard plugged in is exactly the case that already
+            // defeats feature detection elsewhere in this file, and a panel
+            // told to "Click" is a panel nobody touches.
+            + '<div class="ss-cta">Touch the screen to play the<br>ISO 20022 Address Game</div>'
             + '<div id="ssFactDisplay" class="ss-fact"></div>'
             + '</div>';
         overlay.classList.add('visible');
