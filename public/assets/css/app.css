@@ -2595,10 +2595,23 @@ body[data-mode="play"] .welcome-card > *:not(.touch-keyboard) {
     flex: 0 0 auto;
 }
 
-/* Same, for the two blocks that flank the card on this screen. */
-body[data-mode="play"] #countdownBanner,
-body[data-mode="play"] .fact-display-card {
+/* The countdown above the card holds its size: it is four numbers on one
+   line, and it is the reason the game exists. */
+body[data-mode="play"] #countdownBanner {
     flex: 0 0 auto;
+}
+
+/* The fact card below it is the one thing on this screen that may lose part
+   of itself. It is attract copy an administrator typed, of a length nobody
+   here controls, sitting under a keyboard a player needs — so it gives way
+   first, and by a wide margin (a shrink factor of 20 against the card's 1),
+   rather than costing the keys height they have already spent down to their
+   floor. Four lines of fact on the panel overflowed the screen by five
+   pixels; now the fourth line goes and nothing scrolls. */
+body[data-mode="play"] .fact-display-card {
+    flex: 0 20 auto;
+    min-height: 0;
+    overflow: hidden;
 }
 
 body[data-mode="play"] .welcome-card h2 {

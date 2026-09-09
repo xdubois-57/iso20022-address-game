@@ -58,6 +58,33 @@ async function seedScenarios(page) {
     expect((await upload.json()).imported.scenarios).toBeGreaterThan(0);
 }
 
+/**
+ * Serve a known set of "Did you know?" facts to this page.
+ *
+ * The fact card sits under the welcome card and takes height the keyboard
+ * would otherwise have, so any assertion about how tall a key is, is also an
+ * assertion about whichever fact the rotation landed on and how many lines it
+ * wrapped to. That is the layout behaving as designed — and it is also why a
+ * test measuring a key has to say which fact it measured it against.
+ *
+ * Everything but game/facts falls through to the real instance.
+ */
+async function stubFacts(page, facts) {
+    await page.route('**/index.php', (route) => {
+        if (route.request().headers()['x-action'] !== 'game/facts') {
+            return route.fallback();
+        }
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ facts }),
+        });
+    });
+}
+
+/** One fact, short enough to sit on a single line at any width used here. */
+const stubOneShortFact = (page) => stubFacts(page, [{ id: 1, content: 'ISO 20022 is a standard.' }]);
+
 /** Tap a key by its face. */
 function key(page, label) {
     return page.locator('.touch-key', { hasText: new RegExp(`^${label}$`) }).first();
@@ -197,6 +224,16 @@ test.describe('the on-screen keyboard', () => {
         // screen this rule is about and has no room for the keyboard this
         // rule asks for — see the test below for what happens there.
         await page.setViewportSize({ width: 1920, height: 1080 });
+
+        // One fact, one line of it, because the keys are what is LEFT of the
+        // screen and the fact card underneath them is part of what takes it.
+        // Unpinned, the height under test moves with whichever fact the
+        // rotation happened to land on and how many lines it wrapped to —
+        // measured at 51px against one fact and 47.7px against another, which
+        // makes any number asserted here a measurement of the seed data
+        // rather than of the rule. That variability is the design working;
+        // a test that cannot say what it is measuring is not.
+        await stubOneShortFact(page);
         await gotoMode(page, 'play');
 
         const boxes = await page.locator('.touch-key').evaluateAll(
@@ -219,6 +256,41 @@ test.describe('the on-screen keyboard', () => {
         }
     });
 
+    test('a fact long enough to cost a row of keys never costs the keyboard', async ({ page }) => {
+        // The other side of the test above: the fact card is content nobody
+        // here controls — an administrator types it, and a long one is worth
+        // pixels the keyboard would otherwise have had. However much it
+        // takes, the keys stop at --touch-key-floor and everything stays on
+        // the screen; they do not go on shrinking until they are unhittable,
+        // and the card does not scroll to make room.
+        await page.setViewportSize({ width: 1920, height: 1080 });
+        await stubFacts(page, [{
+            id: 1,
+            content: 'A postal address in ISO 20022 is made of discrete elements — street name, '
+                + 'building number, post code, town name and country — rather than the free lines '
+                + 'of text that came before it, and the migration away from those lines is what '
+                + 'this game exists to rehearse, one address at a time, against the clock.',
+        }]);
+        await gotoMode(page, 'play');
+        await expect(page.locator('#touchKeyboard')).toBeVisible();
+
+        const fit = await page.evaluate(() => {
+            const welcome = document.querySelector('.game-welcome');
+            const start = document.querySelector('.touch-key-go').getBoundingClientRect();
+            return {
+                keyHeight: document.querySelector('.touch-key').getBoundingClientRect().height,
+                cardScroll: welcome.scrollHeight - welcome.clientHeight,
+                startBottom: start.bottom,
+                viewport: window.innerHeight,
+            };
+        });
+
+        // 40px is the floor at this height — 4.4vh of 1080, clamped at 40.
+        expect(fit.keyHeight).toBeGreaterThanOrEqual(40);
+        expect(fit.cardScroll).toBe(0);
+        expect(fit.startBottom).toBeLessThanOrEqual(fit.viewport);
+    });
+
     test('the whole card fits the panel, at every height a screen might be', async ({ page }) => {
         // The play station cannot be scrolled by the person using it: they
         // walk up, tap four letters and walk away. Anything below the fold is
@@ -228,6 +300,10 @@ test.describe('the on-screen keyboard', () => {
         // laptop sizes an organiser sets the station up from. The last of
         // those is where this used to fail, and where the way out an operator
         // finds is to zoom the browser out until it fits.
+        //
+        // The fact is pinned so that a run which fails names a height rather
+        // than a fact; the long one has a test of its own above.
+        await stubOneShortFact(page);
         for (const [width, height] of [[1920, 1080], [1080, 1920], [1440, 900], [1280, 720]]) {
             await page.setViewportSize({ width, height });
             await gotoMode(page, 'play');
@@ -263,7 +339,10 @@ test.describe('the on-screen keyboard', () => {
         // taller screen gives the keyboard more of the height it gained. A
         // rule that pinned the keys to a number would pass every "does it
         // fit" test above by being small everywhere, and this is what says it
-        // may not.
+        // may not. The same fact throughout, so the only thing that differs
+        // between the three measurements is the height of the screen.
+        await stubOneShortFact(page);
+
         const keyHeight = async (width, height) => {
             await page.setViewportSize({ width, height });
             await gotoMode(page, 'play');
