@@ -387,10 +387,26 @@ test.describe('the on-screen keyboard', () => {
             );
         };
 
-        const onALaptop = await keyHeight(1280, 720);
-        const onThePanel = await keyHeight(1920, 1080);
+        // 600 against 1080, at one width, and both numbers chosen with the
+        // margin in mind rather than for how familiar the screen sounds.
+        //
+        // This compared a 1280x720 "laptop" against a 1920x1080 panel until
+        // the accent rows were removed. Four rows instead of six leaves far
+        // more spare height, so 720 rose to 59px against a 72px ceiling — and
+        // 13px of margin is not margin. It survived here and failed inside the
+        // DAST job, where the suite runs through a proxy that does not serve
+        // the endorsement image: the card above shrank, the keyboard took the
+        // height, both measurements hit 72 and "grew" became "equal".
+        //
+        // At 600 the keys are 40px, a third of the way to the ceiling, and the
+        // window would have to find another 130px of free height to saturate.
+        // The width is the same in both so that the height really is the only
+        // thing that differs, which is what the paragraph above always claimed
+        // and what changing 1280 to 1920 quietly did not do.
+        const onAShortWindow = await keyHeight(1280, 600);
+        const onThePanel = await keyHeight(1280, 1080);
 
-        expect(onThePanel).toBeGreaterThan(onALaptop);
+        expect(onThePanel).toBeGreaterThan(onAShortWindow);
         // And it stops growing: 72px is the size this screen is designed
         // around, not a floor a very tall screen may pass.
         expect(await keyHeight(1080, 1920)).toBeLessThanOrEqual(72);
