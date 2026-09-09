@@ -276,8 +276,10 @@ test.describe('the on-screen keyboard', () => {
 
         const fit = await page.evaluate(() => {
             const welcome = document.querySelector('.game-welcome');
+            const row = document.querySelector('.touch-key-row');
             const start = document.querySelector('.touch-key-go').getBoundingClientRect();
             return {
+                rowHeight: row.getBoundingClientRect().height,
                 keyHeight: document.querySelector('.touch-key').getBoundingClientRect().height,
                 // Read rather than repeated here. A fact this long spends the
                 // keyboard all the way down to its floor, so the number under
@@ -286,24 +288,28 @@ test.describe('the on-screen keyboard', () => {
                 // min-height, which is the floor resolved to pixels; the custom
                 // property it comes from is unregistered, so reading that gives
                 // back the clamp() unevaluated.
-                floor: Number.parseFloat(
-                    getComputedStyle(document.querySelector('.touch-key-row')).minHeight
-                ),
+                floor: Number.parseFloat(getComputedStyle(row).minHeight),
                 cardScroll: welcome.scrollHeight - welcome.clientHeight,
                 startBottom: start.bottom,
                 viewport: window.innerHeight,
             };
         });
 
+        const seen = JSON.stringify(fit);
+
         // Landing exactly ON the floor is the pass, and a laid-out box lands
-        // on it to within a fraction of a pixel rather than on the nose — the
-        // runner and this developer's machine disagreed by hundredths. What
-        // this asserts is that the keys stopped there rather than going on
+        // on it to within a fraction of a pixel rather than on the nose. What
+        // this asserts is that the rows stopped there rather than going on
         // shrinking, so a pixel of tolerance changes nothing it is testing.
-        expect(fit.floor).toBeGreaterThan(0);
-        expect(fit.keyHeight).toBeGreaterThanOrEqual(fit.floor - 1);
-        expect(fit.cardScroll).toBe(0);
-        expect(fit.startBottom).toBeLessThanOrEqual(fit.viewport);
+        // Every number goes into the message: a failure here is a layout that
+        // gave way somewhere, and which box gave way is the whole diagnosis.
+        expect(fit.floor, seen).toBeGreaterThan(0);
+        expect(fit.rowHeight, seen).toBeGreaterThanOrEqual(fit.floor - 1);
+        // And the key fills its row. It is the key a player aims at, not the
+        // row behind it, and the two came apart once already.
+        expect(fit.keyHeight, seen).toBeGreaterThanOrEqual(fit.rowHeight - 1);
+        expect(fit.cardScroll, seen).toBe(0);
+        expect(fit.startBottom, seen).toBeLessThanOrEqual(fit.viewport);
     });
 
     test('the whole card fits the panel, at every height a screen might be', async ({ page }) => {

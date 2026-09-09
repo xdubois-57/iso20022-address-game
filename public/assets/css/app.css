@@ -2735,9 +2735,12 @@ body[data-mode="play"] .card-endorsement img {
 }
 
 .touch-key {
-    /* Height comes from the row, which stretches its keys to fill it. Width
-       is the same nominal size but may shrink on a narrow window, so the row
-       stays one row. */
+    /* Height is the row's, stated rather than left to the stretch a flex item
+       gets by default: with the row down on its floor the runner's Chromium
+       left the keys at their own content height, 32px inside a 40px row, and
+       the key that a player aims at is not the row. Width is the nominal key
+       size but may shrink on a narrow window, so the row stays one row. */
+    height: 100%;
     width: var(--touch-key-size, 72px);
     min-width: 0;
     min-height: 0;
