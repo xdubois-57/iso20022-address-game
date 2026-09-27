@@ -177,6 +177,9 @@ import {
     let selectedGoalType = 'Structured';
     let touchDragChip = null;
     let touchDragClone = null;
+    // The finger carrying the chip. Only that finger moves, drops or cancels
+    // the drag; any other finger on the panel is ignored.
+    let touchDragId = null;
     let touchListenersBound = false;
     var factsCache = [];
     var factRotationInterval = null;
@@ -390,6 +393,9 @@ import {
         // would be thrown back to the welcome card mid-game by a timer left
         // running from the previous round.
         stopPlayReturn();
+
+        // A chip still being dragged belongs to the screen being left.
+        cancelTouchDrag();
 
         window.scrollTo(0, 0);
         dismissScreenSaver();
@@ -659,6 +665,7 @@ import {
 
     function renderGameScreen() {
         gameActive = false;
+        cancelTouchDrag();
         stopInactivityTimer();
         stopGameTimer();
         stopDeadlineCountdown();
@@ -955,6 +962,7 @@ import {
         var generation = screenGeneration;
 
         currentRound++;
+        cancelTouchDrag();
         if (currentRound > TOTAL_ROUNDS) { showFinalScore(); return; }
         resetInactivityTimer();
 
@@ -1117,7 +1125,51 @@ import {
         });
     }
 
+    /**
+     * The touch in `list` that belongs to the drag in progress, if any.
+     *
+     * @param {TouchList} list
+     * @returns {Touch | null}
+     */
+    function draggingTouchIn(list) {
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].identifier === touchDragId) return list[i];
+        }
+        return null;
+    }
+
+    /**
+     * Abandon a touch drag without dropping the chip anywhere.
+     *
+     * The floating copy lives on <body>, outside every screen, so nothing that
+     * redraws the game removes it. It used to go only on touchend, and a drag
+     * that never got one stayed on the panel until the page was reloaded — a
+     * country code hovering over the next player's welcome card. That happened
+     * two ways: the browser cancelled the touch (touchcancel, which nothing
+     * handled), or a second finger started a second drag and overwrote the
+     * only reference to the first copy.
+     */
+    function cancelTouchDrag() {
+        if (touchDragClone) touchDragClone.remove();
+        if (touchDragChip) touchDragChip.el.classList.remove('dragging');
+        document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
+        touchDragClone = null;
+        touchDragChip = null;
+        touchDragId = null;
+    }
+
     function startTouchDrag(el, chipId, e) {
+        if (touchDragClone) {
+            // One chip at a time. A second finger is ignored while the first
+            // is still down. If the first is not — its end was lost somewhere
+            // this code never heard about — the stale drag is cleared rather
+            // than left to block every drag after it.
+            if (draggingTouchIn(e.touches)) return;
+            cancelTouchDrag();
+        }
+
+        var touch = e.changedTouches[0];
+        touchDragId = touch.identifier;
         touchDragChip = { el: el, chipId: chipId };
         el.classList.add('dragging');
 
@@ -1128,7 +1180,6 @@ import {
         touchDragClone.style.opacity = '0.8';
         document.body.appendChild(touchDragClone);
 
-        var touch = e.touches[0];
         touchDragClone.style.left = (touch.clientX - 40) + 'px';
         touchDragClone.style.top = (touch.clientY - 20) + 'px';
     }
@@ -1159,18 +1210,19 @@ import {
             }, { passive: true });
         });
 
-        // Global touch move/end (handles both source and slot chip drags).
-        // Bound ONCE: this runs for every round, and each call used to add
-        // another pair of document-level listeners that were never removed —
-        // on a kiosk that plays all day, hundreds of touchmove handlers each
-        // doing an elementFromPoint() per finger movement. Both handlers read
-        // module state and the live DOM, so one pair serves every round.
+        // Global touch move/end/cancel (handles both source and slot chip
+        // drags). Bound ONCE: this runs for every round, and each call used to
+        // add more document-level listeners that were never removed — on a
+        // kiosk that plays all day, hundreds of touchmove handlers each doing
+        // an elementFromPoint() per finger movement. The handlers read module
+        // state and the live DOM, so one set serves every round.
         if (touchListenersBound) return;
         touchListenersBound = true;
 
         document.addEventListener('touchmove', function (e) {
             if (!touchDragClone) return;
-            var touch = e.touches[0];
+            var touch = draggingTouchIn(e.changedTouches);
+            if (!touch) return;
             touchDragClone.style.left = (touch.clientX - 40) + 'px';
             touchDragClone.style.top = (touch.clientY - 20) + 'px';
 
@@ -1183,8 +1235,10 @@ import {
             }
         }, { passive: true });
 
-        document.addEventListener('touchend', function () {
+        document.addEventListener('touchend', function (e) {
             if (!touchDragChip || !touchDragClone) return;
+            // Another finger lifting is not this drag's drop.
+            if (!draggingTouchIn(e.changedTouches)) return;
 
             var rect = touchDragClone.getBoundingClientRect();
             var centerX = rect.left + rect.width / 2;
@@ -1204,6 +1258,11 @@ import {
                 }
             }
             touchDragChip = null;
+            touchDragId = null;
+        });
+
+        document.addEventListener('touchcancel', function (e) {
+            if (touchDragClone && draggingTouchIn(e.changedTouches)) cancelTouchDrag();
         });
     }
 
@@ -1483,6 +1542,7 @@ import {
 
     function showFinalScore() {
         gameActive = false;
+        cancelTouchDrag();
         stopGameTimer();
         stopInactivityTimer();
 
