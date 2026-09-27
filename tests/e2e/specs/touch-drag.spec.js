@@ -204,14 +204,14 @@ test.describe('touch drag', () => {
         await startRound(page);
         const send = await touchInput(page);
 
-        // The widest chip: its floating copy's centre sits furthest from the
-        // finger, which is where the drop used to be worked out from.
-        const widths = await page.locator('#chipContainer .chip').evaluateAll(
-            (all) => all.map((el) => el.getBoundingClientRect().width)
-        );
-        const index = widths.indexOf(Math.max(...widths));
-        expect(widths[index], 'needs a chip wider than the copy\'s offset').toBeGreaterThan(100);
-        const chip = page.locator('#chipContainer .chip').nth(index);
+        // A long chip, such as a street name: its floating copy's centre sits
+        // half its width from the finger, which is where the drop used to be
+        // worked out from. Widened here rather than looked for, because the
+        // scenario is drawn at random and some have no long chip at all —
+        // which is how this test failed on CI. The copy is a clone, so it
+        // carries the width with it.
+        const chip = page.locator('#chipContainer .chip').first();
+        await chip.evaluate((el) => { el.style.minWidth = '240px'; });
 
         // Near the slot's right edge: inside it, with the copy's centre well
         // outside it.
