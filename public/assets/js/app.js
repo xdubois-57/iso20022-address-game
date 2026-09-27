@@ -1275,9 +1275,10 @@ import {
             if (!touch) return;
 
             // Dropped where the finger is, which is where touchmove drew the
-            // highlight. The copy's centre sits right of the finger by half
-            // its width, so on a long chip it used to land a slot further on
-            // than the one the player was shown.
+            // highlight. The copy is drawn 40px left of the finger, so its
+            // centre sits width/2 - 40 to the right of it, and on a long chip
+            // the drop used to land a slot further on than the one the player
+            // was shown.
             var chipId = touchDragChip.chipId;
             cancelTouchDrag();
 
