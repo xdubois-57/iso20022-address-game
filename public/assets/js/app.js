@@ -567,39 +567,58 @@ import {
             var banner = document.getElementById('countdownBanner');
             if (!banner) return;
 
-            banner.className = 'countdown-banner';
-            var target = parseServerDate(data.deadline);
-            updateCountdown(target, banner);
-
             stopDeadlineCountdown();
-            deadlineCountdownInterval = setInterval(function () {
-                // The screen may have been swapped out while we were awaiting.
-                if (!document.body.contains(banner)) {
-                    stopDeadlineCountdown();
-                    return;
-                }
-                updateCountdown(target, banner);
-            }, 1000);
+            deadlineCountdownInterval = runCountdown(banner, parseServerDate(data.deadline));
         })();
     }
 
+    /**
+     * Draw the countdown into `el` and redraw it once a second, for both hosts:
+     * the welcome banner and the screen saver.
+     *
+     * Returns the interval, or null when nothing will ever change. The timer
+     * stops itself once the deadline passes, the date turns out unreadable, or
+     * `el` leaves the document, so the caller's slot never has to be told.
+     * Each host once had its own copy of this loop, and the copies drifted:
+     * only one checked that its node was still in the document, and the
+     * finished countdown stopped the welcome timer even when it was the
+     * saver's that was ticking.
+     *
+     * @param {HTMLElement} el
+     * @param {Date} target
+     * @returns {ReturnType<typeof setInterval> | null}
+     */
+    function runCountdown(el, target) {
+        if (updateCountdown(target, el)) return null;
+        var interval = setInterval(function () {
+            // The screen may have been swapped out while we were awaiting.
+            if (!document.body.contains(el) || updateCountdown(target, el)) {
+                clearInterval(interval);
+            }
+        }, 1000);
+        return interval;
+    }
+
+    /**
+     * Render the countdown into `el` once.
+     *
+     * @returns {boolean} true once the countdown can no longer change: the
+     *     deadline has passed, or the date cannot be read.
+     */
     function updateCountdown(targetDate, el) {
         var parts = countdownParts(targetDate, new Date());
         if ('invalid' in parts) {
             // A stored deadline this browser cannot read (a value saved before
             // the server validated dates) must not put "NaN" on a wall. The
-            // banner is emptied and its class dropped so no styled, empty box
-            // is left behind; the timer is stopped, since nothing will change.
+            // banner is emptied, and an empty banner is not drawn (see
+            // `:empty` in app.css), so no styled, empty box is left behind.
             el.replaceChildren();
-            el.className = '';
-            stopDeadlineCountdown();
-            return;
+            return true;
         }
         if (parts.expired) {
             el.innerHTML = '<div class="countdown-label">Support for unstructured addresses has ended</div>'
                 + '<div class="countdown-expired">Deadline reached</div>';
-            stopDeadlineCountdown();
-            return;
+            return true;
         }
 
         // The guard above proves this is the live shape. The checker does not
@@ -619,6 +638,7 @@ import {
             + '<span class="countdown-sep">:</span>'
             + '<span class="countdown-unit">' + live.seconds + '</span><span class="countdown-suffix">s</span>'
             + '</div>';
+        return false;
     }
 
     function stopFactRotation() {
@@ -720,7 +740,9 @@ import {
 
     function renderWelcomeCard() {
         var html = '<section class="game-welcome">';
-        html += '<div id="countdownBanner"></div>';
+        // Empty, and so not drawn, until a deadline arrives: with none saved
+        // there is no countdown (see `:empty` in app.css).
+        html += '<div id="countdownBanner" class="countdown-banner"></div>';
         html += '<div class="welcome-card">';
         html += '<h2>ISO 20022 Address Game</h2>';
         html += '<p>Structure <strong>' + TOTAL_ROUNDS + ' addresses</strong> into ISO 20022 format as fast as you can!</p>';
@@ -2256,7 +2278,7 @@ import {
 
         // Deadline
         html += '<div class="admin-section"><h3>Unstructured Address Deadline</h3>';
-        html += '<p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players.</p>';
+        html += '<p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players while a deadline is set; clear it to hide the countdown.</p>';
         html += '<div class="deadline-form">';
         html += '<input type="datetime-local" id="deadlineInput" class="deadline-input">';
         html += '<button class="btn-primary" id="setDeadlineBtn">Save Deadline</button>';
@@ -2924,14 +2946,36 @@ import {
         }
     }
 
+    /** What the admin panel says while no deadline is saved: the countdown is off. */
+    const NO_DEADLINE_STATUS = 'No deadline set. The countdown is hidden from players.';
+
+    /**
+     * How the admin panel words a saved deadline. Read with parseServerDate(),
+     * as the countdown reads it, so the panel names the moment the players'
+     * countdown actually targets; a value it cannot read says so rather than
+     * "Invalid Date".
+     */
+    function describeDeadline(prefix, value) {
+        var d = parseServerDate(value);
+        return Number.isNaN(d.getTime())
+            ? prefix + value + ' (not a readable date: the countdown is hidden)'
+            : prefix + d.toLocaleString();
+    }
+
     async function loadAdminDeadline() {
         var data = await api('admin/get-deadline');
-        if (data?.deadline) {
+        // An error — an expired session answers {error: 'Unauthorized'} — says
+        // nothing about the deadline. Reading it as "none saved" told the admin
+        // the countdown was off while every screen was still showing it.
+        if (!data || 'error' in data) return;
+        var status = document.getElementById('deadlineStatus');
+        if (data.deadline) {
             inputById('deadlineInput').value = data.deadline;
-            var status = document.getElementById('deadlineStatus');
-            status.textContent = 'Current deadline: ' + new Date(data.deadline).toLocaleString();
-            status.classList.remove('hidden');
+            status.textContent = describeDeadline('Current deadline: ', data.deadline);
+        } else {
+            status.textContent = NO_DEADLINE_STATUS;
         }
+        status.classList.remove('hidden');
     }
 
     async function loadAdminFacts() {
@@ -3036,7 +3080,7 @@ import {
             var data = await api('admin/set-deadline', { deadline: val });
             if (data?.success) {
                 var status = document.getElementById('deadlineStatus');
-                status.textContent = 'Deadline saved: ' + new Date(val).toLocaleString();
+                status.textContent = describeDeadline('Deadline saved: ', val);
                 status.classList.remove('hidden');
                 await showModal('Deadline saved successfully');
             } else {
@@ -3049,9 +3093,13 @@ import {
             if (data?.success) {
                 inputById('deadlineInput').value = '';
                 var status = document.getElementById('deadlineStatus');
-                status.textContent = 'Deadline cleared';
+                status.textContent = NO_DEADLINE_STATUS;
                 status.classList.remove('hidden');
-                await showModal('Deadline cleared');
+                await showModal('Deadline cleared. The countdown is no longer shown to players.');
+            } else {
+                // Silence here reads as success: the admin walks away sure the
+                // countdown is off while every screen still shows it.
+                await showModal(data ? data.error : 'Error clearing deadline');
             }
         });
 
@@ -3862,6 +3910,8 @@ import {
         overlay.style.backgroundImage = getComputedStyle(document.body).backgroundImage;
 
         overlay.innerHTML = '<div class="screen-saver-inner">'
+            // Empty, and so not drawn, until a deadline arrives: with none
+            // saved there is no countdown (see `:empty` in app.css).
             + '<div id="ssCountdown" class="ss-countdown"></div>'
             // "Touch the screen" unconditionally, rather than switching on
             // whether a touch screen was detected. The saver only ever appears
@@ -3886,12 +3936,8 @@ import {
             if (data?.deadline) {
                 var banner = document.getElementById('ssCountdown');
                 if (!banner) return;
-                var target = parseServerDate(data.deadline);
-                updateCountdown(target, banner);
                 if (screenSaverCountdownInterval) clearInterval(screenSaverCountdownInterval);
-                screenSaverCountdownInterval = setInterval(function () {
-                    updateCountdown(target, banner);
-                }, 1000);
+                screenSaverCountdownInterval = runCountdown(banner, parseServerDate(data.deadline));
             }
         })();
 

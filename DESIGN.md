@@ -164,7 +164,7 @@ carry.
 - **Fullscreen**: Auto-enters fullscreen when enabled; re-enters if user exits
 - **Screen Saver**: After 60s of inactivity (no click/touch/key):
   - Displays full-screen overlay with same background as game
-  - Shows countdown to ISO 20022 deadline
+  - Shows countdown to ISO 20022 deadline, only while an admin has saved one
   - Displays pulsing CTA: "Touch to play" or "Click to play" (auto-detected)
   - Rotates fun facts every 20 seconds
   - Dismisses on any touch/click interaction
@@ -457,7 +457,7 @@ Keys stored in `settings`:
 
 | Key | Value |
 |-----|-------|
-| `unstructured_deadline` | admin-set countdown target, `YYYY-MM-DDTHH:MM` |
+| `unstructured_deadline` | admin-set countdown target, `YYYY-MM-DDTHH:MM`; absent means no countdown is shown |
 | `color_primary`, `color_primary_hover`, `color_primary_light`, `color_bg`, `color_text` | theme palette, validated as hex |
 
 Every write to this table goes through `App\Models\SettingsModel`, which is

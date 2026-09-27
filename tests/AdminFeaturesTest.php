@@ -81,66 +81,46 @@ class AdminFeaturesTest extends TestCase
     }
 
     /* =======================================================
-       Deadline — Default fallback in GameController
+       Deadline — No built-in fallback
        ======================================================= */
 
-    /** Midnight at the start of the day, not an hour into it. */
-    private const EXPECTED_DEFAULT_DEADLINE = '2027-11-28T00:00';
-
-    public function testGameControllerDefaultDeadline(): void
+    /**
+     * There is no built-in countdown date. An install that has not saved one
+     * shows no countdown, so the constant that used to supply a default must
+     * not grow back.
+     */
+    public function testGameControllerHasNoDefaultDeadline(): void
     {
-        // No deadline set in DB
         $reflection = new \ReflectionClass(GameController::class);
-        $constant = $reflection->getConstant('DEFAULT_DEADLINE');
-        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $constant);
-    }
-
-    public function testGameControllerUsesDefaultWhenNoDeadlineSet(): void
-    {
-        // Ensure no deadline in DB
-        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
-        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $deadline);
-    }
-
-    public function testGameControllerUsesCustomWhenDeadlineSet(): void
-    {
-        $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
-            . "('unstructured_deadline', '2028-06-15T09:30')");
-
-        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
-        $this->assertEquals('2028-06-15T09:30', $deadline);
+        $this->assertFalse(
+            $reflection->hasConstant('DEFAULT_DEADLINE'),
+            'a built-in deadline would put a countdown on screens whose admin never chose one'
+        );
     }
 
     /**
-     * The seeded facts and the countdown must name the same date.
+     * No seeded fact names a year.
      *
-     * The screen saver shows both at once. A fact that still said November
-     * 2026 beside a countdown to November 2027 would be the application
-     * contradicting itself in front of a room, which is worse than either
-     * date being wrong on its own.
+     * The screen saver shows the countdown and a rotating fact side by side.
+     * With no built-in deadline, a fact naming a year would either make the
+     * claim the missing default no longer makes, or contradict the date an
+     * administrator saves. The seeded facts once did both: one ended support
+     * with the 2026 release while two others said November 2027, and a test
+     * that only looked for the word "deadline" let that through. So this one
+     * checks every fact for any year at all. "20022" is not a year: the
+     * boundaries keep it out.
      */
-    public function testSeededFactsDoNotContradictTheDefaultDeadline(): void
+    public function testSeededFactsNameNoYear(): void
     {
-        $year = substr(self::EXPECTED_DEFAULT_DEADLINE, 0, 4);
-
         $facts = $this->db->getPdo()->query('SELECT content FROM facts')->fetchAll(\PDO::FETCH_COLUMN);
         $this->assertNotEmpty($facts, 'initSchema() must have seeded the default facts');
 
-        $deadlineFacts = array_values(array_filter(
-            $facts,
-            static fn (string $fact): bool => stripos($fact, 'deadline') !== false
-                || stripos($fact, 'phased out') !== false
-        ));
-        $this->assertNotEmpty($deadlineFacts, 'at least one seeded fact states the deadline');
-
-        foreach ($deadlineFacts as $fact) {
-            $this->assertStringContainsString(
-                $year,
+        foreach ($facts as $fact) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/\b(19|20)\d\d\b/',
                 $fact,
-                "a seeded fact states a deadline but not the one the countdown targets: {$fact}"
+                "a seeded fact names a year, which the countdown may contradict: {$fact}"
             );
-            $this->assertStringNotContainsString('2026', $fact, $fact);
         }
     }
 
@@ -383,10 +363,10 @@ class AdminFeaturesTest extends TestCase
         // Verify some expected content exists
         $contents = array_column($facts, 'content');
         $this->assertContains(
-            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            'ISO 20022 is bringing unstructured address support to an end in cross-border payments',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
+        $this->assertContains('Unstructured addresses are being phased out in favour of structured and hybrid ones', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 
@@ -570,10 +550,10 @@ class AdminFeaturesTest extends TestCase
         // Check that facts contain expected keywords
         $contents = array_column($facts, 'content');
         $this->assertContains(
-            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            'ISO 20022 is bringing unstructured address support to an end in cross-border payments',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
+        $this->assertContains('Unstructured addresses are being phased out in favour of structured and hybrid ones', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 

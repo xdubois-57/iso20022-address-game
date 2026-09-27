@@ -107,24 +107,16 @@ class GameController
 
     /**
      * POST /api/game/deadline — Get the unstructured address deadline (public, no auth).
-     */
-    /**
-     * The countdown's value when no administrator has saved one.
      *
-     * Nothing seeds this into the settings table at install time:
-     * SettingsModel::get('unstructured_deadline') returns null until an admin
-     * saves a date, and this constant is the effective value in the meantime.
-     * So changing it here MOVES the countdown on every deployed instance that
-     * never set its own — deliberately, and without a migration to soften it.
-     * An installation that wants a different date sets one in Admin, and that
-     * saved value keeps winning over whatever this says.
+     * Null when no administrator has saved one, and the browser shows no
+     * countdown at all. There is deliberately no built-in fallback date: a
+     * countdown is a claim about a date, and an installation that has not
+     * chosen one should not have the project make it on its behalf. Clearing
+     * the deadline in Admin is therefore how the countdown is switched off.
      */
-    private const DEFAULT_DEADLINE = '2027-11-28T00:00';
-
     public function getDeadline(): void
     {
-        $deadline = AdminController::fetchDeadlineStatic() ?? self::DEFAULT_DEADLINE;
-        $this->jsonResponse(['deadline' => $deadline]);
+        $this->jsonResponse(['deadline' => AdminController::fetchDeadlineStatic()]);
     }
 
     /**

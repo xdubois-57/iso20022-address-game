@@ -373,10 +373,11 @@ class Database
     /**
      * The ten facts a brand-new installation starts with.
      *
-     * Two of them state the deadline, and they have to agree with
-     * GameController::DEFAULT_DEADLINE — the screen saver shows the countdown
-     * and a rotating fact side by side, so a fact naming a different date
-     * makes the game contradict itself in front of a room.
+     * None of them names a date. The deadline is the administrator's to set,
+     * and the screen saver shows the countdown and a rotating fact side by
+     * side: a seeded fact naming a year would either make the claim the
+     * missing default no longer makes, or contradict whatever date the
+     * administrator saves.
      *
      * Seeded ONCE, on an empty table (see below). An installation that
      * already has facts keeps the wording it was seeded with, whatever this
@@ -388,16 +389,16 @@ class Database
         $count = (int) $this->pdo->query('SELECT COUNT(*) FROM facts')->fetchColumn();
         if ($count === 0) {
             $defaultFacts = [
-                'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+                'ISO 20022 is bringing unstructured address support to an end in cross-border payments',
                 'Over 70 countries have already adopted ISO 20022 for cross-border payments',
                 'The transition to structured addresses improves payment processing speed by up to 40%',
-                'Unstructured addresses will be phased out starting November 28, 2027',
+                'Unstructured addresses are being phased out in favour of structured and hybrid ones',
                 'ISO 20022 enables richer data exchange between financial institutions worldwide',
                 'The new standard supports 207 address formats across all world regions',
                 'Structured addresses reduce payment failures and processing errors significantly',
-                'November 2027 is the deadline for complete migration to ISO 20022 structured addresses',
+                'Every institution sending cross-border payments has to migrate to structured addresses',
                 'ISO 20022 provides a common language for financial messaging globally',
-                'The 2026 release ensures interoperability between all payment systems worldwide'
+                'Each ISO 20022 release strengthens interoperability between payment systems worldwide'
             ];
 
             $insert = $this->pdo->prepare('INSERT INTO facts (content) VALUES (?)');

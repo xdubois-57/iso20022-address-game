@@ -840,6 +840,16 @@ body {
     width: 100%;
 }
 
+/* Both countdown hosts are empty until a deadline arrives, and stay empty
+   while none is saved or the saved one cannot be read. An empty host is not
+   drawn at all, rather than as a green box with nothing in it. One rule here
+   instead of adding and stripping the class in every script path that fills
+   or empties a host. */
+.countdown-banner:empty,
+.ss-countdown:empty {
+    display: none;
+}
+
 .countdown-banner .countdown-label {
     display: block;
     font-size: 1rem;
