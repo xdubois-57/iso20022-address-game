@@ -26,14 +26,10 @@
 // synthesising pointer gestures. The drag-and-drop UI itself is a separate
 // concern, covered by the unit tests over lib/address.js and lib/scoring.js.
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { seedScenarios } from '../support/scenarios.js';
 
 const ADMIN_PIN = '1234';
-const here = path.dirname(fileURLToPath(import.meta.url));
-const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
 
 /**
  * A session cookie plus its CSRF token — everything the API needs.
@@ -69,31 +65,6 @@ function api(page, csrf, action, body) {
         },
         data: JSON.stringify(body ?? {}),
     });
-}
-
-/**
- * Scenarios are uploaded through the real admin endpoint rather than seeded
- * into the database, so the Excel parsing path is exercised too — that is the
- * one route by which content ever enters a real install.
- */
-async function seedScenarios(page, csrf) {
-    const login = await api(page, csrf, 'admin/login', { pin: ADMIN_PIN });
-    expect((await login.json()).success).toBe(true);
-
-    const upload = await page.request.post('/index.php', {
-        headers: { 'X-Action': 'admin/upload', 'X-CSRF-Token': csrf },
-        multipart: {
-            file: {
-                name: 'Scenarios.xlsx',
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                buffer: readFileSync(scenariosXlsx),
-            },
-        },
-    });
-    const body = await upload.json();
-    expect(body.success, `upload failed: ${JSON.stringify(body)}`).toBe(true);
-    expect(body.imported.scenarios).toBeGreaterThan(0);
-    return body.imported.scenarios;
 }
 
 test.describe('a full round', () => {

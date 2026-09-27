@@ -23,44 +23,15 @@
 // the Hall of Fame or the share sheet, and that the bare URL still reaches
 // both.
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { seedScenarios } from '../support/scenarios.js';
 
 // A dedicated screen is addressed by ?mode= AND a matching &t=; the helper
 // knows both halves so this file does not have to.
 import { modeUrl } from '../support/display-mode.js';
 
-const ADMIN_PIN = '1234';
-const here = path.dirname(fileURLToPath(import.meta.url));
-const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
 
 /** Scenarios must exist before a round can be played. */
-async function seedScenarios(page) {
-    await page.goto('/');
-    const csrf = await page.evaluate(
-        () => document.querySelector('meta[name="csrf-token"]')?.content || ''
-    );
-
-    const login = await page.request.post('/index.php', {
-        headers: { 'Content-Type': 'application/json', 'X-Action': 'admin/login', 'X-CSRF-Token': csrf },
-        data: JSON.stringify({ pin: ADMIN_PIN }),
-    });
-    expect((await login.json()).success).toBe(true);
-
-    const upload = await page.request.post('/index.php', {
-        headers: { 'X-Action': 'admin/upload', 'X-CSRF-Token': csrf },
-        multipart: {
-            file: {
-                name: 'Scenarios.xlsx',
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                buffer: readFileSync(scenariosXlsx),
-            },
-        },
-    });
-    expect((await upload.json()).imported.scenarios).toBeGreaterThan(0);
-}
 
 /**
  * Place one chip in one slot by dispatching the drag events the page listens

@@ -23,40 +23,14 @@
 // test — everything else here is about it not appearing where it would be a
 // regression.
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { seedScenarios } from '../support/scenarios.js';
 
 // A dedicated screen is addressed by ?mode= AND a matching &t=; the helper
 // knows both halves so this file does not have to.
 import { gotoMode } from '../support/display-mode.js';
 
 const ADMIN_PIN = '1234';
-const here = path.dirname(fileURLToPath(import.meta.url));
-const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
-
-async function seedScenarios(page) {
-    await page.goto('/');
-    const csrf = await page.evaluate(
-        () => document.querySelector('meta[name="csrf-token"]')?.content || ''
-    );
-    await page.request.post('/index.php', {
-        headers: { 'Content-Type': 'application/json', 'X-Action': 'admin/login', 'X-CSRF-Token': csrf },
-        data: JSON.stringify({ pin: ADMIN_PIN }),
-    });
-    const upload = await page.request.post('/index.php', {
-        headers: { 'X-Action': 'admin/upload', 'X-CSRF-Token': csrf },
-        multipart: {
-            file: {
-                name: 'Scenarios.xlsx',
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                buffer: readFileSync(scenariosXlsx),
-            },
-        },
-    });
-    expect((await upload.json()).imported.scenarios).toBeGreaterThan(0);
-}
 
 /**
  * Serve a known set of "Did you know?" facts to this page.

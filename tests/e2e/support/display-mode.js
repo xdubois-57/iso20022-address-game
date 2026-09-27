@@ -38,7 +38,7 @@ import { expect } from '@playwright/test';
 const ADMIN_PIN = '1234';
 
 /** The shell's CSRF token, without rendering the shell. */
-async function csrfToken(page) {
+export async function csrfToken(page) {
     const shell = await page.request.get('/');
     expect(shell.status()).toBe(200);
 

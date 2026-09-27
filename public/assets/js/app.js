@@ -177,6 +177,9 @@ import {
     let selectedGoalType = 'Structured';
     let touchDragChip = null;
     let touchDragClone = null;
+    // The finger carrying the chip. Only that finger moves, drops or cancels
+    // the drag; any other finger on the panel is ignored.
+    let touchDragId = null;
     let touchListenersBound = false;
     var factsCache = [];
     var factRotationInterval = null;
@@ -390,6 +393,9 @@ import {
         // would be thrown back to the welcome card mid-game by a timer left
         // running from the previous round.
         stopPlayReturn();
+
+        // A chip still being dragged belongs to the screen being left.
+        cancelTouchDrag();
 
         window.scrollTo(0, 0);
         dismissScreenSaver();
@@ -1117,7 +1123,59 @@ import {
         });
     }
 
+    /**
+     * The touch in `list` that belongs to the drag in progress, if any.
+     *
+     * @param {TouchList} list
+     * @param {TouchList} [except] touches to disregard, matched by identifier
+     * @returns {Touch | null}
+     */
+    function draggingTouchIn(list, except) {
+        if (except && draggingTouchIn(except)) return null;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].identifier === touchDragId) return list[i];
+        }
+        return null;
+    }
+
+    /**
+     * Abandon a touch drag without dropping the chip anywhere.
+     *
+     * The floating copy lives on <body>, outside every screen, so nothing that
+     * redraws the game removes it. It used to go only on touchend, and a drag
+     * that never got one stayed on the panel until the page was reloaded — a
+     * country code hovering over the next player's welcome card. That happened
+     * two ways: the browser cancelled the touch (touchcancel, which nothing
+     * handled), or a second finger started a second drag and overwrote the
+     * only reference to the first copy.
+     */
+    function cancelTouchDrag() {
+        if (!touchDragClone && !touchDragChip) return;
+        if (touchDragClone) touchDragClone.remove();
+        if (touchDragChip) touchDragChip.el.classList.remove('dragging');
+        document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
+        touchDragClone = null;
+        touchDragChip = null;
+        touchDragId = null;
+    }
+
     function startTouchDrag(el, chipId, e) {
+        if (touchDragClone) {
+            // One chip at a time. A second finger is ignored while the first
+            // is still down. If the first is not — its end was lost somewhere
+            // this code never heard about — the stale drag is cleared rather
+            // than left to block every drag after it.
+            //
+            // The finger that just landed is in e.touches too, and Android
+            // hands identifiers out again from 0 once every finger is up. Left
+            // in, it would pass for the lost finger: the stale copy would
+            // follow it and the wrong chip would be dropped.
+            if (draggingTouchIn(e.touches, e.changedTouches)) return;
+            cancelTouchDrag();
+        }
+
+        var touch = e.changedTouches[0];
+        touchDragId = touch.identifier;
         touchDragChip = { el: el, chipId: chipId };
         el.classList.add('dragging');
 
@@ -1128,7 +1186,6 @@ import {
         touchDragClone.style.opacity = '0.8';
         document.body.appendChild(touchDragClone);
 
-        var touch = e.touches[0];
         touchDragClone.style.left = (touch.clientX - 40) + 'px';
         touchDragClone.style.top = (touch.clientY - 20) + 'px';
     }
@@ -1140,6 +1197,11 @@ import {
         chips.forEach(function (chipNode) {
             var chip = asElement(chipNode);
             chip.addEventListener('dragstart', /** @param {DragEvent} e */ function (e) {
+                // The chip is draggable="true" for the mouse, and a long press
+                // lets Chrome on a touch screen start its own drag of it too —
+                // which then cancels the touch this finger is already dragging
+                // by, and the chip snaps back. One drag per finger: ours.
+                if (touchDragChip) { e.preventDefault(); return; }
                 e.dataTransfer.setData('text/plain', chip.dataset.chipId);
                 chip.classList.add('dragging');
             });
@@ -1159,18 +1221,19 @@ import {
             }, { passive: true });
         });
 
-        // Global touch move/end (handles both source and slot chip drags).
-        // Bound ONCE: this runs for every round, and each call used to add
-        // another pair of document-level listeners that were never removed —
-        // on a kiosk that plays all day, hundreds of touchmove handlers each
-        // doing an elementFromPoint() per finger movement. Both handlers read
-        // module state and the live DOM, so one pair serves every round.
+        // Global touch move/end/cancel (handles both source and slot chip
+        // drags). Bound ONCE: this runs for every round, and each call used to
+        // add more document-level listeners that were never removed — on a
+        // kiosk that plays all day, hundreds of touchmove handlers each doing
+        // an elementFromPoint() per finger movement. The handlers read module
+        // state and the live DOM, so one set serves every round.
         if (touchListenersBound) return;
         touchListenersBound = true;
 
         document.addEventListener('touchmove', function (e) {
             if (!touchDragClone) return;
-            var touch = e.touches[0];
+            var touch = draggingTouchIn(e.changedTouches);
+            if (!touch) return;
             touchDragClone.style.left = (touch.clientX - 40) + 'px';
             touchDragClone.style.top = (touch.clientY - 20) + 'px';
 
@@ -1183,27 +1246,28 @@ import {
             }
         }, { passive: true });
 
-        document.addEventListener('touchend', function () {
+        document.addEventListener('touchend', function (e) {
             if (!touchDragChip || !touchDragClone) return;
+            // Another finger lifting is not this drag's drop.
+            var touch = draggingTouchIn(e.changedTouches);
+            if (!touch) return;
 
-            var rect = touchDragClone.getBoundingClientRect();
-            var centerX = rect.left + rect.width / 2;
-            var centerY = rect.top + rect.height / 2;
+            // Dropped where the finger is, which is where touchmove drew the
+            // highlight. The copy's centre sits right of the finger by half
+            // its width, so on a long chip it used to land a slot further on
+            // than the one the player was shown.
+            var chipId = touchDragChip.chipId;
+            cancelTouchDrag();
 
-            touchDragClone.remove();
-            touchDragClone = null;
-            touchDragChip.el.classList.remove('dragging');
-
-            // Find slot under drop point (queries live DOM)
-            document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
-            var el = document.elementFromPoint(centerX, centerY);
+            var el = document.elementFromPoint(touch.clientX, touch.clientY);
             if (el) {
                 var slotEl = asElement(el.closest('.slot'));
-                if (slotEl) {
-                    placeChipInSlot(touchDragChip.chipId, slotEl.dataset.slotId);
-                }
+                if (slotEl) placeChipInSlot(chipId, slotEl.dataset.slotId);
             }
-            touchDragChip = null;
+        });
+
+        document.addEventListener('touchcancel', function (e) {
+            if (touchDragClone && draggingTouchIn(e.changedTouches)) cancelTouchDrag();
         });
     }
 
@@ -1411,6 +1475,10 @@ import {
     }
 
     function showRoundResult(data) {
+        // The round is scored. A chip still held by another finger would
+        // float above the result card and, dropped, change a mapping that has
+        // already been submitted.
+        cancelTouchDrag();
 
         var overlay = document.createElement('div');
         overlay.className = 'overlay';

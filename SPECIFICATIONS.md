@@ -124,8 +124,15 @@ this holds without network access.
 
 **FR-2.6 — Input by touch and by mouse.** Chips shall be placeable by mouse
 drag and by touch drag. A double tap on a control shall not perform its action
-twice.
-*Verified by:* `tests/e2e/specs/gameplay.spec.js`, `touch-keyboard.spec.js`.
+twice. A touch drag shall drop the chip into the slot under the finger, which
+is the slot highlighted while dragging. It shall leave nothing on the screen
+once it is over — whether it ends in a drop, is cancelled by the browser, is
+overtaken by the round being scored, or is abandoned by leaving the game — and
+a drag whose end never arrived shall not stop the next one. A second finger on
+the panel shall not start a second drag, and the browser shall not start its
+own drag of a chip already being dragged by touch.
+*Verified by:* `tests/e2e/specs/gameplay.spec.js`, `touch-keyboard.spec.js`,
+`touch-drag.spec.js`.
 
 **FR-2.7 — On-screen keyboard.** On the play station the player shall be able
 to enter their name entirely by touch, without a physical keyboard, including
