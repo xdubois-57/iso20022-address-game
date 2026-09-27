@@ -25,15 +25,11 @@
 // instance every spec in the run shares, and leaving it off would silently
 // change what a later spec is testing.
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { seedScenarios } from '../support/scenarios.js';
 import { modeUrl } from '../support/display-mode.js';
 
 const ADMIN_PIN = '1234';
-const here = path.dirname(fileURLToPath(import.meta.url));
-const scenariosXlsx = path.resolve(here, '../../../public/assets/Scenarios.xlsx');
 
 /**
  * A session cookie plus its CSRF token.
@@ -80,23 +76,6 @@ async function setSharing(page, enabled) {
     expect(body.success, `set-sharing failed: ${JSON.stringify(body)}`).toBe(true);
     expect(body.sharing_enabled).toBe(enabled);
     return csrf;
-}
-
-async function seedScenarios(page) {
-    const csrf = await session(page);
-    await loginAsAdmin(page, csrf);
-
-    const upload = await page.request.post('/index.php', {
-        headers: { 'X-Action': 'admin/upload', 'X-CSRF-Token': csrf },
-        multipart: {
-            file: {
-                name: 'Scenarios.xlsx',
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                buffer: readFileSync(scenariosXlsx),
-            },
-        },
-    });
-    expect((await upload.json()).imported.scenarios).toBeGreaterThan(0);
 }
 
 /**

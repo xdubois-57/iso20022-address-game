@@ -665,7 +665,6 @@ import {
 
     function renderGameScreen() {
         gameActive = false;
-        cancelTouchDrag();
         stopInactivityTimer();
         stopGameTimer();
         stopDeadlineCountdown();
@@ -962,7 +961,6 @@ import {
         var generation = screenGeneration;
 
         currentRound++;
-        cancelTouchDrag();
         if (currentRound > TOTAL_ROUNDS) { showFinalScore(); return; }
         resetInactivityTimer();
 
@@ -1129,9 +1127,11 @@ import {
      * The touch in `list` that belongs to the drag in progress, if any.
      *
      * @param {TouchList} list
+     * @param {TouchList} [except] touches to disregard, matched by identifier
      * @returns {Touch | null}
      */
-    function draggingTouchIn(list) {
+    function draggingTouchIn(list, except) {
+        if (except && draggingTouchIn(except)) return null;
         for (var i = 0; i < list.length; i++) {
             if (list[i].identifier === touchDragId) return list[i];
         }
@@ -1150,6 +1150,7 @@ import {
      * only reference to the first copy.
      */
     function cancelTouchDrag() {
+        if (!touchDragClone && !touchDragChip) return;
         if (touchDragClone) touchDragClone.remove();
         if (touchDragChip) touchDragChip.el.classList.remove('dragging');
         document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
@@ -1164,7 +1165,12 @@ import {
             // is still down. If the first is not — its end was lost somewhere
             // this code never heard about — the stale drag is cleared rather
             // than left to block every drag after it.
-            if (draggingTouchIn(e.touches)) return;
+            //
+            // The finger that just landed is in e.touches too, and Android
+            // hands identifiers out again from 0 once every finger is up. Left
+            // in, it would pass for the lost finger: the stale copy would
+            // follow it and the wrong chip would be dropped.
+            if (draggingTouchIn(e.touches, e.changedTouches)) return;
             cancelTouchDrag();
         }
 
@@ -1191,6 +1197,11 @@ import {
         chips.forEach(function (chipNode) {
             var chip = asElement(chipNode);
             chip.addEventListener('dragstart', /** @param {DragEvent} e */ function (e) {
+                // The chip is draggable="true" for the mouse, and a long press
+                // lets Chrome on a touch screen start its own drag of it too —
+                // which then cancels the touch this finger is already dragging
+                // by, and the chip snaps back. One drag per finger: ours.
+                if (touchDragChip) { e.preventDefault(); return; }
                 e.dataTransfer.setData('text/plain', chip.dataset.chipId);
                 chip.classList.add('dragging');
             });
@@ -1238,27 +1249,21 @@ import {
         document.addEventListener('touchend', function (e) {
             if (!touchDragChip || !touchDragClone) return;
             // Another finger lifting is not this drag's drop.
-            if (!draggingTouchIn(e.changedTouches)) return;
+            var touch = draggingTouchIn(e.changedTouches);
+            if (!touch) return;
 
-            var rect = touchDragClone.getBoundingClientRect();
-            var centerX = rect.left + rect.width / 2;
-            var centerY = rect.top + rect.height / 2;
+            // Dropped where the finger is, which is where touchmove drew the
+            // highlight. The copy's centre sits right of the finger by half
+            // its width, so on a long chip it used to land a slot further on
+            // than the one the player was shown.
+            var chipId = touchDragChip.chipId;
+            cancelTouchDrag();
 
-            touchDragClone.remove();
-            touchDragClone = null;
-            touchDragChip.el.classList.remove('dragging');
-
-            // Find slot under drop point (queries live DOM)
-            document.querySelectorAll('.slot.drag-over').forEach(function (s) { s.classList.remove('drag-over'); });
-            var el = document.elementFromPoint(centerX, centerY);
+            var el = document.elementFromPoint(touch.clientX, touch.clientY);
             if (el) {
                 var slotEl = asElement(el.closest('.slot'));
-                if (slotEl) {
-                    placeChipInSlot(touchDragChip.chipId, slotEl.dataset.slotId);
-                }
+                if (slotEl) placeChipInSlot(chipId, slotEl.dataset.slotId);
             }
-            touchDragChip = null;
-            touchDragId = null;
         });
 
         document.addEventListener('touchcancel', function (e) {
@@ -1470,6 +1475,10 @@ import {
     }
 
     function showRoundResult(data) {
+        // The round is scored. A chip still held by another finger would
+        // float above the result card and, dropped, change a mapping that has
+        // already been submitted.
+        cancelTouchDrag();
 
         var overlay = document.createElement('div');
         overlay.className = 'overlay';
@@ -1542,7 +1551,6 @@ import {
 
     function showFinalScore() {
         gameActive = false;
-        cancelTouchDrag();
         stopGameTimer();
         stopInactivityTimer();
 
