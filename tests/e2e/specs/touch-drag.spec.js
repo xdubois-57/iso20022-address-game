@@ -30,12 +30,50 @@
 
 import { expect, test } from '@playwright/test';
 import { seedScenarios } from '../support/scenarios.js';
+import { csrfToken } from '../support/display-mode.js';
+
+/**
+ * The one scenario every round in this file plays.
+ *
+ * The game draws a scenario at random, and these tests lean on its shape — a
+ * second chip, a second slot left empty. Left to chance, a run that drew an
+ * unusual one failed for reasons that had nothing to do with dragging. The
+ * scenario is still a real one from the seeded set, so validating a round
+ * against the server still works; it is simply the same one every time.
+ */
+let pinnedScenario = null;
+
+/** The seeded scenario with the lowest id that has at least two chips. */
+async function pickScenario(page) {
+    const csrf = await csrfToken(page);
+    const seen = [];
+    for (;;) {
+        const resp = await page.request.post('/index.php', {
+            headers: { 'Content-Type': 'application/json', 'X-Action': 'game/scenario', 'X-CSRF-Token': csrf },
+            data: JSON.stringify({ exclude_ids: seen.map((s) => s.scenario.id) }),
+        });
+        if (resp.status() === 404) break;
+        expect(resp.status()).toBe(200);
+        seen.push(await resp.json());
+    }
+    const usable = seen
+        .filter((s) => s.scenario.chips.length >= 2)
+        .sort((a, b) => a.scenario.id - b.scenario.id);
+    expect(usable.length, 'the seeded set needs a scenario with two chips').toBeGreaterThan(0);
+    return usable[0];
+}
 
 async function startRound(page) {
+    await page.route('**/index.php', (route) => {
+        if (route.request().headers()['x-action'] !== 'game/scenario') return route.fallback();
+        return route.fulfill({ json: pinnedScenario });
+    });
     await page.goto('/');
     await page.fill('#welcomeNameInput', 'Touch Player');
     await page.click('#startGameBtn');
     await expect(page.locator('.chip').first()).toBeVisible();
+    // The round on screen is the pinned one, not a random draw.
+    await expect(page.locator('#chipContainer .chip')).toHaveCount(pinnedScenario.scenario.chips.length);
 }
 
 async function centreOf(locator) {
@@ -84,6 +122,7 @@ test.describe('touch drag', () => {
         const page = await browser.newPage();
         try {
             await seedScenarios(page);
+            pinnedScenario = await pickScenario(page);
         } finally {
             await page.close();
         }
@@ -204,12 +243,12 @@ test.describe('touch drag', () => {
         await startRound(page);
         const send = await touchInput(page);
 
-        // A long chip, such as a street name: its floating copy's centre sits
-        // half its width from the finger, which is where the drop used to be
-        // worked out from. Widened here rather than looked for, because the
-        // scenario is drawn at random and some have no long chip at all —
-        // which is how this test failed on CI. The copy is a clone, so it
-        // carries the width with it.
+        // A long chip, such as a street name. The floating copy is drawn 40px
+        // left of the finger, so its centre sits width/2 - 40 to the right of
+        // it — 80px at this width — and the centre is where the drop used to
+        // be worked out from. Widened here rather than looked for: a chip's
+        // width is the scenario's text, and looking for a long one is how
+        // this test came to fail on CI.
         const chip = page.locator('#chipContainer .chip').first();
         await chip.evaluate((el) => { el.style.minWidth = '240px'; });
 
@@ -220,6 +259,12 @@ test.describe('touch drag', () => {
         const to = { x: box.x + box.width - 5, y: box.y + box.height / 2 };
 
         await send('touchStart', [{ ...(await centreOf(chip)), id: 1 }]);
+
+        // The copy has to be wide for this to test anything: a narrow one's
+        // centre sits beside the finger, and the old code would pass too.
+        const copy = await floatingCopies(page).boundingBox();
+        expect(copy.width, 'the floating copy must carry the chip\'s width').toBeGreaterThan(200);
+
         await send('touchMove', [{ ...to, id: 1 }]);
         await expect(slot).toHaveClass(/drag-over/);
         await send('touchEnd', []);
