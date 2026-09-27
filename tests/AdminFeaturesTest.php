@@ -99,27 +99,28 @@ class AdminFeaturesTest extends TestCase
     }
 
     /**
-     * The seeded facts that state a deadline must agree with each other.
+     * No seeded fact names a year.
      *
-     * The screen saver rotates them; one saying November 2026 and the next
-     * November 2027 would be the application contradicting itself in front
-     * of a room.
+     * The screen saver shows the countdown and a rotating fact side by side.
+     * With no built-in deadline, a fact naming a year would either make the
+     * claim the missing default no longer makes, or contradict the date an
+     * administrator saves. The seeded facts once did both: one ended support
+     * with the 2026 release while two others said November 2027, and a test
+     * that only looked for the word "deadline" let that through. So this one
+     * checks every fact for any year at all. "20022" is not a year: the
+     * boundaries keep it out.
      */
-    public function testSeededFactsAgreeOnTheDeadline(): void
+    public function testSeededFactsNameNoYear(): void
     {
         $facts = $this->db->getPdo()->query('SELECT content FROM facts')->fetchAll(\PDO::FETCH_COLUMN);
         $this->assertNotEmpty($facts, 'initSchema() must have seeded the default facts');
 
-        $deadlineFacts = array_values(array_filter(
-            $facts,
-            static fn (string $fact): bool => stripos($fact, 'deadline') !== false
-                || stripos($fact, 'phased out') !== false
-        ));
-        $this->assertNotEmpty($deadlineFacts, 'at least one seeded fact states the deadline');
-
-        foreach ($deadlineFacts as $fact) {
-            $this->assertStringContainsString('2027', $fact, $fact);
-            $this->assertStringNotContainsString('2026', $fact, $fact);
+        foreach ($facts as $fact) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/\b(19|20)\d\d\b/',
+                $fact,
+                "a seeded fact names a year, which the countdown may contradict: {$fact}"
+            );
         }
     }
 
@@ -362,10 +363,10 @@ class AdminFeaturesTest extends TestCase
         // Verify some expected content exists
         $contents = array_column($facts, 'content');
         $this->assertContains(
-            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            'ISO 20022 is bringing unstructured address support to an end in cross-border payments',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
+        $this->assertContains('Unstructured addresses are being phased out in favour of structured and hybrid ones', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 
@@ -549,10 +550,10 @@ class AdminFeaturesTest extends TestCase
         // Check that facts contain expected keywords
         $contents = array_column($facts, 'content');
         $this->assertContains(
-            'ISO 20022 Standard Release 2026 marks the end of unstructured address support globally',
+            'ISO 20022 is bringing unstructured address support to an end in cross-border payments',
             $contents,
         );
-        $this->assertContains('Unstructured addresses will be phased out starting November 28, 2027', $contents);
+        $this->assertContains('Unstructured addresses are being phased out in favour of structured and hybrid ones', $contents);
         $this->assertContains('The new standard supports 207 address formats across all world regions', $contents);
     }
 

@@ -291,11 +291,28 @@ test.describe('display modes — the dedicated screens', () => {
         await gotoMode(page, 'play');
         await expect(page.locator('#welcomeNameInput')).toBeVisible();
 
+        // The saver asks for the deadline when it appears, a minute from now.
+        // Only a request started well after the welcome screen's own counts,
+        // so the "no countdown" check below cannot pass merely because the
+        // saver's answer has not arrived yet.
+        const armedAt = Date.now() + 5_000;
+        const saverAskedForDeadline = page.waitForResponse(
+            (resp) => resp.request().headers()['x-action'] === 'game/deadline'
+                && resp.request().timing().startTime > armedAt,
+            { timeout: 90_000 }
+        );
+
         // Until now the screen saver could only be switched on from the Admin
         // panel, which a dedicated screen has no way to reach — so the one
         // machine that stands unused between players was the one that never
         // got it.
         await expect(page.locator('#screenSaverOverlay')).toBeVisible({ timeout: 90_000 });
+
+        // The throwaway instance has no deadline saved, so there is no
+        // countdown: not an empty green box either.
+        expect((await (await saverAskedForDeadline).json()).deadline).toBeNull();
+        await expect(page.locator('#ssCountdown')).toBeEmpty();
+        await expect(page.locator('#ssCountdown')).toBeHidden();
 
         // The prompt no longer asks whether this device reports a touch
         // screen. A Windows panel with a keyboard plugged in is the case that

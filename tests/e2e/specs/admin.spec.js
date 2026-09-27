@@ -26,7 +26,30 @@ async function enterPin(page, pin) {
     await page.click('.pin-key-submit');
 }
 
+/**
+ * Leave the instance with no deadline saved. The suite shares one PHP instance
+ * across every spec, so a deadline left behind by a failed test would put a
+ * countdown on every later welcome screen and screen saver, and their layout
+ * checks would then fail for a reason that has nothing to do with them.
+ */
+async function clearDeadline(page) {
+    await page.goto('/');
+    await page.click('[data-screen="admin"]');
+    await enterPin(page, ADMIN_PIN);
+    await page.click('#clearDeadlineBtn');
+    await page.click('#modalOkBtn');
+    await expect(page.locator('#deadlineStatus')).toHaveText('No deadline set. The countdown is hidden from players.');
+}
+
 test.describe('admin', () => {
+    test.afterEach(async ({ page }, testInfo) => {
+        // The deadline test cleans up after itself when it passes; this is for
+        // when it does not.
+        if (testInfo.title.startsWith('the countdown') && testInfo.status !== testInfo.expectedStatus) {
+            await clearDeadline(page);
+        }
+    });
+
     test('rejects a wrong PIN', async ({ page }) => {
         await page.goto('/');
         await page.click('[data-screen="admin"]');
@@ -85,7 +108,7 @@ test.describe('admin', () => {
         let fetched = deadlineFetched();
         await page.click('#adminLogoutBtn');
         await fetched;
-        await expect(page.locator('#countdownBanner')).toHaveClass('countdown-banner');
+        await expect(page.locator('#countdownBanner')).toBeVisible();
         await expect(page.locator('#countdownBanner')).toContainText('Unstructured address support ends in');
 
         await page.click('[data-screen="admin"]');
@@ -101,6 +124,33 @@ test.describe('admin', () => {
         expect((await (await fetched).json()).deadline).toBeNull();
         await expect(page.locator('#welcomeNameInput')).toBeVisible();
         await expect(page.locator('#countdownBanner')).toBeEmpty();
-        await expect(page.locator('#countdownBanner')).not.toHaveClass('countdown-banner');
+        await expect(page.locator('#countdownBanner')).toBeHidden();
+    });
+
+    test('an expired session is not mistaken for "no deadline", and a failed Clear says so', async ({ page }) => {
+        // Both requests answer as the server does once the admin session has
+        // timed out. Nothing reaches the server, so no state is left behind.
+        await page.route('**/index.php', (route) => {
+            const action = route.request().headers()['x-action'];
+            if (action === 'admin/get-deadline' || action === 'admin/set-deadline') {
+                return route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"Unauthorized"}' });
+            }
+            return route.fallback();
+        });
+
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        const loaded = page.waitForResponse((resp) => resp.request().headers()['x-action'] === 'admin/get-deadline');
+        await enterPin(page, ADMIN_PIN);
+        await loaded;
+
+        // Telling the admin the countdown is off, when the panel simply could
+        // not ask, would be telling them something false about every screen.
+        await expect(page.locator('#deadlineStatus')).not.toContainText('No deadline set');
+
+        await page.click('#clearDeadlineBtn');
+        await expect(page.locator('.overlay-message')).toHaveText('Unauthorized');
+        await page.click('#modalOkBtn');
+        await expect(page.locator('#deadlineStatus')).not.toContainText('No deadline set');
     });
 });

@@ -185,12 +185,13 @@ date. Only a date that actually exists is accepted: a value such as
 that is handed an unreadable stored value hides the banner instead of counting
 down in `NaN`.
 
-The ten "Did You Know" facts are seeded **once**, on an empty table, and two of
-them name November 2027 as the deadline. An installation created earlier keeps
-the facts it was seeded with, which may name November 2026. Nothing rewrites
-them — edit them from Admin → *Did You Know — Quick Facts*, and check they agree
-with any deadline you save, or the screen saver will show a countdown to one
-date beside a fact naming another.
+The ten "Did You Know" facts are seeded **once**, on an empty table, and none of
+them names a date, so a fresh install makes no deadline claim anywhere. An
+installation created earlier keeps the facts it was seeded with, and some of
+those name November 2026 or November 2027. Nothing rewrites them — edit them
+from Admin → *Did You Know — Quick Facts*, and check they agree with any
+deadline you save, or the screen saver will show a countdown to one date beside
+a fact naming another.
 
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:

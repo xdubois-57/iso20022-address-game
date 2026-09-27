@@ -270,7 +270,8 @@ date (2027-11-28T00:00) shows no countdown after upgrading until an
 administrator saves one.
 
 **FR-7.2 — Seeded facts.** Ten facts shall be seeded once, into an empty table
-only, and never rewritten.
+only, and never rewritten. No seeded fact shall name a year: the deadline is
+the administrator's to set (FR-7.1), and a fact naming one would contradict it.
 
 ## 11. Data retention
 
