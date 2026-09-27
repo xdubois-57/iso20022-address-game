@@ -2188,7 +2188,7 @@ import {
 
         // Deadline
         html += '<div class="admin-section"><h3>Unstructured Address Deadline</h3>';
-        html += '<p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players.</p>';
+        html += '<p>Set the date/time when support for unstructured addresses will stop. A countdown is shown to players while a deadline is set; clear it to hide the countdown.</p>';
         html += '<div class="deadline-form">';
         html += '<input type="datetime-local" id="deadlineInput" class="deadline-input">';
         html += '<button class="btn-primary" id="setDeadlineBtn">Save Deadline</button>';
@@ -2856,14 +2856,20 @@ import {
         }
     }
 
+    /** What the admin panel says while no deadline is saved: the countdown is off. */
+    const NO_DEADLINE_STATUS = 'No deadline set. The countdown is hidden from players.';
+
     async function loadAdminDeadline() {
         var data = await api('admin/get-deadline');
-        if (data?.deadline) {
+        if (!data) return;
+        var status = document.getElementById('deadlineStatus');
+        if (data.deadline) {
             inputById('deadlineInput').value = data.deadline;
-            var status = document.getElementById('deadlineStatus');
             status.textContent = 'Current deadline: ' + new Date(data.deadline).toLocaleString();
-            status.classList.remove('hidden');
+        } else {
+            status.textContent = NO_DEADLINE_STATUS;
         }
+        status.classList.remove('hidden');
     }
 
     async function loadAdminFacts() {
@@ -2981,9 +2987,9 @@ import {
             if (data?.success) {
                 inputById('deadlineInput').value = '';
                 var status = document.getElementById('deadlineStatus');
-                status.textContent = 'Deadline cleared';
+                status.textContent = NO_DEADLINE_STATUS;
                 status.classList.remove('hidden');
-                await showModal('Deadline cleared');
+                await showModal('Deadline cleared. The countdown is no longer shown to players.');
             }
         });
 
@@ -3794,7 +3800,9 @@ import {
         overlay.style.backgroundImage = getComputedStyle(document.body).backgroundImage;
 
         overlay.innerHTML = '<div class="screen-saver-inner">'
-            + '<div id="ssCountdown" class="ss-countdown"></div>'
+            // Unstyled until a deadline arrives: with none saved there is no
+            // countdown, and the class alone would draw an empty green box.
+            + '<div id="ssCountdown"></div>'
             // "Touch the screen" unconditionally, rather than switching on
             // whether a touch screen was detected. The saver only ever appears
             // on the play station or in kiosk mode, and the station is a touch
@@ -3818,6 +3826,7 @@ import {
             if (data?.deadline) {
                 var banner = document.getElementById('ssCountdown');
                 if (!banner) return;
+                banner.className = 'ss-countdown';
                 var target = parseServerDate(data.deadline);
                 updateCountdown(target, banner);
                 if (screenSaverCountdownInterval) clearInterval(screenSaverCountdownInterval);

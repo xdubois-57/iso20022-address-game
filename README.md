@@ -49,7 +49,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 - **Dynamic Apple Touch Icon** — Themed PNG home-screen icon, regenerated automatically when the theme changes
 - **Theme System** — 5 customisable colours (primary, hover, light, background, text) editable via admin panel
 - **Admin Panel** — PIN-protected dashboard for uploading scenarios via Excel
-- **Screen Saver** — Displays countdown, fun facts, and touch-to-play CTA when idle
+- **Screen Saver** — Displays the deadline countdown (when one is set), fun facts, and touch-to-play CTA when idle
 - **Fun Facts** — Rotating educational facts about ISO 20022 (customisable via admin)
 - **Privacy by Design** — AES-256-GCM authenticated encryption at rest, GDPR-compliant privacy notice
 - **Display modes** — `?mode=hof` drives an unattended Hall of Fame wall that
@@ -153,7 +153,7 @@ Enable **Kiosk Mode** for unattended public displays:
 
 **Screen Saver Features:**
 - Auto-detects touchscreen (shows "Touch" or "Click" accordingly)
-- Displays ISO 20022 deadline countdown
+- Displays the ISO 20022 deadline countdown, when a deadline is set
 - Rotates fun facts every 20 seconds
 - Dismisses on any touch/click interaction
 
@@ -171,26 +171,26 @@ which is why the wall and the play station use a URL instead. See
 
 ### The deadline countdown
 
-The countdown targets **28 November 2027 at 00:00** unless an administrator
-saves a date of their own under Admin → *Unstructured Address Deadline*. A
-saved date always wins. Only a date that actually exists is accepted: a value
-such as `2027-02-31T25:99` is refused rather than rolled over to 4 March, and
-a browser that is handed an unreadable stored value hides the banner instead
-of counting down in `NaN`.
+The countdown is shown **only while an administrator has saved a deadline**
+under Admin → *Unstructured Address Deadline*. With none saved — a fresh
+install, or after pressing **Clear** — neither the welcome screen nor the
+screen saver shows a countdown at all. Clear is how the countdown is switched
+off.
 
-Nothing writes that default into the database at install time, so it is the
-constant `GameController::DEFAULT_DEADLINE` that is in force until somebody
-saves one. Two consequences, both intended:
+There is no built-in date. Up to this version the countdown fell back to
+28 November 2027 when nothing was saved; an installation upgraded from one that
+relied on that fallback **loses its countdown** until an administrator saves a
+date. Only a date that actually exists is accepted: a value such as
+`2027-02-31T25:99` is refused rather than rolled over to 4 March, and a browser
+that is handed an unreadable stored value hides the banner instead of counting
+down in `NaN`.
 
-- An installation that never set its own date **moves to the new value when it
-  is updated**. There is no migration to prevent that, on purpose — an install
-  that had accepted the previous default had accepted "whatever this project
-  says the deadline is".
-- The ten "Did You Know" facts are seeded **once**, on an empty table. An
-  installation created before this change keeps the facts it was seeded with,
-  two of which still name November 2026. Nothing rewrites them — edit them from
-  Admin → *Did You Know — Quick Facts*, or the screen saver will show a
-  countdown to one date beside a fact naming another.
+The ten "Did You Know" facts are seeded **once**, on an empty table, and two of
+them name November 2027 as the deadline. An installation created earlier keeps
+the facts it was seeded with, which may name November 2026. Nothing rewrites
+them — edit them from Admin → *Did You Know — Quick Facts*, and check they agree
+with any deadline you save, or the screen saver will show a countdown to one
+date beside a fact naming another.
 
 **iPad Setup Guide:**
 For an optimal kiosk experience on iPad, add the app to your home screen and enable Guided Access:

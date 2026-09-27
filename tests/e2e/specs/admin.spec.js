@@ -65,4 +65,42 @@ test.describe('admin', () => {
         await page.click('[data-screen="admin"]');
         await expect(page.locator('.pin-panel')).toBeVisible();
     });
+
+    test('the countdown shows only while a deadline is set, and Clear switches it off', async ({ page }) => {
+        // Resolves once the welcome screen has asked for the deadline, so the
+        // "no countdown" assertion cannot pass merely because the answer has
+        // not arrived yet.
+        const deadlineFetched = () => page.waitForResponse(
+            (resp) => resp.request().headers()['x-action'] === 'game/deadline'
+        );
+
+        await page.goto('/');
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+
+        await page.fill('#deadlineInput', '2030-01-01T09:00');
+        await page.click('#setDeadlineBtn');
+        await page.click('#modalOkBtn');
+
+        let fetched = deadlineFetched();
+        await page.click('#adminLogoutBtn');
+        await fetched;
+        await expect(page.locator('#countdownBanner')).toHaveClass('countdown-banner');
+        await expect(page.locator('#countdownBanner')).toContainText('Unstructured address support ends in');
+
+        await page.click('[data-screen="admin"]');
+        await enterPin(page, ADMIN_PIN);
+        await page.click('#clearDeadlineBtn');
+        await expect(page.locator('.overlay-message')).toContainText('no longer shown to players');
+        await page.click('#modalOkBtn');
+        await expect(page.locator('#deadlineStatus')).toHaveText('No deadline set. The countdown is hidden from players.');
+
+        // Leaves the instance as it found it: no deadline saved.
+        fetched = deadlineFetched();
+        await page.click('#adminLogoutBtn');
+        expect((await (await fetched).json()).deadline).toBeNull();
+        await expect(page.locator('#welcomeNameInput')).toBeVisible();
+        await expect(page.locator('#countdownBanner')).toBeEmpty();
+        await expect(page.locator('#countdownBanner')).not.toHaveClass('countdown-banner');
+    });
 });

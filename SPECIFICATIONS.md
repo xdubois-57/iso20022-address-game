@@ -251,7 +251,8 @@ to reset to the application defaults. The reset shall **delete** the stored
 values rather than write the current defaults into them, so that a reset
 installation continues to track future default changes.
 
-**FR-6.7 — Deadline.** An administrator shall set the countdown target. Only a
+**FR-6.7 — Deadline.** An administrator shall set the countdown target, and
+shall be able to clear it, which switches the countdown off. Only a
 date that exists shall be accepted — `2027-02-31T25:99` shall be refused rather
 than rolled over. An unreadable stored value shall hide the banner rather than
 display `NaN`.
@@ -261,11 +262,12 @@ into kiosk mode for the session.
 
 ## 10. Content and defaults
 
-**FR-7.1 — Default deadline.** Absent an administrator's choice, the countdown
-shall target **2027-11-28T00:00**, held as the constant
-`GameController::DEFAULT_DEADLINE` and never written into the database.
-*Consequence, intended:* an installation that never chose its own date follows
-future changes to that constant.
+**FR-7.1 — No default deadline.** Absent an administrator's choice, no
+countdown shall be shown — neither on the welcome screen nor on the screen
+saver. The application shall hold no built-in deadline of its own.
+*Consequence, intended:* an installation that relied on the former built-in
+date (2027-11-28T00:00) shows no countdown after upgrading until an
+administrator saves one.
 
 **FR-7.2 — Seeded facts.** Ten facts shall be seeded once, into an empty table
 only, and never rewritten.

@@ -373,10 +373,11 @@ class Database
     /**
      * The ten facts a brand-new installation starts with.
      *
-     * Two of them state the deadline, and they have to agree with
-     * GameController::DEFAULT_DEADLINE — the screen saver shows the countdown
-     * and a rotating fact side by side, so a fact naming a different date
-     * makes the game contradict itself in front of a room.
+     * Two of them state the deadline (November 2027), and they have to agree
+     * with each other. There is no built-in countdown date any more; an
+     * administrator who saves one should check these facts name the same
+     * date, since the screen saver shows the countdown and a rotating fact
+     * side by side.
      *
      * Seeded ONCE, on an empty table (see below). An installation that
      * already has facts keeps the wording it was seeded with, whatever this

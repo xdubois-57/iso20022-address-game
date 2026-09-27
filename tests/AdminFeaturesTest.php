@@ -81,49 +81,32 @@ class AdminFeaturesTest extends TestCase
     }
 
     /* =======================================================
-       Deadline — Default fallback in GameController
+       Deadline — No built-in fallback
        ======================================================= */
 
-    /** Midnight at the start of the day, not an hour into it. */
-    private const EXPECTED_DEFAULT_DEADLINE = '2027-11-28T00:00';
-
-    public function testGameControllerDefaultDeadline(): void
+    /**
+     * There is no built-in countdown date. An install that has not saved one
+     * shows no countdown, so the constant that used to supply a default must
+     * not grow back.
+     */
+    public function testGameControllerHasNoDefaultDeadline(): void
     {
-        // No deadline set in DB
         $reflection = new \ReflectionClass(GameController::class);
-        $constant = $reflection->getConstant('DEFAULT_DEADLINE');
-        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $constant);
-    }
-
-    public function testGameControllerUsesDefaultWhenNoDeadlineSet(): void
-    {
-        // Ensure no deadline in DB
-        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
-        $this->assertEquals(self::EXPECTED_DEFAULT_DEADLINE, $deadline);
-    }
-
-    public function testGameControllerUsesCustomWhenDeadlineSet(): void
-    {
-        $pdo = $this->db->getPdo();
-        $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES "
-            . "('unstructured_deadline', '2028-06-15T09:30')");
-
-        $deadline = AdminController::fetchDeadlineStatic() ?? self::EXPECTED_DEFAULT_DEADLINE;
-        $this->assertEquals('2028-06-15T09:30', $deadline);
+        $this->assertFalse(
+            $reflection->hasConstant('DEFAULT_DEADLINE'),
+            'a built-in deadline would put a countdown on screens whose admin never chose one'
+        );
     }
 
     /**
-     * The seeded facts and the countdown must name the same date.
+     * The seeded facts that state a deadline must agree with each other.
      *
-     * The screen saver shows both at once. A fact that still said November
-     * 2026 beside a countdown to November 2027 would be the application
-     * contradicting itself in front of a room, which is worse than either
-     * date being wrong on its own.
+     * The screen saver rotates them; one saying November 2026 and the next
+     * November 2027 would be the application contradicting itself in front
+     * of a room.
      */
-    public function testSeededFactsDoNotContradictTheDefaultDeadline(): void
+    public function testSeededFactsAgreeOnTheDeadline(): void
     {
-        $year = substr(self::EXPECTED_DEFAULT_DEADLINE, 0, 4);
-
         $facts = $this->db->getPdo()->query('SELECT content FROM facts')->fetchAll(\PDO::FETCH_COLUMN);
         $this->assertNotEmpty($facts, 'initSchema() must have seeded the default facts');
 
@@ -135,11 +118,7 @@ class AdminFeaturesTest extends TestCase
         $this->assertNotEmpty($deadlineFacts, 'at least one seeded fact states the deadline');
 
         foreach ($deadlineFacts as $fact) {
-            $this->assertStringContainsString(
-                $year,
-                $fact,
-                "a seeded fact states a deadline but not the one the countdown targets: {$fact}"
-            );
+            $this->assertStringContainsString('2027', $fact, $fact);
             $this->assertStringNotContainsString('2026', $fact, $fact);
         }
     }

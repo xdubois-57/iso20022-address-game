@@ -263,12 +263,13 @@ class GameControllerEndpointsTest extends TestCase
     // Deadline, facts, counters
     // -----------------------------------------------------------------
 
-    public function testDeadlineFallsBackToTheBuiltInDate(): void
+    public function testNoSavedDeadlineMeansNoCountdown(): void
     {
         [$json, $status] = $this->call('getDeadline');
 
         $this->assertSame(200, $status);
-        $this->assertNotEmpty($json['deadline']);
+        $this->assertArrayHasKey('deadline', $json);
+        $this->assertNull($json['deadline'], 'nothing saved must not be filled in with a date of our own');
     }
 
     public function testDeadlineReflectsWhatTheAdminStored(): void
