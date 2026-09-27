@@ -2622,6 +2622,8 @@ body[data-mode="play"] .fact-display-card {
     flex: 0 20 auto;
     min-height: 0;
     overflow: hidden;
+    padding: clamp(0.45rem, 1.4vh, 2.5rem) clamp(1rem, 3vw, 3rem);
+    margin-top: clamp(0.3rem, 0.9vh, 1rem);
 }
 
 body[data-mode="play"] .welcome-card h2 {
@@ -2656,7 +2658,8 @@ body[data-mode="play"] .profanity-warning {
 /* The two blocks that share the welcome screen with the card. Neither is
    inside it, both are fixed-height by default — ninety pixels of countdown
    above and a hundred and thirteen of fact below — and together they were
-   two hundred pixels of the reason the card would not fit. */
+   two hundred pixels of the reason the card would not fit. The fact card's
+   own padding and margin sit with its flex rule, further up. */
 body[data-mode="play"] .countdown-banner {
     padding: clamp(0.3rem, 0.9vh, 1rem) 3rem;
     margin-bottom: clamp(0.3rem, 0.9vh, 1rem);
@@ -2669,12 +2672,6 @@ body[data-mode="play"] .countdown-banner .countdown-label {
 
 body[data-mode="play"] .countdown-banner .countdown-timer {
     font-size: clamp(0.95rem, 2vh, 1.4rem);
-}
-
-body[data-mode="play"] .fact-display-card {
-    padding: clamp(0.45rem, 1.4vh, 2.5rem) clamp(1rem, 3vw, 3rem);
-    margin-top: clamp(0.3rem, 0.9vh, 1rem);
-    min-height: 0;
 }
 
 body[data-mode="play"] .fact-display-card h2 {

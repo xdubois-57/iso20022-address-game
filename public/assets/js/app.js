@@ -1154,8 +1154,8 @@ import {
      */
     function draggingTouchIn(list, except) {
         if (except && draggingTouchIn(except)) return null;
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].identifier === touchDragId) return list[i];
+        for (var touch of list) {
+            if (touch.identifier === touchDragId) return touch;
         }
         return null;
     }
